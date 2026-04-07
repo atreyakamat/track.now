@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Track.now</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 320px;
+      min-height: 400px;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: #fafafa;
+      color: #111827;
+    }
+    .header {
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: white;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .header h1 {
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+    .header-subtitle {
+      font-size: 0.7rem;
+      opacity: 0.8;
+    }
+    .open-app-btn {
+      background: rgba(255,255,255,0.2);
+      border: none;
+      color: white;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .open-app-btn:hover {
+      background: rgba(255,255,255,0.3);
+    }
+    .progress-bar-wrap {
+      padding: 12px 20px 8px;
+      background: white;
+      border-bottom: 1px solid #f3f4f6;
+    }
+    .progress-label {
+      font-size: 0.75rem;
+      color: #6b7280;
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .progress-bar {
+      height: 6px;
+      background: #e5e7eb;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #10b981, #059669);
+      border-radius: 3px;
+      transition: width 0.4s ease;
+    }
+    .habit-list {
+      padding: 8px 0;
+      max-height: 280px;
+      overflow-y: auto;
+    }
+    .habit-item {
+      display: flex;
+      align-items: center;
+      padding: 10px 20px;
+      gap: 12px;
+      cursor: pointer;
+      transition: background 0.1s;
+      border-bottom: 1px solid #f9fafb;
+    }
+    .habit-item:hover {
+      background: #f9fafb;
+    }
+    .habit-emoji {
+      font-size: 1.4rem;
+      width: 32px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .habit-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .habit-name {
+      font-size: 0.875rem;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .habit-streak {
+      font-size: 0.7rem;
+      color: #d97706;
+      margin-top: 2px;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+    .habit-check {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 2px solid #6366f1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.2s;
+      background: white;
+    }
+    .habit-check.completed {
+      background: #10b981;
+      border-color: #10b981;
+      color: white;
+    }
+    .habit-check.completed::after {
+      content: '✓';
+      font-size: 0.875rem;
+      font-weight: 700;
+      color: white;
+    }
+    .habit-item.completed .habit-name {
+      color: #9ca3af;
+      text-decoration: line-through;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: #9ca3af;
+    }
+    .empty-state .empty-emoji {
+      font-size: 2.5rem;
+      margin-bottom: 12px;
+    }
+    .empty-state p {
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+    .footer {
+      padding: 12px 20px;
+      border-top: 1px solid #f3f4f6;
+      display: flex;
+      justify-content: center;
+    }
+    .footer a {
+      font-size: 0.75rem;
+      color: #6366f1;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .footer a:hover {
+      text-decoration: underline;
+    }
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #9ca3af;
+      font-size: 0.875rem;
+    }
+    .date-label {
+      padding: 8px 20px 4px;
+      font-size: 0.7rem;
+      color: #9ca3af;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+    }
+    .all-done {
+      text-align: center;
+      padding: 24px 20px;
+    }
+    .all-done .trophy {
+      font-size: 2rem;
+      margin-bottom: 8px;
+    }
+    .all-done p {
+      font-size: 0.875rem;
+      color: #10b981;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-left">
+      <span style="font-size:1.4rem">⚡</span>
+      <div>
+        <h1>Track.now</h1>
+        <div class="header-subtitle">Today's habits</div>
+      </div>
+    </div>
+    <a href="https://tracknow.app" target="_blank" class="open-app-btn">Open App ↗</a>
+  </div>
+
+  <div id="app-content">
+    <div class="loading">Loading habits...</div>
+  </div>
+
+  <div class="footer">
+    <a href="https://tracknow.app/#/add" target="_blank">+ Add new habit</a>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

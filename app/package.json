@@ -1,0 +1,27 @@
+{
+  "name": "tracknow",
+  "version": "1.0.0",
+  "description": "Track.now - Premium Habit Tracking",
+  "productName": "Track.now",
+  "scripts": {
+    "dev": "quasar dev",
+    "build": "quasar build",
+    "lint": "eslint --ext .js,.vue ./src"
+  },
+  "dependencies": {
+    "@quasar/extras": "^1.16.0",
+    "firebase": "^10.7.0",
+    "pinia": "^2.1.0",
+    "quasar": "^2.14.0",
+    "vue": "^3.4.0",
+    "vue-router": "^4.2.0"
+  },
+  "devDependencies": {
+    "@quasar/app-vite": "^1.7.0",
+    "@vitejs/plugin-vue": "^4.5.0",
+    "eslint": "^8.0.0",
+    "eslint-plugin-vue": "^9.0.0",
+    "sass": "^1.62.0",
+    "vite": "^5.0.0"
+  }
+}
