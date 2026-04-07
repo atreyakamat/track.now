@@ -3,13 +3,15 @@ import { initializeApp } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 
+// Replace these placeholder values with your actual Firebase project config.
+// For production, load from environment variables (e.g. import.meta.env.VITE_FIREBASE_API_KEY).
 const firebaseConfig = {
-  apiKey: 'YOUR_API_KEY',
-  authDomain: 'tracknow-app.firebaseapp.com',
-  projectId: 'tracknow-app',
-  storageBucket: 'tracknow-app.appspot.com',
-  messagingSenderId: 'YOUR_SENDER_ID',
-  appId: 'YOUR_APP_ID'
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'YOUR_API_KEY',
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'tracknow-app.firebaseapp.com',
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'tracknow-app',
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'tracknow-app.appspot.com',
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || 'YOUR_SENDER_ID',
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || 'YOUR_APP_ID'
 }
 
 const firebaseApp = initializeApp(firebaseConfig)

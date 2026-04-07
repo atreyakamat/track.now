@@ -185,6 +185,7 @@ function seedDefaultHabits() {
 
 document.addEventListener('DOMContentLoaded', async () => {
   seedDefaultHabits()
+  // Brief delay to allow chrome.storage to finish initializing on first load
   await new Promise(resolve => setTimeout(resolve, 100))
   await renderApp()
 })

@@ -100,9 +100,11 @@ const bestStreak = computed(() => {
   return best
 })
 
+const ANALYTICS_DAYS_WINDOW = 90
+
 const weeklyAverage = computed(() => {
   const total = totalCompletions.value
-  const weeks = 90 / 7
+  const weeks = ANALYTICS_DAYS_WINDOW / 7
   return Math.round(total / weeks)
 })
 
@@ -110,7 +112,7 @@ const habitStats = computed(() => {
   const completions = completionsStore.completions
   return habitsStore.habits.map(h => {
     const count = completions.filter(c => c.habitId === h.id).length
-    const rate = Math.min(100, Math.round((count / 90) * 100))
+    const rate = Math.min(100, Math.round((count / ANALYTICS_DAYS_WINDOW) * 100))
     return { ...h, completionCount: count, completionRate: rate }
   }).sort((a, b) => b.completionRate - a.completionRate)
 })
