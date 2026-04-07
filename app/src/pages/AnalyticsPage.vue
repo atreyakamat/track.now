@@ -102,7 +102,8 @@ const bestStreak = computed(() => {
 
 const weeklyAverage = computed(() => {
   const total = totalCompletions.value
-  return Math.round(total / 13)
+  const weeks = 90 / 7
+  return Math.round(total / weeks)
 })
 
 const habitStats = computed(() => {
