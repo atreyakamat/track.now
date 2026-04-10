@@ -3,6 +3,7 @@ import {
   updateDoc, deleteDoc, doc, serverTimestamp, orderBy
 } from 'firebase/firestore'
 import { db } from 'src/boot/firebase'
+import { isHabitScheduledForDate, normalizeHabit } from 'src/utils/habitModel'
 
 export const habitService = {
   async getHabits(userId) {
@@ -16,17 +17,17 @@ export const habitService = {
   },
 
   async createHabit(userId, data) {
-    return await addDoc(collection(db, 'habits'), {
+    return await addDoc(collection(db, 'habits'), normalizeHabit({
       ...data,
       userId,
       streak: 0,
       lastCompleted: null,
       createdAt: serverTimestamp()
-    })
+    }))
   },
 
   async updateHabit(id, data) {
-    return await updateDoc(doc(db, 'habits', id), data)
+    return await updateDoc(doc(db, 'habits', id), normalizeHabit(data))
   },
 
   async deleteHabit(id) {
@@ -34,8 +35,9 @@ export const habitService = {
   },
 
   getTodayHabits(habits) {
-    const days = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
-    const today = days[new Date().getDay()]
-    return habits.filter(h => h.days?.includes(today))
+    return habits
+      .map((habit) => normalizeHabit(habit))
+      .filter((habit) => isHabitScheduledForDate(habit))
+      .sort((a, b) => (a.time || '').localeCompare(b.time || ''))
   }
 }

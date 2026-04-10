@@ -1,52 +1,112 @@
 <template>
-  <q-card class="habit-card q-mb-md" :class="{ 'completed-card': isCompleted }">
-    <q-card-section class="row items-center no-wrap">
-      <div class="habit-emoji q-mr-md">{{ habit.emoji || '✅' }}</div>
-      <div class="col">
-        <div class="text-subtitle1 text-weight-bold" :class="{ 'text-grey': isCompleted }">
-          {{ habit.name }}
+  <q-card class="habit-card q-mb-md" :class="{ 'completed-card': isCompleted }" flat bordered>
+    <q-card-section class="habit-card-section">
+      <div class="row items-start no-wrap q-col-gutter-md">
+        <div class="col-auto">
+          <div
+            class="habit-emoji"
+            :style="{ background: categoryMeta.soft, color: categoryMeta.accent }"
+          >
+            {{ habit.emoji || '✅' }}
+          </div>
         </div>
-        <div class="row items-center q-gutter-xs q-mt-xs">
-          <q-icon name="schedule" size="14px" color="grey" />
-          <span class="text-caption text-grey">{{ habit.time || 'Anytime' }}</span>
-          <q-chip v-if="habit.category" dense size="sm" color="primary" text-color="white" class="q-ml-xs">
-            {{ habit.category }}
-          </q-chip>
+
+        <div class="col">
+          <div class="row items-start no-wrap">
+            <div class="col">
+              <div class="row items-center q-gutter-sm">
+                <div class="text-subtitle1 text-weight-bold">
+                  {{ habit.name }}
+                </div>
+                <span
+                  class="category-pill"
+                  :style="{ background: categoryMeta.soft, color: categoryMeta.accent }"
+                >
+                  {{ categoryMeta.label }}
+                </span>
+              </div>
+
+              <div class="text-caption text-grey-7 q-mt-xs">
+                {{ categoryMeta.identity }} • {{ difficultyMeta.label }} effort
+              </div>
+            </div>
+
+            <div class="col-auto">
+              <q-btn
+                v-if="!isCompleted"
+                round
+                unelevated
+                color="primary"
+                icon="check"
+                size="sm"
+                @click="handleComplete"
+                :loading="completing"
+              />
+              <q-btn
+                v-else
+                round
+                unelevated
+                color="positive"
+                icon="check_circle"
+                size="sm"
+                class="complete-animation"
+                @click="handleUncomplete"
+              />
+            </div>
+          </div>
+
+          <div class="habit-meta q-mt-md">
+            <span class="habit-meta-item">
+              <q-icon name="calendar_month" size="14px" />
+              {{ dayLabel }}
+            </span>
+            <span class="habit-meta-item">
+              <q-icon name="schedule" size="14px" />
+              {{ reminderSummary }}
+            </span>
+            <span class="habit-meta-item">
+              <q-icon name="flag" size="14px" />
+              {{ missionProgress.completedSessions }}/{{ missionProgress.durationDays }} sessions
+            </span>
+          </div>
+
+          <div class="q-mt-md">
+            <div class="row items-center q-mb-xs">
+              <div class="text-caption text-weight-medium">
+                {{ missionHeadline }}
+              </div>
+              <q-space />
+              <div class="text-caption text-grey-6">
+                {{ missionSupport }}
+              </div>
+            </div>
+            <div class="mission-track">
+              <div
+                class="mission-track-fill"
+                :style="{
+                  width: `${Math.max(missionProgress.progress * 100, missionProgress.progress > 0 ? 10 : 0)}%`,
+                  background: categoryMeta.accent
+                }"
+              />
+            </div>
+          </div>
         </div>
-      </div>
-      <div class="column items-end q-gutter-sm">
-        <StreakBadge :streak="habit.streak || 0" />
-        <q-btn
-          v-if="!isCompleted"
-          round
-          unelevated
-          color="primary"
-          icon="radio_button_unchecked"
-          size="sm"
-          @click="handleComplete"
-          :loading="completing"
-        />
-        <q-btn
-          v-else
-          round
-          unelevated
-          color="positive"
-          icon="check_circle"
-          size="sm"
-          class="complete-animation"
-          @click="handleUncomplete"
-        />
       </div>
     </q-card-section>
   </q-card>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useQuasar } from 'quasar'
-import StreakBadge from './StreakBadge.vue'
 import { useCompletionsStore } from 'src/stores/completions'
-import { useHabitsStore } from 'src/stores/habits'
+import {
+  formatDayList,
+  getCategoryMeta,
+  getDifficultyMeta,
+  getMissionProgress,
+  getReminderSummary
+} from 'src/utils/habitModel'
 
 const props = defineProps({
   habit: { type: Object, required: true },
@@ -56,16 +116,33 @@ const props = defineProps({
 const emit = defineEmits(['completed', 'uncompleted'])
 const $q = useQuasar()
 const completionsStore = useCompletionsStore()
-const habitsStore = useHabitsStore()
 const completing = ref(false)
+
+const categoryMeta = computed(() => getCategoryMeta(props.habit.category))
+const difficultyMeta = computed(() => getDifficultyMeta(props.habit.difficulty))
+const reminderSummary = computed(() => getReminderSummary(props.habit))
+const dayLabel = computed(() => formatDayList(props.habit.days))
+const missionProgress = computed(() => getMissionProgress(props.habit, completionsStore.completions))
+const missionHeadline = computed(() => {
+  if (missionProgress.value.missionDone) return 'Mission complete'
+  return `Day ${missionProgress.value.displayDay} / ${missionProgress.value.durationDays}`
+})
+const missionSupport = computed(() => {
+  if (missionProgress.value.missionDone) return 'Ready for a new mission'
+  return `${missionProgress.value.remainingSessions} sessions to go`
+})
 
 async function handleComplete() {
   completing.value = true
   try {
     await completionsStore.markComplete(props.habit.id)
-    await habitsStore.incrementStreak(props.habit.id)
     emit('completed', props.habit.id)
-    $q.notify({ message: `${props.habit.emoji} ${props.habit.name} completed! 🎉`, color: 'positive', icon: 'check_circle', timeout: 2000 })
+    $q.notify({
+      message: `${props.habit.emoji} ${props.habit.name} completed`,
+      color: 'positive',
+      icon: 'check_circle',
+      timeout: 2000
+    })
   } catch {
     $q.notify({ message: 'Failed to mark complete', color: 'negative' })
   } finally {
@@ -85,25 +162,74 @@ async function handleUncomplete() {
 
 <style scoped lang="scss">
 .habit-card {
-  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-  transition: all 0.2s ease;
+  border-radius: 22px;
+  border-color: rgba(148, 163, 184, 0.18);
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.04);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+
   &:hover {
-    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.07);
     transform: translateY(-1px);
   }
 }
+
+.habit-card-section {
+  padding: 18px;
+}
+
 .completed-card {
-  opacity: 0.7;
+  opacity: 0.76;
+
   .body--dark & {
-    opacity: 0.5;
+    opacity: 0.62;
   }
 }
+
 .habit-emoji {
-  font-size: 2rem;
-  width: 48px;
-  height: 48px;
+  font-size: 1.75rem;
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.category-pill {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.habit-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.habit-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.12);
+  color: #475569;
+  font-size: 0.74rem;
+}
+
+.mission-track {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.18);
+  overflow: hidden;
+}
+
+.mission-track-fill {
+  height: 100%;
+  border-radius: inherit;
+  transition: width 0.25s ease;
 }
 </style>

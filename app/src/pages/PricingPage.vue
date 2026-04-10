@@ -92,6 +92,6 @@ function selectPlan() {
   max-width: 100%;
 }
 .featured-plan {
-  border: 2px solid #6366f1 !important;
+  border: 2px solid #245c68 !important;
 }
 </style>

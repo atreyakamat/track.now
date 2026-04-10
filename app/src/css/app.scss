@@ -7,17 +7,21 @@
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
+  background: #f4f6f7;
+  color: #17212b;
 }
 
 .q-page {
-  background: #fafafa;
+  background:
+    radial-gradient(circle at top left, rgba(36, 92, 104, 0.06), transparent 32%),
+    linear-gradient(180deg, #f4f6f7 0%, #f7f8fb 100%);
   .body--dark & {
     background: #0f0f0f;
   }
 }
 
 .habit-card {
-  border-radius: 12px;
+  border-radius: 20px;
   transition: all 0.2s ease;
   &:hover {
     transform: translateY(-2px);
@@ -29,19 +33,19 @@ body {
 }
 
 .q-btn {
-  border-radius: 8px;
+  border-radius: 10px;
   font-weight: 600;
 }
 
 .q-card {
-  border-radius: 12px;
+  border-radius: 20px;
   .body--dark & {
     background: #1a1a1a;
   }
 }
 
 .page-container {
-  max-width: 640px;
+  max-width: 720px;
   margin: 0 auto;
   padding: 16px;
 }
@@ -72,8 +76,9 @@ body {
   left: 0;
   right: 0;
   z-index: 100;
-  background: #ffffff;
-  border-top: 1px solid rgba(0,0,0,0.08);
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(18px);
+  border-top: 1px solid rgba(36,92,104,0.08);
   .body--dark & {
     background: #1a1a1a;
     border-top-color: rgba(255,255,255,0.08);

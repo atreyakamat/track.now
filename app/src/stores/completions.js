@@ -6,6 +6,7 @@ import {
 } from 'firebase/firestore'
 import { db } from 'src/boot/firebase'
 import { useAuthStore } from './auth'
+import { getDateKey, shiftDate } from 'src/utils/habitModel'
 
 export const useCompletionsStore = defineStore('completions', () => {
   const completions = ref([])
@@ -13,7 +14,7 @@ export const useCompletionsStore = defineStore('completions', () => {
   const authStore = useAuthStore()
 
   const todayCompletions = computed(() => {
-    const today = new Date().toISOString().split('T')[0]
+    const today = getDateKey()
     return completions.value.filter(c => c.date === today)
   })
 
@@ -38,12 +39,12 @@ export const useCompletionsStore = defineStore('completions', () => {
   }
 
   async function fetchToday() {
-    const today = new Date().toISOString().split('T')[0]
+    const today = getDateKey()
     await fetchCompletions(today, today)
   }
 
   async function markComplete(habitId) {
-    const today = new Date().toISOString().split('T')[0]
+    const today = getDateKey()
     const existing = completions.value.find(c => c.habitId === habitId && c.date === today)
     if (existing) return
 
@@ -59,7 +60,7 @@ export const useCompletionsStore = defineStore('completions', () => {
   }
 
   async function unmarkComplete(habitId) {
-    const today = new Date().toISOString().split('T')[0]
+    const today = getDateKey()
     const existing = completions.value.find(c => c.habitId === habitId && c.date === today)
     if (!existing) return
     await deleteDoc(doc(db, 'completions', existing.id))
@@ -68,11 +69,10 @@ export const useCompletionsStore = defineStore('completions', () => {
 
   async function fetchLast90Days() {
     const end = new Date()
-    const start = new Date()
-    start.setDate(start.getDate() - 90)
+    const start = shiftDate(end, -90)
     await fetchCompletions(
-      start.toISOString().split('T')[0],
-      end.toISOString().split('T')[0]
+      getDateKey(start),
+      getDateKey(end)
     )
   }
 

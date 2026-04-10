@@ -17,20 +17,14 @@
 </template>
 
 <script setup>
+import { DAY_OPTIONS } from 'src/constants/habitMeta'
+
 const props = defineProps({
   modelValue: { type: Array, default: () => [] }
 })
 const emit = defineEmits(['update:modelValue'])
 
-const days = [
-  { value: 'mon', label: 'Mon' },
-  { value: 'tue', label: 'Tue' },
-  { value: 'wed', label: 'Wed' },
-  { value: 'thu', label: 'Thu' },
-  { value: 'fri', label: 'Fri' },
-  { value: 'sat', label: 'Sat' },
-  { value: 'sun', label: 'Sun' }
-]
+const days = DAY_OPTIONS
 
 function toggleDay(day) {
   const current = [...props.modelValue]

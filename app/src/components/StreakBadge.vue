@@ -33,8 +33,8 @@ const streakClass = computed(() => {
   background: rgba(245, 158, 11, 0.15);
   color: #d97706;
 }
-.streak-legendary { background: rgba(99, 102, 241, 0.15); color: #6366f1; }
-.streak-epic { background: rgba(139, 92, 246, 0.15); color: #8b5cf6; }
+.streak-legendary { background: rgba(36, 92, 104, 0.15); color: #245c68; }
+.streak-epic { background: rgba(81, 107, 115, 0.15); color: #516b73; }
 .streak-great { background: rgba(16, 185, 129, 0.15); color: #10b981; }
 .streak-good { background: rgba(245, 158, 11, 0.15); color: #d97706; }
 .streak-new { background: rgba(107, 114, 128, 0.1); color: #6b7280; }

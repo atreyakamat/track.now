@@ -1,9 +1,10 @@
 <template>
   <q-layout view="lHh lpr lFf">
-    <q-header elevated class="header-bar">
+    <q-header class="header-bar">
       <q-toolbar>
-        <q-toolbar-title class="text-weight-bold">
-          ⚡ Track.now
+        <q-toolbar-title class="brand-lockup text-weight-bold">
+          <span class="brand-mark" />
+          <span>Track.now</span>
         </q-toolbar-title>
         <q-btn flat round dense @click="toggleDark">
           <q-icon :name="$q.dark.isActive ? 'light_mode' : 'dark_mode'" />
@@ -105,13 +106,31 @@ async function handleLogout() {
 
 <style scoped lang="scss">
 .header-bar {
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.9);
   color: #111827;
+  backdrop-filter: blur(18px);
+  border-bottom: 1px solid rgba(36, 92, 104, 0.08);
   .body--dark & {
     background: #1a1a1a;
     color: #f9fafb;
   }
 }
+
+.brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-mark {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+  background: linear-gradient(135deg, #245c68, #d17a3c);
+  box-shadow: 0 0 0 6px rgba(36, 92, 104, 0.08);
+}
+
 .add-btn-wrap {
   display: flex;
   align-items: center;

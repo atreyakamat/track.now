@@ -1,6 +1,39 @@
+import { formatTimeLabel, normalizeReminderTimes } from 'src/utils/habitModel'
+
 // Stores pending alarm metadata so the service worker can fire notifications
 // even when the page is not in focus. Keys are habit IDs.
 const pendingAlarms = {}
+const alarmKeysByHabit = {}
+const PRE_NOTIFICATION_MINUTES = 20
+
+function registerAlarmKey(habitId, alarmKey) {
+  if (!alarmKeysByHabit[habitId]) {
+    alarmKeysByHabit[habitId] = new Set()
+  }
+
+  alarmKeysByHabit[habitId].add(alarmKey)
+}
+
+function unregisterAlarmKey(habitId, alarmKey) {
+  if (!alarmKeysByHabit[habitId]) return
+  alarmKeysByHabit[habitId].delete(alarmKey)
+
+  if (alarmKeysByHabit[habitId].size === 0) {
+    delete alarmKeysByHabit[habitId]
+  }
+}
+
+function getReminderTarget(time, offsetMinutes = 0, dayShift = 0) {
+  const [hours, minutes] = time.split(':').map(Number)
+  const now = new Date()
+  const target = new Date()
+
+  target.setDate(target.getDate() + dayShift)
+  target.setHours(hours, minutes, 0, 0)
+  target.setMinutes(target.getMinutes() - offsetMinutes)
+
+  return { now, target }
+}
 
 export const notificationService = {
   async requestPermission() {
@@ -13,17 +46,32 @@ export const notificationService = {
     const hasPermission = await this.requestPermission()
     if (!hasPermission) return
 
-    const [hours, minutes] = (habit.time || '09:00').split(':').map(Number)
-    const now = new Date()
-    const target = new Date()
-    target.setHours(hours, minutes, 0, 0)
+    this.cancelHabitReminder(habit.id)
 
-    if (target <= now) {
-      // Schedule for the next occurrence tomorrow
-      target.setDate(target.getDate() + 1)
+    const reminderTimes = normalizeReminderTimes(habit.reminderTimes, habit.time)
+
+    for (const reminderTime of reminderTimes) {
+      await this.scheduleSingleReminder(habit, reminderTime, 'upcoming', PRE_NOTIFICATION_MINUTES)
+      await this.scheduleSingleReminder(habit, reminderTime, 'now', 0)
+    }
+  },
+
+  async scheduleSingleReminder(habit, reminderTime, phase, offsetMinutes) {
+    const { now, target: exactTarget } = getReminderTarget(reminderTime, 0)
+    let { target } = getReminderTarget(reminderTime, offsetMinutes)
+
+    if (phase === 'upcoming') {
+      if (exactTarget <= now) {
+        target = getReminderTarget(reminderTime, offsetMinutes, 1).target
+      } else if (target <= now) {
+        return
+      }
+    } else if (target <= now) {
+      target = getReminderTarget(reminderTime, offsetMinutes, 1).target
     }
 
-    const alarmKey = `habit-alarm-${habit.id}`
+    const alarmKey = `habit-alarm-${habit.id}-${reminderTime}-${phase}`
+    registerAlarmKey(habit.id, alarmKey)
 
     // Persist alarm metadata so a service worker (if registered) can fire
     // the notification even after the page is reloaded or closed.
@@ -34,41 +82,65 @@ export const notificationService = {
         habitId: habit.id,
         habitName: habit.name,
         habitEmoji: habit.emoji || '✅',
-        streak: habit.streak || 0,
+        difficulty: habit.difficulty || 'medium',
+        phase,
+        reminderTime,
         fireAt: target.getTime()
       })
-    } else {
-      // Fallback: in-memory map used when the page remains open.
-      // This is intentionally a best-effort mechanism; for reliable
-      // cross-session reminders use Capacitor Local Notifications on mobile
-      // or the extension's chrome.alarms API.
-      if (pendingAlarms[alarmKey]) {
-        clearTimeout(pendingAlarms[alarmKey])
-      }
-      pendingAlarms[alarmKey] = setTimeout(() => {
-        delete pendingAlarms[alarmKey]
-        this.showNotification(habit)
-      }, target.getTime() - Date.now())
+      return
     }
+
+    // Fallback: in-memory map used when the page remains open.
+    // This is intentionally a best-effort mechanism; for reliable
+    // cross-session reminders use Capacitor Local Notifications on mobile
+    // or the extension's chrome.alarms API.
+    if (pendingAlarms[alarmKey]) {
+      clearTimeout(pendingAlarms[alarmKey])
+    }
+
+    pendingAlarms[alarmKey] = setTimeout(() => {
+      delete pendingAlarms[alarmKey]
+      unregisterAlarmKey(habit.id, alarmKey)
+      this.showNotification(habit, { phase, reminderTime })
+    }, target.getTime() - Date.now())
   },
 
-  showNotification(habit) {
+  showNotification(habit, { phase = 'now', reminderTime } = {}) {
     if (Notification.permission !== 'granted') return
-    new Notification(`Time for: ${habit.emoji} ${habit.name}`, {
-      body: `Keep your streak going! 🔥 ${habit.streak} days`,
+
+    const formattedTime = formatTimeLabel(reminderTime || habit.time || '09:00')
+    const title = phase === 'upcoming'
+      ? `Upcoming: ${habit.emoji} ${habit.name}`
+      : `Time for: ${habit.emoji} ${habit.name}`
+    const body = phase === 'upcoming'
+      ? `${formattedTime} is coming up in ${PRE_NOTIFICATION_MINUTES} minutes`
+      : `Tap in, skip, or delay this mission for ${formattedTime}`
+
+    new Notification(title, {
+      body,
       icon: '/icons/favicon-128x128.png',
-      tag: `habit-${habit.id}`
+      tag: `habit-${habit.id}-${reminderTime || habit.time || 'default'}-${phase}`
     })
   },
 
   cancelHabitReminder(habitId) {
-    const alarmKey = `habit-alarm-${habitId}`
-    if (pendingAlarms[alarmKey]) {
-      clearTimeout(pendingAlarms[alarmKey])
-      delete pendingAlarms[alarmKey]
-    }
-    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-      navigator.serviceWorker.controller.postMessage({ type: 'CANCEL_ALARM', alarmKey })
+    const alarmKeys = [...(alarmKeysByHabit[habitId] || [])]
+
+    alarmKeys.forEach((alarmKey) => {
+      if (pendingAlarms[alarmKey]) {
+        clearTimeout(pendingAlarms[alarmKey])
+        delete pendingAlarms[alarmKey]
+      }
+
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({ type: 'CANCEL_ALARM', alarmKey })
+      }
+
+      unregisterAlarmKey(habitId, alarmKey)
+    })
+
+    if (alarmKeys.length === 0 && 'serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({ type: 'CANCEL_ALARM_PREFIX', habitId })
     }
   },
 

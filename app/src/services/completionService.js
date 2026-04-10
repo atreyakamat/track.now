@@ -3,6 +3,7 @@ import {
   deleteDoc, doc, serverTimestamp, orderBy
 } from 'firebase/firestore'
 import { db } from 'src/boot/firebase'
+import { getDateKey } from 'src/utils/habitModel'
 
 export const completionService = {
   async getCompletions(userId, startDate, endDate) {
@@ -18,12 +19,12 @@ export const completionService = {
   },
 
   async getTodayCompletions(userId) {
-    const today = new Date().toISOString().split('T')[0]
+    const today = getDateKey()
     return this.getCompletions(userId, today, today)
   },
 
   async markComplete(userId, habitId) {
-    const today = new Date().toISOString().split('T')[0]
+    const today = getDateKey()
     return await addDoc(collection(db, 'completions'), {
       habitId,
       userId,

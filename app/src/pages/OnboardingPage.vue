@@ -52,6 +52,7 @@ import { useQuasar } from 'quasar'
 import { useHabitsStore } from 'src/stores/habits'
 import EmojiPicker from 'src/components/EmojiPicker.vue'
 import DaySelector from 'src/components/DaySelector.vue'
+import { DEFAULT_HABIT_FORM } from 'src/constants/habitMeta'
 
 const router = useRouter()
 const $q = useQuasar()
@@ -85,8 +86,10 @@ async function handleNext() {
           name: habitName.value,
           emoji: habitEmoji.value,
           days: selectedDays.value,
-          time: habitTime.value,
-          category: 'general'
+          reminderTimes: [habitTime.value],
+          category: DEFAULT_HABIT_FORM.category,
+          durationDays: DEFAULT_HABIT_FORM.durationDays,
+          difficulty: 'easy'
         })
       }
       router.push('/today')
@@ -115,7 +118,7 @@ async function handleNext() {
   background: #e5e7eb;
   transition: all 0.2s;
   &.active {
-    background: #6366f1;
+    background: #245c68;
     width: 24px;
     border-radius: 4px;
   }

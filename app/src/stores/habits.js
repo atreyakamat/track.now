@@ -6,6 +6,7 @@ import {
 } from 'firebase/firestore'
 import { db } from 'src/boot/firebase'
 import { useAuthStore } from './auth'
+import { isHabitScheduledForDate, normalizeHabit } from 'src/utils/habitModel'
 
 export const useHabitsStore = defineStore('habits', () => {
   const habits = ref([])
@@ -15,9 +16,9 @@ export const useHabitsStore = defineStore('habits', () => {
   const authStore = useAuthStore()
 
   const todayHabits = computed(() => {
-    const days = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
-    const today = days[new Date().getDay()]
-    return habits.value.filter(h => h.days && h.days.includes(today))
+    return habits.value
+      .filter((habit) => isHabitScheduledForDate(habit))
+      .sort((a, b) => (a.time || '').localeCompare(b.time || ''))
   })
 
   function subscribe() {
@@ -25,7 +26,9 @@ export const useHabitsStore = defineStore('habits', () => {
     loading.value = true
     const q = query(collection(db, 'habits'), where('userId', '==', authStore.userId))
     unsubscribe = onSnapshot(q, (snap) => {
-      habits.value = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      habits.value = snap.docs
+        .map((docSnapshot) => normalizeHabit({ id: docSnapshot.id, ...docSnapshot.data() }))
+        .sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0))
       loading.value = false
     }, () => { loading.value = false })
   }
@@ -39,18 +42,18 @@ export const useHabitsStore = defineStore('habits', () => {
   }
 
   async function addHabit(data) {
-    const habit = {
+    const habit = normalizeHabit({
       ...data,
       userId: authStore.userId,
       streak: 0,
       lastCompleted: null,
       createdAt: serverTimestamp()
-    }
+    })
     return await addDoc(collection(db, 'habits'), habit)
   }
 
   async function updateHabit(id, data) {
-    await updateDoc(doc(db, 'habits', id), data)
+    await updateDoc(doc(db, 'habits', id), normalizeHabit(data))
   }
 
   async function deleteHabit(id) {

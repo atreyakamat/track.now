@@ -11,9 +11,9 @@
       <div class="row q-gutter-md q-mb-lg">
         <q-card flat bordered class="col stats-card">
           <q-card-section class="text-center">
-            <div class="text-h3">🔥</div>
-            <div class="text-h5 text-weight-bold text-primary">{{ bestStreak }}</div>
-            <div class="text-caption text-grey">Best streak</div>
+            <div class="text-h3">↗</div>
+            <div class="text-h5 text-weight-bold text-primary">{{ momentum.percentage }}%</div>
+            <div class="text-caption text-grey">Momentum</div>
           </q-card-section>
         </q-card>
         <q-card flat bordered class="col stats-card">
@@ -64,7 +64,7 @@
               <div class="day-bar-wrap">
                 <div
                   class="day-bar"
-                  :style="{ height: (day.rate * 60) + 'px', background: day.rate > 0 ? '#6366f1' : '#e5e7eb' }"
+                  :style="{ height: (day.rate * 60) + 'px', background: day.rate > 0 ? '#245c68' : '#e5e7eb' }"
                 />
               </div>
               <div class="text-caption text-grey q-mt-xs">{{ day.label }}</div>
@@ -81,6 +81,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useHabitsStore } from 'src/stores/habits'
 import { useCompletionsStore } from 'src/stores/completions'
 import { completionService } from 'src/services/completionService'
+import { calculateMomentum } from 'src/utils/habitModel'
 
 const habitsStore = useHabitsStore()
 const completionsStore = useCompletionsStore()
@@ -89,16 +90,7 @@ const loading = ref(true)
 const heatmapData = computed(() => completionService.buildHeatmapData(completionsStore.completions))
 const totalCompletions = computed(() => Object.values(heatmapData.value).reduce((a, b) => a + b, 0))
 
-const bestStreak = computed(() => {
-  const data = heatmapData.value
-  const sorted = Object.keys(data).sort()
-  let best = 0, current = 0
-  for (const d of sorted) {
-    if (data[d] > 0) { current++; best = Math.max(best, current) }
-    else current = 0
-  }
-  return best
-})
+const momentum = computed(() => calculateMomentum(habitsStore.habits, completionsStore.completions))
 
 const ANALYTICS_DAYS_WINDOW = 90
 
