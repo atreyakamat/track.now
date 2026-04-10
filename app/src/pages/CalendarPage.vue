@@ -1,49 +1,69 @@
 <template>
-  <q-page class="page-container">
-    <div class="text-h5 text-weight-bold q-mb-sm">Calendar</div>
-    <div class="text-caption text-grey q-mb-lg">Your habit activity over the last 90 days</div>
+  <q-page class="page-container calendar-page">
+    <div class="row items-end q-col-gutter-md q-mb-lg">
+      <div class="col">
+        <div class="text-overline text-primary section-kicker">Calendar</div>
+        <div class="text-h4 text-weight-bold">A visual memory of your consistency</div>
+        <div class="text-body2 text-grey-7 q-mt-sm">
+          The heatmap helps users see effort across time without drowning them in analytics.
+        </div>
+      </div>
+    </div>
 
     <q-inner-loading :showing="loading">
       <q-spinner color="primary" size="40px" />
     </q-inner-loading>
 
-    <q-card v-if="!loading" flat bordered class="q-mb-lg">
-      <q-card-section>
-        <div class="text-subtitle2 q-mb-md">Activity Heatmap</div>
-        <HeatmapCalendar :completion-data="heatmapData" @day-click="onDayClick" />
-      </q-card-section>
-    </q-card>
+    <div v-if="!loading">
+      <div class="summary-grid q-mb-lg">
+        <q-card flat bordered class="summary-card">
+          <q-card-section>
+            <div class="text-caption text-grey-7">Active days</div>
+            <div class="text-h5 text-weight-bold q-mt-xs">{{ stats.activeDays }}</div>
+          </q-card-section>
+        </q-card>
+        <q-card flat bordered class="summary-card">
+          <q-card-section>
+            <div class="text-caption text-grey-7">Total completions</div>
+            <div class="text-h5 text-weight-bold q-mt-xs">{{ stats.totalCompletions }}</div>
+          </q-card-section>
+        </q-card>
+        <q-card flat bordered class="summary-card">
+          <q-card-section>
+            <div class="text-caption text-grey-7">Momentum</div>
+            <div class="text-h5 text-weight-bold q-mt-xs">{{ momentum.percentage }}%</div>
+          </q-card-section>
+        </q-card>
+      </div>
 
-    <div v-if="!loading" class="row q-gutter-md q-mb-lg">
-      <q-card flat bordered class="col stats-mini-card">
-        <q-card-section class="text-center">
-          <div class="text-h4 text-weight-bold text-primary">{{ stats.totalCompletions }}</div>
-          <div class="text-caption text-grey">Total completions</div>
+      <q-card flat bordered class="calendar-card q-mb-lg">
+        <q-card-section>
+          <div class="text-subtitle1 text-weight-bold q-mb-md">Activity heatmap</div>
+          <HeatmapCalendar :completion-data="heatmapData" @day-click="onDayClick" />
         </q-card-section>
       </q-card>
-      <q-card flat bordered class="col stats-mini-card">
-        <q-card-section class="text-center">
-          <div class="text-h4 text-weight-bold text-positive">{{ stats.activeDays }}</div>
-          <div class="text-caption text-grey">Active days</div>
-        </q-card-section>
-      </q-card>
-      <q-card flat bordered class="col stats-mini-card">
-        <q-card-section class="text-center">
-          <div class="text-h4 text-weight-bold text-warning">{{ stats.bestStreak }}</div>
-          <div class="text-caption text-grey">Best streak</div>
+
+      <q-card flat bordered class="calendar-card">
+        <q-card-section>
+          <div class="text-subtitle1 text-weight-bold q-mb-md">Last 7 days</div>
+          <div class="week-grid">
+            <div v-for="day in last7Days" :key="day.date" class="week-day">
+              <div class="text-caption text-grey-7">{{ day.label }}</div>
+              <div class="text-h6 text-weight-bold q-mt-xs">{{ day.count }}</div>
+              <div class="text-caption text-grey-6">completions</div>
+            </div>
+          </div>
         </q-card-section>
       </q-card>
     </div>
 
     <q-dialog v-model="dayDialog">
-      <q-card style="min-width: 300px">
+      <q-card style="min-width: 320px">
         <q-card-section>
-          <div class="text-subtitle1 text-weight-bold">{{ selectedDay?.date }}</div>
-          <div class="text-caption text-grey q-mb-md">{{ selectedDay?.count }} habit{{ selectedDay?.count !== 1 ? 's' : '' }} completed</div>
-          <div v-if="selectedDay?.count === 0" class="text-grey text-center q-py-md">No habits completed this day</div>
-          <div v-else class="text-positive">
-            <q-icon name="check_circle" />
-            {{ selectedDay?.count }} habit{{ selectedDay?.count !== 1 ? 's' : '' }} completed
+          <div class="text-subtitle1 text-weight-bold">{{ selectedDay?.label }}</div>
+          <div class="text-caption text-grey-7 q-mb-md">{{ selectedDay?.date }}</div>
+          <div class="text-body2">
+            {{ selectedDay?.count || 0 }} habit{{ selectedDay?.count === 1 ? '' : 's' }} completed on this day.
           </div>
         </q-card-section>
         <q-card-actions align="right">
@@ -55,37 +75,41 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useCompletionsStore } from 'src/stores/completions'
+import { computed, onMounted, ref } from 'vue'
 import HeatmapCalendar from 'src/components/HeatmapCalendar.vue'
 import { completionService } from 'src/services/completionService'
+import { useCompletionsStore } from 'src/stores/completions'
+import { useHabitsStore } from 'src/stores/habits'
+import { calculateMomentum, getCompletionCountForDate, getDateFromKey, getDateKey, shiftDate } from 'src/utils/habitModel'
 
 const completionsStore = useCompletionsStore()
+const habitsStore = useHabitsStore()
 const loading = ref(true)
 const dayDialog = ref(false)
 const selectedDay = ref(null)
 
 const heatmapData = computed(() => completionService.buildHeatmapData(completionsStore.completions))
+const momentum = computed(() => calculateMomentum(habitsStore.habits, completionsStore.completions))
 
 const stats = computed(() => {
   const data = heatmapData.value
-  const days = Object.keys(data)
-  const activeDays = days.filter(d => data[d] > 0).length
-  const totalCompletions = Object.values(data).reduce((a, b) => a + b, 0)
+  const activeDays = Object.values(data).filter((count) => count > 0).length
+  const totalCompletions = Object.values(data).reduce((sum, count) => sum + count, 0)
 
-  let bestStreak = 0
-  let currentStreak = 0
-  const sorted = [...days].sort()
-  for (let i = 0; i < sorted.length; i++) {
-    if (data[sorted[i]] > 0) {
-      currentStreak++
-      bestStreak = Math.max(bestStreak, currentStreak)
-    } else {
-      currentStreak = 0
+  return { activeDays, totalCompletions }
+})
+
+const last7Days = computed(() => {
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = shiftDate(new Date(), index - 6)
+    const dateKey = getDateKey(date)
+
+    return {
+      date: dateKey,
+      label: date.toLocaleDateString('en-US', { weekday: 'short' }),
+      count: getCompletionCountForDate(dateKey, completionsStore.completions)
     }
-  }
-
-  return { totalCompletions, activeDays, bestStreak }
+  })
 })
 
 onMounted(async () => {
@@ -94,13 +118,46 @@ onMounted(async () => {
 })
 
 function onDayClick(day) {
-  selectedDay.value = day
+  selectedDay.value = {
+    ...day,
+    label: getDateFromKey(day.date).toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'short',
+      day: 'numeric'
+    })
+  }
   dayDialog.value = true
 }
 </script>
 
-<style scoped>
-.stats-mini-card {
-  min-width: 80px;
+<style scoped lang="scss">
+.section-kicker {
+  letter-spacing: 0.12em;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.summary-card,
+.calendar-card {
+  border-radius: 24px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.week-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.week-day {
+  padding: 14px;
+  border-radius: 18px;
+  background: #fbfcfd;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  text-align: center;
 }
 </style>

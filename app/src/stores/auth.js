@@ -6,7 +6,7 @@ import {
   signOut,
   updateProfile as firebaseUpdateProfile
 } from 'firebase/auth'
-import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from 'src/boot/firebase'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -89,7 +89,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function updateUserProfile(updates) {
     if (!user.value) return
 
-    await updateDoc(doc(db, 'users', user.value.uid), updates)
+    await setDoc(doc(db, 'users', user.value.uid), updates, { merge: true })
     profile.value = {
       ...(profile.value || {}),
       ...updates

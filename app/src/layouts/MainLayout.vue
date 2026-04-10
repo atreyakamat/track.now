@@ -2,7 +2,7 @@
   <q-layout view="lHh lpr lFf">
     <q-header class="header-bar">
       <q-toolbar>
-        <q-toolbar-title class="brand-lockup text-weight-bold">
+        <q-toolbar-title class="brand-lockup text-weight-bold cursor-pointer" @click="$router.push('/dashboard')">
           <span class="brand-mark" />
           <span>Track.now</span>
         </q-toolbar-title>
@@ -12,14 +12,34 @@
         <NotificationBell />
         <q-btn flat round dense icon="more_vert">
           <q-menu>
-            <q-list style="min-width: 180px">
+            <q-list style="min-width: 220px">
+              <q-item clickable v-close-popup @click="$router.push('/dashboard')">
+                <q-item-section avatar><q-icon name="dashboard" /></q-item-section>
+                <q-item-section>Dashboard</q-item-section>
+              </q-item>
+              <q-item clickable v-close-popup @click="$router.push('/planner')">
+                <q-item-section avatar><q-icon name="view_week" /></q-item-section>
+                <q-item-section>Planner</q-item-section>
+              </q-item>
               <q-item clickable v-close-popup @click="$router.push('/habits')">
                 <q-item-section avatar><q-icon name="list" /></q-item-section>
                 <q-item-section>My Habits</q-item-section>
               </q-item>
+              <q-item clickable v-close-popup @click="$router.push('/calendar')">
+                <q-item-section avatar><q-icon name="calendar_month" /></q-item-section>
+                <q-item-section>Calendar</q-item-section>
+              </q-item>
               <q-item clickable v-close-popup @click="$router.push('/analytics')">
                 <q-item-section avatar><q-icon name="bar_chart" /></q-item-section>
                 <q-item-section>Analytics</q-item-section>
+              </q-item>
+              <q-item clickable v-close-popup @click="$router.push('/notifications')">
+                <q-item-section avatar><q-icon name="notifications" /></q-item-section>
+                <q-item-section>Notifications</q-item-section>
+              </q-item>
+              <q-item clickable v-close-popup @click="$router.push('/settings')">
+                <q-item-section avatar><q-icon name="settings" /></q-item-section>
+                <q-item-section>Settings</q-item-section>
               </q-item>
               <q-item clickable v-close-popup @click="$router.push('/friends')">
                 <q-item-section avatar><q-icon name="people" /></q-item-section>
@@ -32,6 +52,10 @@
               <q-item clickable v-close-popup @click="$router.push('/family')">
                 <q-item-section avatar><q-icon name="family_restroom" /></q-item-section>
                 <q-item-section>Family <q-badge color="primary" label="PRO" /></q-item-section>
+              </q-item>
+              <q-item clickable v-close-popup @click="$router.push('/pricing')">
+                <q-item-section avatar><q-icon name="sell" /></q-item-section>
+                <q-item-section>Pricing</q-item-section>
               </q-item>
               <q-separator />
               <q-item clickable v-close-popup @click="handleLogout">
@@ -53,16 +77,16 @@
         <q-icon name="home" size="24px" />
         <span class="text-caption">Today</span>
       </q-btn>
-      <q-btn flat :color="isActive('/habits') ? 'primary' : 'grey'" stack no-caps @click="$router.push('/habits')">
-        <q-icon name="format_list_bulleted" size="24px" />
-        <span class="text-caption">Habits</span>
+      <q-btn flat :color="isActive('/planner') ? 'primary' : 'grey'" stack no-caps @click="$router.push('/planner')">
+        <q-icon name="view_week" size="24px" />
+        <span class="text-caption">Plan</span>
       </q-btn>
       <div class="add-btn-wrap">
         <q-btn class="add-btn-fab" unelevated round icon="add" @click="$router.push('/add')" />
       </div>
-      <q-btn flat :color="isActive('/calendar') ? 'primary' : 'grey'" stack no-caps @click="$router.push('/calendar')">
-        <q-icon name="calendar_month" size="24px" />
-        <span class="text-caption">Calendar</span>
+      <q-btn flat :color="isActive('/habits') ? 'primary' : 'grey'" stack no-caps @click="$router.push('/habits')">
+        <q-icon name="format_list_bulleted" size="24px" />
+        <span class="text-caption">Habits</span>
       </q-btn>
       <q-btn flat :color="isActive('/analytics') ? 'primary' : 'grey'" stack no-caps @click="$router.push('/analytics')">
         <q-icon name="bar_chart" size="24px" />
@@ -75,27 +99,52 @@
 <script setup>
 import { useQuasar } from 'quasar'
 import { useRoute, useRouter } from 'vue-router'
+import { notificationService } from 'src/services/notificationService'
 import { useAuthStore } from 'src/stores/auth'
+import { usePreferencesStore } from 'src/stores/preferences'
 import { useHabitsStore } from 'src/stores/habits'
-import { onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted, watch } from 'vue'
 import NotificationBell from 'src/components/NotificationBell.vue'
 
 const $q = useQuasar()
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const preferencesStore = usePreferencesStore()
 const habitsStore = useHabitsStore()
+const reminderOptions = computed(() => ({
+  preReminder: preferencesStore.preferences.reminderPreview,
+  exactReminder: preferencesStore.preferences.exactReminders,
+  requestPermission: false
+}))
+const reminderSignature = computed(() => habitsStore.todayHabits
+  .map((habit) => `${habit.id}:${(habit.reminderTimes || [habit.time]).join(',')}`)
+  .join('|'))
 
-onMounted(() => habitsStore.subscribe())
+onMounted(async () => {
+  habitsStore.subscribe()
+  await authStore.loadProfile()
+})
 onUnmounted(() => habitsStore.unsubscribeAll())
 
+watch(() => [reminderSignature.value, reminderOptions.value.preReminder, reminderOptions.value.exactReminder], async () => {
+  const todayHabits = habitsStore.todayHabits
+  const options = reminderOptions.value
+  if (!Array.isArray(todayHabits) || todayHabits.length === 0) {
+    habitsStore.habits.forEach((habit) => notificationService.cancelHabitReminder(habit.id))
+    return
+  }
+  await notificationService.scheduleAll(todayHabits, options)
+})
+
 function isActive(path) {
-  return route.path === path
+  return route.path === path || route.path.startsWith(`${path}/`)
 }
 
 function toggleDark() {
   $q.dark.toggle()
   localStorage.setItem('dark-mode', $q.dark.isActive)
+  preferencesStore.updatePreference('themePreference', $q.dark.isActive ? 'dark' : 'light')
 }
 
 async function handleLogout() {

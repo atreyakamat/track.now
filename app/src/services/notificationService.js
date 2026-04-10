@@ -42,17 +42,31 @@ export const notificationService = {
     return permission === 'granted'
   },
 
-  async scheduleHabitReminder(habit) {
-    const hasPermission = await this.requestPermission()
-    if (!hasPermission) return
+  async scheduleHabitReminder(habit, options = {}) {
+    const {
+      preReminder = true,
+      exactReminder = true,
+      requestPermission = false
+    } = options
 
     this.cancelHabitReminder(habit.id)
+
+    const hasPermission = requestPermission
+      ? await this.requestPermission()
+      : (typeof Notification !== 'undefined' && Notification.permission === 'granted')
+
+    if (!hasPermission || (!preReminder && !exactReminder)) return
 
     const reminderTimes = normalizeReminderTimes(habit.reminderTimes, habit.time)
 
     for (const reminderTime of reminderTimes) {
-      await this.scheduleSingleReminder(habit, reminderTime, 'upcoming', PRE_NOTIFICATION_MINUTES)
-      await this.scheduleSingleReminder(habit, reminderTime, 'now', 0)
+      if (preReminder) {
+        await this.scheduleSingleReminder(habit, reminderTime, 'upcoming', PRE_NOTIFICATION_MINUTES)
+      }
+
+      if (exactReminder) {
+        await this.scheduleSingleReminder(habit, reminderTime, 'now', 0)
+      }
     }
   },
 
@@ -144,9 +158,9 @@ export const notificationService = {
     }
   },
 
-  async scheduleAll(habits) {
+  async scheduleAll(habits, options = {}) {
     for (const habit of habits) {
-      await this.scheduleHabitReminder(habit)
+      await this.scheduleHabitReminder(habit, options)
     }
   }
 }

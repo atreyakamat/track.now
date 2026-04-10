@@ -54,9 +54,20 @@ export const useFriendsStore = defineStore('friends', () => {
       where('status', '==', 'pending')
     )
     const snap = await getDocs(q)
-    friendRequests.value = snap.docs
+    const requests = snap.docs
       .map(d => ({ id: d.id, ...d.data() }))
       .filter(req => req.requestedBy !== authStore.userId)
+
+    const enriched = await Promise.all(requests.map(async (request) => {
+      const profile = await getDoc(doc(db, 'users', request.requestedBy))
+      return {
+        ...request,
+        requestedByName: profile.exists() ? profile.data().displayName : request.requestedBy,
+        requestedByEmail: profile.exists() ? profile.data().email : ''
+      }
+    }))
+
+    friendRequests.value = enriched
   }
 
   async function acceptRequest(friendshipId) {

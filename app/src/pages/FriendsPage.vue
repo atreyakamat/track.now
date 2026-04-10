@@ -1,25 +1,29 @@
 <template>
-  <q-page class="page-container">
-    <div class="text-h5 text-weight-bold q-mb-sm">Friends</div>
-    <div class="text-caption text-grey q-mb-lg">Track habits together and stay accountable</div>
+  <q-page class="page-container friends-page">
+    <div class="row items-end q-col-gutter-md q-mb-lg">
+      <div class="col">
+        <div class="text-overline text-primary section-kicker">Friends</div>
+        <div class="text-h4 text-weight-bold">Accountability without the noise</div>
+        <div class="text-body2 text-grey-7 q-mt-sm">
+          Invite a few people you trust and keep the social layer quiet, useful, and optional.
+        </div>
+      </div>
+      <div class="col-auto">
+        <q-btn label="Add friend" color="primary" unelevated icon="person_add" no-caps @click="addDialog = true" />
+      </div>
+    </div>
 
-    <q-btn label="Add Friend" color="primary" unelevated icon="person_add" class="q-mb-lg full-width" @click="addDialog = true" />
-
-    <div v-if="friendRequests.length > 0" class="q-mb-lg">
-      <div class="text-subtitle2 q-mb-md">Friend Requests ({{ friendRequests.length }})</div>
-      <q-card v-for="req in friendRequests" :key="req.id" flat bordered class="q-mb-sm">
-        <q-card-section class="row items-center">
-          <q-avatar color="primary" text-color="white" class="q-mr-md">
-            {{ req.requestedBy[0]?.toUpperCase() }}
-          </q-avatar>
-          <div class="col">
-            <div class="text-subtitle2">Friend request</div>
-            <div class="text-caption text-grey">{{ req.requestedBy }}</div>
-          </div>
-          <div class="row q-gutter-xs">
-            <q-btn unelevated color="positive" icon="check" size="sm" @click="acceptRequest(req.id)" />
-            <q-btn flat color="negative" icon="close" size="sm" />
-          </div>
+    <div class="summary-grid q-mb-lg">
+      <q-card flat bordered class="summary-card">
+        <q-card-section>
+          <div class="text-caption text-grey-7">Connections</div>
+          <div class="text-h5 text-weight-bold q-mt-xs">{{ friends.length }}</div>
+        </q-card-section>
+      </q-card>
+      <q-card flat bordered class="summary-card">
+        <q-card-section>
+          <div class="text-caption text-grey-7">Incoming requests</div>
+          <div class="text-h5 text-weight-bold q-mt-xs">{{ friendRequests.length }}</div>
         </q-card-section>
       </q-card>
     </div>
@@ -28,24 +32,67 @@
       <q-spinner color="primary" size="40px" />
     </q-inner-loading>
 
-    <div v-if="!loading && friends.length === 0" class="text-center q-py-xl">
-      <div class="text-h3 q-mb-md">👥</div>
-      <div class="text-h6 text-weight-bold q-mb-sm">No friends yet</div>
-      <div class="text-grey">Invite friends to track habits together!</div>
-    </div>
-
-    <div v-else-if="!loading">
-      <div class="text-subtitle2 q-mb-md">My Friends ({{ friends.length }})</div>
-      <q-card v-for="friend in friends" :key="friend.id" flat bordered class="q-mb-sm">
-        <q-card-section class="row items-center">
-          <q-avatar color="secondary" text-color="white" class="q-mr-md">
-            {{ friend.displayName?.[0]?.toUpperCase() || '?' }}
-          </q-avatar>
-          <div class="col">
-            <div class="text-subtitle2">{{ friend.displayName }}</div>
-            <div class="text-caption text-grey">{{ friend.email }}</div>
+    <div v-if="!loading">
+      <q-card v-if="friendRequests.length > 0" flat bordered class="friends-card q-mb-lg">
+        <q-card-section>
+          <div class="text-subtitle1 text-weight-bold q-mb-md">Incoming requests</div>
+          <div class="column q-gutter-sm">
+            <div v-for="request in friendRequests" :key="request.id" class="friend-row">
+              <q-avatar color="primary" text-color="white">
+                {{ request.requestedByName?.[0]?.toUpperCase() || request.requestedBy?.[0]?.toUpperCase() }}
+              </q-avatar>
+              <div class="col">
+                <div class="text-body2 text-weight-medium">Friend request</div>
+                <div class="text-caption text-grey-7">{{ request.requestedByName || request.requestedBy }}</div>
+                <div v-if="request.requestedByEmail" class="text-caption text-grey-6">{{ request.requestedByEmail }}</div>
+              </div>
+              <q-btn unelevated color="positive" icon="check" size="sm" @click="acceptRequest(request.id)" />
+            </div>
           </div>
-          <q-btn flat round dense icon="share" color="grey" @click="shareWithFriend(friend)" />
+        </q-card-section>
+      </q-card>
+
+      <q-card flat bordered class="friends-card q-mb-lg">
+        <q-card-section>
+          <div class="row items-center q-mb-md">
+            <div class="col">
+              <div class="text-subtitle1 text-weight-bold">Your circle</div>
+              <div class="text-caption text-grey-7">Tap a profile for a simple accountability card.</div>
+            </div>
+          </div>
+
+          <div v-if="friends.length === 0" class="text-body2 text-grey-7">
+            No friends yet. Add one or send a WhatsApp invite to start small.
+          </div>
+
+          <div v-else class="column q-gutter-sm">
+            <button
+              v-for="friend in friends"
+              :key="friend.id"
+              type="button"
+              class="friend-row friend-link"
+              @click="router.push(`/user/${slugify(friend.displayName || friend.email || friend.id)}`)"
+            >
+              <q-avatar color="secondary" text-color="white">
+                {{ friend.displayName?.[0]?.toUpperCase() || '?' }}
+              </q-avatar>
+              <div class="col text-left">
+                <div class="text-body2 text-weight-medium">{{ friend.displayName }}</div>
+                <div class="text-caption text-grey-7">{{ friend.email }}</div>
+              </div>
+              <q-btn flat round dense icon="share" color="grey-7" @click.stop="shareWithFriend(friend)" />
+            </button>
+          </div>
+        </q-card-section>
+      </q-card>
+
+      <q-card flat bordered class="friends-card">
+        <q-card-section>
+          <div class="text-subtitle1 text-weight-bold q-mb-md">Invite flow</div>
+          <div class="text-body2 text-grey-7 q-mb-md">
+            Share a simple Track.now invite on WhatsApp and keep onboarding friction low.
+          </div>
+          <q-btn outline no-caps icon="chat" label="Invite via WhatsApp" @click="shareGenericInvite" />
         </q-card-section>
       </q-card>
     </div>
@@ -53,14 +100,14 @@
     <q-dialog v-model="addDialog">
       <q-card style="min-width: 320px">
         <q-card-section>
-          <div class="text-h6">Add Friend</div>
+          <div class="text-h6">Add friend</div>
         </q-card-section>
         <q-card-section>
           <q-input v-model="friendEmail" label="Friend's email" outlined type="email" />
         </q-card-section>
         <q-card-actions align="right">
           <q-btn flat label="Cancel" v-close-popup />
-          <q-btn unelevated label="Send Request" color="primary" @click="sendRequest" :loading="sending" />
+          <q-btn unelevated label="Send request" color="primary" @click="sendRequest" :loading="sending" />
         </q-card-actions>
       </q-card>
     </q-dialog>
@@ -69,12 +116,14 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
-import { useFriendsStore } from 'src/stores/friends'
-import { whatsappService } from 'src/services/whatsappService'
-import { collection, query, where, getDocs } from 'firebase/firestore'
+import { collection, getDocs, query, where } from 'firebase/firestore'
 import { db } from 'src/boot/firebase'
+import { whatsappService } from 'src/services/whatsappService'
+import { useFriendsStore } from 'src/stores/friends'
 
+const router = useRouter()
 const $q = useQuasar()
 const friendsStore = useFriendsStore()
 
@@ -98,17 +147,19 @@ onMounted(async () => {
 
 async function sendRequest() {
   if (!friendEmail.value) return
+
   sending.value = true
   try {
-    const q = query(collection(db, 'users'), where('email', '==', friendEmail.value))
-    const snap = await getDocs(q)
-    if (snap.empty) {
+    const userQuery = query(collection(db, 'users'), where('email', '==', friendEmail.value))
+    const snapshot = await getDocs(userQuery)
+
+    if (snapshot.empty) {
       $q.notify({ message: 'User not found', color: 'warning' })
       return
     }
-    const targetUser = snap.docs[0]
-    await friendsStore.sendFriendRequest(targetUser.id)
-    $q.notify({ message: 'Friend request sent!', color: 'positive' })
+
+    await friendsStore.sendFriendRequest(snapshot.docs[0].id)
+    $q.notify({ message: 'Friend request sent', color: 'positive' })
     addDialog.value = false
     friendEmail.value = ''
   } catch {
@@ -122,10 +173,54 @@ async function acceptRequest(id) {
   await friendsStore.acceptRequest(id)
   friends.value = friendsStore.friends
   friendRequests.value = friendsStore.friendRequests
-  $q.notify({ message: 'Friend added!', color: 'positive' })
+  $q.notify({ message: 'Friend added', color: 'positive' })
 }
 
 function shareWithFriend(friend) {
   whatsappService.inviteFriend(friend.id)
 }
+
+function shareGenericInvite() {
+  whatsappService.shareAchievement('Join me on Track.now so we can keep each other accountable with calm daily habit check-ins.')
+}
+
+function slugify(value) {
+  return String(value || 'user')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
 </script>
+
+<style scoped lang="scss">
+.section-kicker {
+  letter-spacing: 0.12em;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.summary-card,
+.friends-card {
+  border-radius: 24px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.friend-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 18px;
+  background: #fbfcfd;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.friend-link {
+  width: 100%;
+  text-align: left;
+}
+</style>

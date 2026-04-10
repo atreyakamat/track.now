@@ -76,6 +76,8 @@
         flat
         bordered
         class="mission-card"
+        clickable
+        @click="router.push(`/habit/${habit.id}`)"
       >
         <q-card-section>
           <div class="row items-start no-wrap q-col-gutter-md">
@@ -108,8 +110,8 @@
 
                 <div class="col-auto">
                   <div class="row q-gutter-xs">
-                    <q-btn flat round dense icon="edit" size="sm" color="grey-7" @click="editHabit(habit)" />
-                    <q-btn flat round dense icon="delete" size="sm" color="negative" @click="confirmDelete(habit)" />
+                    <q-btn flat round dense icon="edit" size="sm" color="grey-7" @click.stop="editHabit(habit)" />
+                    <q-btn flat round dense icon="delete" size="sm" color="negative" @click.stop="confirmDelete(habit)" />
                   </div>
                 </div>
               </div>

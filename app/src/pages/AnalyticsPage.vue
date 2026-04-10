@@ -81,7 +81,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useHabitsStore } from 'src/stores/habits'
 import { useCompletionsStore } from 'src/stores/completions'
 import { completionService } from 'src/services/completionService'
-import { calculateMomentum } from 'src/utils/habitModel'
+import { calculateMomentum, getDateKey } from 'src/utils/habitModel'
 
 const habitsStore = useHabitsStore()
 const completionsStore = useCompletionsStore()
@@ -115,7 +115,7 @@ const last7Days = computed(() => {
   for (let i = 6; i >= 0; i--) {
     const d = new Date()
     d.setDate(d.getDate() - i)
-    const dateStr = d.toISOString().split('T')[0]
+    const dateStr = getDateKey(d)
     const count = heatmapData.value[dateStr] || 0
     const maxHabits = habitsStore.habits.length || 1
     days.push({ date: dateStr, label: dayLabels[d.getDay()], count, rate: Math.min(1, count / maxHabits) })

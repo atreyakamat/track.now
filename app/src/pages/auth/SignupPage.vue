@@ -1,15 +1,14 @@
 <template>
-  <q-card flat class="signup-card">
+  <q-card flat class="auth-card">
     <q-card-section>
-      <div class="text-h6 text-weight-bold q-mb-xs">Create account</div>
-      <div class="text-caption text-grey q-mb-lg">Start building better habits today</div>
+      <div class="text-h6 text-weight-bold q-mb-xs">Create your account</div>
+      <div class="text-body2 text-grey-7 q-mb-lg">Start with a simple habit and let the system grow around it.</div>
 
       <q-form @submit="handleSignup" class="q-gutter-md">
         <q-input
           v-model="displayName"
           label="Your name"
           outlined
-          dense
           :rules="[v => !!v || 'Name is required']"
         >
           <template #prepend><q-icon name="person" /></template>
@@ -20,7 +19,6 @@
           type="email"
           label="Email"
           outlined
-          dense
           :rules="[v => !!v || 'Email is required', v => /.+@.+/.test(v) || 'Invalid email']"
         >
           <template #prepend><q-icon name="email" /></template>
@@ -31,7 +29,6 @@
           :type="showPassword ? 'text' : 'password'"
           label="Password"
           outlined
-          dense
           :rules="[v => !!v || 'Password is required', v => v.length >= 6 || 'Min 6 characters']"
         >
           <template #prepend><q-icon name="lock" /></template>
@@ -42,7 +39,7 @@
 
         <q-btn
           type="submit"
-          label="Create Account"
+          label="Create account"
           color="primary"
           unelevated
           class="full-width"
@@ -51,9 +48,9 @@
         />
       </q-form>
 
-      <div class="text-center q-mt-md">
-        <span class="text-grey">Already have an account? </span>
-        <router-link to="/login" class="text-primary text-weight-bold">Sign In</router-link>
+      <div class="text-center q-mt-lg">
+        <span class="text-grey-7">Already have an account? </span>
+        <router-link to="/login" class="text-primary text-weight-bold">Sign in</router-link>
       </div>
     </q-card-section>
   </q-card>
@@ -80,10 +77,16 @@ async function handleSignup() {
   try {
     await authStore.signup(email.value, password.value, displayName.value)
     router.push('/onboarding')
-  } catch (e) {
-    $q.notify({ message: e.message || 'Signup failed', color: 'negative', icon: 'error' })
+  } catch (error) {
+    $q.notify({ message: error.message || 'Signup failed', color: 'negative', icon: 'error' })
   } finally {
     loading.value = false
   }
 }
 </script>
+
+<style scoped>
+.auth-card {
+  border-radius: 22px;
+}
+</style>

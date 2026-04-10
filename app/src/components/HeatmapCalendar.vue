@@ -32,6 +32,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { getDateKey, shiftDate } from 'src/utils/habitModel'
 
 const props = defineProps({
   completionData: { type: Object, default: () => ({}) }
@@ -53,8 +54,7 @@ function getLegendColor(idx) {
 const weeks = computed(() => {
   const result = []
   const end = new Date()
-  const start = new Date()
-  start.setDate(start.getDate() - 90)
+  const start = shiftDate(end, -90)
 
   const dayOfWeek = start.getDay()
   start.setDate(start.getDate() - dayOfWeek)
@@ -63,7 +63,7 @@ const weeks = computed(() => {
   let week = []
 
   while (current <= end) {
-    const dateStr = current.toISOString().split('T')[0]
+    const dateStr = getDateKey(current)
     week.push({
       date: dateStr,
       count: props.completionData[dateStr] || 0,

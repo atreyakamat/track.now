@@ -165,6 +165,14 @@ export function getCompletionMap(completions = []) {
   return map
 }
 
+export function getCompletionsForDate(dateKey, completions = []) {
+  return completions.filter((completion) => completion.date === dateKey && completion.completed !== false)
+}
+
+export function getCompletionCountForDate(dateKey, completions = []) {
+  return getCompletionsForDate(dateKey, completions).length
+}
+
 export function calculateMomentum(habits = [], completions = [], windowDays = 7) {
   const normalizedHabits = habits.map((habit) => normalizeHabit(habit))
   const completionMap = getCompletionMap(completions)
@@ -241,6 +249,92 @@ export function buildIdentityInsight(habits = [], completions = [], windowDays =
     })
 
   return ranked[0] || null
+}
+
+export function buildCategoryBreakdown(habits = [], completions = [], windowDays = 7) {
+  const normalizedHabits = habits.map((habit) => normalizeHabit(habit))
+  const completionMap = getCompletionMap(completions)
+  const categories = new Map()
+
+  normalizedHabits.forEach((habit) => {
+    if (!categories.has(habit.category)) {
+      categories.set(habit.category, {
+        category: habit.category,
+        scheduledCount: 0,
+        completedCount: 0,
+        meta: getCategoryMeta(habit.category)
+      })
+    }
+  })
+
+  for (let offset = 0; offset < windowDays; offset++) {
+    const targetDate = shiftDate(new Date(), -offset)
+    const dateKey = getDateKey(targetDate)
+
+    normalizedHabits.forEach((habit) => {
+      if (!isHabitScheduledForDate(habit, targetDate)) return
+
+      const category = categories.get(habit.category)
+      category.scheduledCount++
+
+      if (completionMap.has(`${habit.id}:${dateKey}`)) {
+        category.completedCount++
+      }
+    })
+  }
+
+  return [...categories.values()]
+    .map((category) => ({
+      ...category,
+      score: category.scheduledCount > 0
+        ? Math.round((category.completedCount / category.scheduledCount) * 100)
+        : 0
+    }))
+    .sort((a, b) => b.score - a.score)
+}
+
+export function buildWeeklySchedule(habits = [], completions = []) {
+  const normalizedHabits = habits.map((habit) => normalizeHabit(habit))
+  const completionMap = getCompletionMap(completions)
+  const now = new Date()
+  const mondayOffset = now.getDay() === 0 ? -6 : 1 - now.getDay()
+  const weekStart = shiftDate(now, mondayOffset)
+
+  return DAY_OPTIONS.map((day, dayIndex) => {
+    const targetDate = shiftDate(weekStart, dayIndex)
+    const dateKey = getDateKey(targetDate)
+
+    return {
+      ...day,
+      date: dateKey,
+      habits: normalizedHabits
+        .filter((habit) => habit.days.includes(day.value))
+        .sort((a, b) => (a.time || '').localeCompare(b.time || ''))
+        .map((habit) => ({
+          ...habit,
+          completed: completionMap.has(`${habit.id}:${dateKey}`)
+        }))
+    }
+  })
+}
+
+export function getRelativeDayLabel(dateKey) {
+  const targetDate = getDateFromKey(dateKey)
+  const todayKey = getDateKey()
+
+  if (dateKey === todayKey) return 'Today'
+
+  const tomorrowKey = getDateKey(shiftDate(new Date(), 1))
+  const yesterdayKey = getDateKey(shiftDate(new Date(), -1))
+
+  if (dateKey === tomorrowKey) return 'Tomorrow'
+  if (dateKey === yesterdayKey) return 'Yesterday'
+
+  return targetDate.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric'
+  })
 }
 
 export function getTodayHeadline(totalHabits, pendingCount, allDone) {

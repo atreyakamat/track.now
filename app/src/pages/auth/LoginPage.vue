@@ -1,8 +1,8 @@
 <template>
-  <q-card flat class="login-card">
+  <q-card flat class="auth-card">
     <q-card-section>
-      <div class="text-h6 text-weight-bold q-mb-xs">Welcome back</div>
-      <div class="text-caption text-grey q-mb-lg">Sign in to continue your habit journey</div>
+      <div class="text-h6 text-weight-bold q-mb-xs">Sign in</div>
+      <div class="text-body2 text-grey-7 q-mb-lg">Continue your mission streak with one clean login.</div>
 
       <q-form @submit="handleLogin" class="q-gutter-md">
         <q-input
@@ -10,7 +10,6 @@
           type="email"
           label="Email"
           outlined
-          dense
           :rules="[v => !!v || 'Email is required', v => /.+@.+/.test(v) || 'Invalid email']"
         >
           <template #prepend><q-icon name="email" /></template>
@@ -21,7 +20,6 @@
           :type="showPassword ? 'text' : 'password'"
           label="Password"
           outlined
-          dense
           :rules="[v => !!v || 'Password is required']"
         >
           <template #prepend><q-icon name="lock" /></template>
@@ -32,7 +30,7 @@
 
         <q-btn
           type="submit"
-          label="Sign In"
+          label="Sign in"
           color="primary"
           unelevated
           class="full-width"
@@ -41,12 +39,12 @@
         />
       </q-form>
 
-      <div class="text-center q-mt-md">
-        <span class="text-grey">Don't have an account? </span>
-        <router-link to="/signup" class="text-primary text-weight-bold">Sign Up</router-link>
+      <div class="text-center q-mt-lg">
+        <span class="text-grey-7">Need an account? </span>
+        <router-link to="/signup" class="text-primary text-weight-bold">Create one</router-link>
       </div>
       <div class="text-center q-mt-sm">
-        <router-link to="/pricing" class="text-caption text-grey">View Plans</router-link>
+        <router-link to="/pricing" class="text-caption text-grey-7">See plans</router-link>
       </div>
     </q-card-section>
   </q-card>
@@ -57,10 +55,12 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
 import { useAuthStore } from 'src/stores/auth'
+import { usePreferencesStore } from 'src/stores/preferences'
 
 const router = useRouter()
 const $q = useQuasar()
 const authStore = useAuthStore()
+const preferencesStore = usePreferencesStore()
 
 const email = ref('')
 const password = ref('')
@@ -71,9 +71,9 @@ async function handleLogin() {
   loading.value = true
   try {
     await authStore.login(email.value, password.value)
-    router.push('/today')
-  } catch (e) {
-    $q.notify({ message: e.message || 'Login failed', color: 'negative', icon: 'error' })
+    router.push(`/${preferencesStore.startPage}`)
+  } catch (error) {
+    $q.notify({ message: error.message || 'Login failed', color: 'negative', icon: 'error' })
   } finally {
     loading.value = false
   }
@@ -81,7 +81,7 @@ async function handleLogin() {
 </script>
 
 <style scoped>
-.login-card {
-  border-radius: 16px;
+.auth-card {
+  border-radius: 22px;
 }
 </style>

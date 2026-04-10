@@ -21,14 +21,22 @@ const routes = [
     meta: { requiresAuth: true },
     children: [
       { path: '/onboarding', component: () => import('pages/OnboardingPage.vue') },
+      { path: '/dashboard', component: () => import('pages/DashboardPage.vue'), meta: { requiresAuth: true } },
       { path: '/today', component: () => import('pages/TodayPage.vue'), meta: { requiresAuth: true } },
+      { path: '/planner', component: () => import('pages/PlanningPage.vue'), meta: { requiresAuth: true } },
       { path: '/habits', component: () => import('pages/HabitsPage.vue'), meta: { requiresAuth: true } },
+      { path: '/habit/:id', component: () => import('pages/HabitDetailPage.vue'), meta: { requiresAuth: true } },
       { path: '/add', component: () => import('pages/AddHabitPage.vue'), meta: { requiresAuth: true } },
       { path: '/calendar', component: () => import('pages/CalendarPage.vue'), meta: { requiresAuth: true } },
       { path: '/analytics', component: () => import('pages/AnalyticsPage.vue'), meta: { requiresAuth: true } },
+      { path: '/notifications', component: () => import('pages/NotificationsPage.vue'), meta: { requiresAuth: true } },
+      { path: '/settings', component: () => import('pages/SettingsPage.vue'), meta: { requiresAuth: true } },
       { path: '/friends', component: () => import('pages/FriendsPage.vue'), meta: { requiresAuth: true } },
+      { path: '/user/:username', component: () => import('pages/UserProfilePage.vue'), meta: { requiresAuth: true } },
       { path: '/groups', component: () => import('pages/GroupsPage.vue'), meta: { requiresAuth: true } },
-      { path: '/family', component: () => import('pages/FamilyPage.vue'), meta: { requiresAuth: true } }
+      { path: '/group/:id', component: () => import('pages/GroupDetailPage.vue'), meta: { requiresAuth: true } },
+      { path: '/family', component: () => import('pages/FamilyPage.vue'), meta: { requiresAuth: true } },
+      { path: '/family/:id', component: () => import('pages/FamilyDetailPage.vue'), meta: { requiresAuth: true } }
     ]
   },
   {
