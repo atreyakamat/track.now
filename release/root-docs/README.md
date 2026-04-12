@@ -5,6 +5,7 @@ Track.now is a mission-based habit product with:
 - Browser extension
 - Landing page
 - Product/business documentation
+- Built-in task manager with voice-to-task capture
 
 The app now supports two runtime modes:
 - Demo local mode (no backend required)

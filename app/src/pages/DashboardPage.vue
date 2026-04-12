@@ -72,6 +72,14 @@
             <div class="text-body2 text-grey-7 q-mt-sm">Missions with fewer than seven days left.</div>
           </q-card-section>
         </q-card>
+
+        <q-card flat bordered class="summary-card">
+          <q-card-section>
+            <div class="text-caption text-grey-7">Open tasks</div>
+            <div class="text-h5 text-weight-bold q-mt-xs">{{ openTasksCount }}</div>
+            <div class="text-body2 text-grey-7 q-mt-sm">{{ todayTasksCount }} due today in task manager.</div>
+          </q-card-section>
+        </q-card>
       </div>
 
       <div class="row q-col-gutter-lg">
@@ -154,6 +162,44 @@
         <div class="col-12 col-lg-5">
           <q-card flat bordered class="content-card q-mb-lg">
             <q-card-section>
+              <div class="row items-center q-mb-md">
+                <div class="col">
+                  <div class="text-subtitle1 text-weight-bold">Today task queue</div>
+                  <div class="text-caption text-grey-7">Voice or manual tasks that need action now.</div>
+                </div>
+                <div class="col-auto">
+                  <q-btn flat no-caps icon="task_alt" label="Open tasks" to="/tasks" />
+                </div>
+              </div>
+              <div v-if="todayTaskPreview.length === 0" class="text-body2 text-grey-7">
+                No tasks due today. Add one from the task page or voice capture.
+              </div>
+              <div v-else class="column q-gutter-sm">
+                <div v-for="task in todayTaskPreview" :key="task.id" class="finish-card">
+                  <div class="row items-center">
+                    <div class="col">
+                      <div class="text-body2 text-weight-bold">{{ task.title }}</div>
+                      <div class="text-caption text-grey-7">
+                        {{ task.dueTime ? `Due at ${task.displayTime}` : 'Due today' }}
+                      </div>
+                    </div>
+                    <div class="col-auto">
+                      <q-chip
+                        dense
+                        square
+                        :style="{ background: task.priorityColor + '22', color: task.priorityColor }"
+                      >
+                        {{ task.priorityLabel }}
+                      </q-chip>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </q-card-section>
+          </q-card>
+
+          <q-card flat bordered class="content-card q-mb-lg">
+            <q-card-section>
               <div class="text-subtitle1 text-weight-bold q-mb-md">Closing soon</div>
               <div v-if="nearFinish.length === 0" class="text-body2 text-grey-7">
                 Your mission queue is healthy. Nothing is near the finish line yet.
@@ -198,6 +244,9 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from 'src/stores/auth'
 import { useCompletionsStore } from 'src/stores/completions'
 import { useHabitsStore } from 'src/stores/habits'
+import { useTasksStore } from 'src/stores/tasks'
+import { TASK_PRIORITY_META } from 'src/constants/taskMeta'
+import { toDisplayTime } from 'src/utils/taskModel'
 import {
   buildCategoryBreakdown,
   buildIdentityInsight,
@@ -212,6 +261,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 const habitsStore = useHabitsStore()
 const completionsStore = useCompletionsStore()
+const tasksStore = useTasksStore()
 const loading = ref(true)
 
 const habits = computed(() => habitsStore.habits)
@@ -220,6 +270,14 @@ const completedToday = computed(() => {
   return todayHabits.value.filter((habit) => isHabitCompleteOnDate(habit, completionsStore.completions)).length
 })
 const currentPlan = computed(() => authStore.currentPlan)
+const openTasksCount = computed(() => tasksStore.openTasks.length)
+const todayTasksCount = computed(() => tasksStore.todayTasks.length)
+const todayTaskPreview = computed(() => tasksStore.todayTasks.slice(0, 4).map((task) => ({
+  ...task,
+  displayTime: toDisplayTime(task.dueTime),
+  priorityLabel: TASK_PRIORITY_META[task.priority]?.label || 'Medium',
+  priorityColor: TASK_PRIORITY_META[task.priority]?.color || '#245c68'
+})))
 
 const momentum = computed(() => calculateMomentum(habits.value, completionsStore.completions))
 const identityInsight = computed(() => buildIdentityInsight(habits.value, completionsStore.completions))

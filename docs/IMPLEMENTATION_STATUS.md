@@ -17,6 +17,8 @@ Date: 2026-04-12
 
 - Auth routes and onboarding flow
 - Core routes (`/today`, `/habits`, `/habit/:id`, `/add`, `/calendar`, `/analytics`, `/planner`)
+- Task manager route (`/tasks`) with manual add/edit/delete/complete flows
+- Voice-to-task capture with transcript parsing for date/time/category/priority
 - Social routes (`/friends`, `/groups`, `/group/:id`, `/family`, `/family/:id`)
 - Settings, notifications, pricing, profile pages
 - Mission model (21/45/90), category identity, difficulty
@@ -28,6 +30,9 @@ Date: 2026-04-12
   - Habits with multiple reminder times now require each session to be checked.
   - One tap marks one session (not full-day complete).
   - Daily completion is achieved only when all sessions are done.
+- Task + habit fusion:
+  - Dashboard includes task execution context.
+  - Main navigation includes dedicated tasks surface.
 - Progress logic alignment:
   - Momentum and category consistency now use full-day completion logic.
 - Local runtime mode:

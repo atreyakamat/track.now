@@ -24,12 +24,22 @@ const PRIORITY_KEYWORDS = [
 
 const DAY_NAME_TO_INDEX = {
   sunday: 0,
+  sun: 0,
   monday: 1,
+  mon: 1,
   tuesday: 2,
+  tue: 2,
+  tues: 2,
   wednesday: 3,
+  wed: 3,
   thursday: 4,
+  thu: 4,
+  thur: 4,
+  thurs: 4,
   friday: 5,
-  saturday: 6
+  fri: 5,
+  saturday: 6,
+  sat: 6
 }
 
 const MONTH_NAME_TO_INDEX = {
@@ -89,8 +99,15 @@ function resolvePriority(text) {
 function extractRelativeDate(text, now = new Date()) {
   if (text.includes('tomorrow')) return getDateKey(shiftDate(now, 1))
   if (text.includes('today')) return getDateKey(now)
+  if (/\b(thos|those)\b/.test(text) && text.includes('evening')) {
+    const date = new Date(now)
+    const targetDay = 4
+    let delta = (targetDay - date.getDay() + 7) % 7
+    if (delta === 0) delta = 7
+    return getDateKey(shiftDate(date, delta))
+  }
 
-  const dayNameMatch = text.match(/\b(next\s+)?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/)
+  const dayNameMatch = text.match(/\b(next\s+)?(sunday|sun|monday|mon|tuesday|tues|tue|wednesday|wed|thursday|thurs|thur|thu|friday|fri|saturday|sat)\b/)
   if (dayNameMatch) {
     const targetDay = DAY_NAME_TO_INDEX[dayNameMatch[2]]
     const date = new Date(now)
@@ -107,7 +124,7 @@ function extractRelativeDate(text, now = new Date()) {
 }
 
 function extractExplicitDate(text, now = new Date()) {
-  const slashDateMatch = text.match(/\b(\d{1,2})[\/-](\d{1,2})(?:[\/-](\d{2,4}))?\b/)
+  const slashDateMatch = text.match(/\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?\b/)
   if (slashDateMatch) {
     const month = Number(slashDateMatch[1])
     const day = Number(slashDateMatch[2])
@@ -160,8 +177,8 @@ function stripIntentNoise(originalText) {
   return originalText
     .replace(/\b(remind me to|please|schedule|add task to|create task to|i need to|i want to|todo|to do)\b/gi, '')
     .replace(/\b(today|tomorrow|tonight|this evening|this morning|afternoon)\b/gi, '')
-    .replace(/\b(next\s+)?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/gi, '')
-    .replace(/\b\d{1,2}[\/-]\d{1,2}(?:[\/-]\d{2,4})?\b/g, '')
+    .replace(/\b(next\s+)?(sunday|sun|monday|mon|tuesday|tues|tue|wednesday|wed|thursday|thurs|thur|thu|friday|fri|saturday|sat)\b/gi, '')
+    .replace(/\b\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?\b/g, '')
     .replace(
       /\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}(?:\s*,?\s*\d{4})?\b/gi,
       ''
