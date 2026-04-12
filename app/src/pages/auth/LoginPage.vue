@@ -37,6 +37,17 @@
           size="lg"
           :loading="loading"
         />
+
+        <q-btn
+          outline
+          color="grey-8"
+          label="Continue with Google"
+          icon="img:https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg"
+          class="full-width"
+          size="lg"
+          :loading="loading"
+          @click="handleGoogleLogin"
+        />
       </q-form>
 
       <div class="text-center q-mt-lg">
@@ -74,6 +85,18 @@ async function handleLogin() {
     router.push(`/${preferencesStore.startPage}`)
   } catch (error) {
     $q.notify({ message: error.message || 'Login failed', color: 'negative', icon: 'error' })
+  } finally {
+    loading.value = false
+  }
+}
+
+async function handleGoogleLogin() {
+  loading.value = true
+  try {
+    await authStore.loginWithGoogle()
+    router.push(`/${preferencesStore.startPage}`)
+  } catch (error) {
+    $q.notify({ message: error.message || 'Google Login failed', color: 'negative', icon: 'error' })
   } finally {
     loading.value = false
   }

@@ -1,0 +1,59 @@
+name: Android Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: 18
+        cache: 'npm'
+        cache-dependency-path: app/package-lock.json
+
+    - name: Install dependencies
+      run: |
+        cd app
+        npm install
+
+    - name: Build Quasar App
+      run: |
+        cd app
+        npx quasar build
+
+    - name: Setup Java
+      uses: actions/setup-java@v3
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v2
+
+    - name: Build Android (APK)
+      run: |
+        cd app
+        # If capacitor is initialized, we can sync and build
+        if [ -d "src-capacitor" ]; then
+          npx quasar build -m capacitor -t android
+          cd src-capacitor/android
+          ./gradlew assembleRelease
+        else
+          echo "Capacitor not initialized yet. Skipping Android native build."
+        fi
+
+    - name: Upload APK
+      if: success() && hashFiles('app/src-capacitor/android/app/build/outputs/apk/release/*.apk') != ''
+      uses: actions/upload-artifact@v3
+      with:
+        name: tracknow-android-release
+        path: app/src-capacitor/android/app/build/outputs/apk/release/*.apk

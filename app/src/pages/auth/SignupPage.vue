@@ -46,6 +46,17 @@
           size="lg"
           :loading="loading"
         />
+
+        <q-btn
+          outline
+          color="grey-8"
+          label="Continue with Google"
+          icon="img:https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg"
+          class="full-width"
+          size="lg"
+          :loading="loading"
+          @click="handleGoogleSignup"
+        />
       </q-form>
 
       <div class="text-center q-mt-lg">
@@ -83,6 +94,18 @@ async function handleSignup() {
     loading.value = false
   }
 }
+
+async function handleGoogleSignup() {
+  loading.value = true
+  try {
+    await authStore.loginWithGoogle()
+    router.push('/onboarding')
+  } catch (error) {
+    $q.notify({ message: error.message || 'Google Signup failed', color: 'negative', icon: 'error' })
+  } finally {
+    loading.value = false
+  }
+}
 </script>
 
 <style scoped>
@@ -90,3 +113,4 @@ async function handleSignup() {
   border-radius: 22px;
 }
 </style>
+

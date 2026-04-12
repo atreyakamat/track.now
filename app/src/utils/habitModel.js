@@ -134,9 +134,98 @@ export function getCompletionDatesForHabit(habitId, completions = []) {
   )]
 }
 
+export function getHabitSessionIds(habit) {
+  return normalizeReminderTimes(habit?.reminderTimes, habit?.time)
+}
+
+function buildCompletionLookup(completions = []) {
+  const lookup = new Map()
+
+  completions.forEach((completion) => {
+    if (!completion?.habitId || !completion?.date || completion.completed === false) return
+
+    const key = `${completion.habitId}:${completion.date}`
+    const existing = lookup.get(key) || []
+    existing.push(completion)
+    lookup.set(key, existing)
+  })
+
+  return lookup
+}
+
+function resolveCompletedSessionIds(sessionIds, dateCompletions) {
+  if (!Array.isArray(sessionIds) || sessionIds.length === 0) return []
+
+  const explicitSessionIds = new Set(
+    dateCompletions
+      .map((completion) => completion.sessionId)
+      .filter(Boolean)
+  )
+
+  const explicitInOrder = sessionIds.filter((sessionId) => explicitSessionIds.has(sessionId))
+  const legacyCount = dateCompletions.filter((completion) => !completion.sessionId).length
+  const targetCompletedCount = Math.min(sessionIds.length, explicitInOrder.length + legacyCount)
+  const completedSessionIds = [...explicitInOrder]
+
+  if (completedSessionIds.length >= targetCompletedCount) {
+    return completedSessionIds
+  }
+
+  for (const sessionId of sessionIds) {
+    if (completedSessionIds.includes(sessionId)) continue
+    completedSessionIds.push(sessionId)
+    if (completedSessionIds.length >= targetCompletedCount) break
+  }
+
+  return completedSessionIds
+}
+
+function getDateCompletions(completionLookup, habitId, dateKey) {
+  return completionLookup.get(`${habitId}:${dateKey}`) || []
+}
+
+export function getHabitSessionProgressForDate(
+  habit,
+  completions = [],
+  dateKey = getDateKey(),
+  completionLookup = null
+) {
+  const normalizedHabit = normalizeHabit(habit)
+  const sessionIds = getHabitSessionIds(normalizedHabit)
+  const lookup = completionLookup || buildCompletionLookup(completions)
+  const dateCompletions = getDateCompletions(lookup, normalizedHabit.id, dateKey)
+  const completedSessionIds = resolveCompletedSessionIds(sessionIds, dateCompletions)
+  const completedSessionSet = new Set(completedSessionIds)
+  const remainingSessionIds = sessionIds.filter((sessionId) => !completedSessionSet.has(sessionId))
+  const nextSessionId = remainingSessionIds[0] || null
+
+  return {
+    sessionIds,
+    completedSessionIds,
+    completedSessionSet,
+    totalSessions: sessionIds.length,
+    completedSessions: completedSessionIds.length,
+    remainingSessions: remainingSessionIds.length,
+    remainingSessionIds,
+    nextSessionId,
+    completed: remainingSessionIds.length === 0
+  }
+}
+
+export function isHabitCompleteOnDate(
+  habit,
+  completions = [],
+  dateKey = getDateKey(),
+  completionLookup = null
+) {
+  return getHabitSessionProgressForDate(habit, completions, dateKey, completionLookup).completed
+}
+
 export function getMissionProgress(habit, completions = []) {
   const normalizedHabit = normalizeHabit(habit)
+  const completionLookup = buildCompletionLookup(completions)
   const completionDates = getCompletionDatesForHabit(normalizedHabit.id, completions)
+    .filter((dateKey) => isHabitCompleteOnDate(normalizedHabit, completions, dateKey, completionLookup))
   const completedSessions = completionDates.length
   const missionDone = completedSessions >= normalizedHabit.durationDays
   const displayDay = missionDone
@@ -175,7 +264,7 @@ export function getCompletionCountForDate(dateKey, completions = []) {
 
 export function calculateMomentum(habits = [], completions = [], windowDays = 7) {
   const normalizedHabits = habits.map((habit) => normalizeHabit(habit))
-  const completionMap = getCompletionMap(completions)
+  const completionLookup = buildCompletionLookup(completions)
   let scheduledCount = 0
   let completedCount = 0
 
@@ -187,7 +276,7 @@ export function calculateMomentum(habits = [], completions = [], windowDays = 7)
       if (!isHabitScheduledForDate(habit, targetDate)) return
       scheduledCount++
 
-      if (completionMap.has(`${habit.id}:${dateKey}`)) {
+      if (isHabitCompleteOnDate(habit, completions, dateKey, completionLookup)) {
         completedCount++
       }
     })
@@ -202,7 +291,7 @@ export function calculateMomentum(habits = [], completions = [], windowDays = 7)
 
 export function buildIdentityInsight(habits = [], completions = [], windowDays = 7) {
   const normalizedHabits = habits.map((habit) => normalizeHabit(habit))
-  const completionMap = getCompletionMap(completions)
+  const completionLookup = buildCompletionLookup(completions)
   const categorySummary = new Map()
 
   normalizedHabits.forEach((habit) => {
@@ -228,7 +317,7 @@ export function buildIdentityInsight(habits = [], completions = [], windowDays =
       const summary = categorySummary.get(habit.category)
       summary.scheduledCount++
 
-      if (completionMap.has(`${habit.id}:${dateKey}`)) {
+      if (isHabitCompleteOnDate(habit, completions, dateKey, completionLookup)) {
         summary.completedCount++
       }
     })
@@ -253,7 +342,7 @@ export function buildIdentityInsight(habits = [], completions = [], windowDays =
 
 export function buildCategoryBreakdown(habits = [], completions = [], windowDays = 7) {
   const normalizedHabits = habits.map((habit) => normalizeHabit(habit))
-  const completionMap = getCompletionMap(completions)
+  const completionLookup = buildCompletionLookup(completions)
   const categories = new Map()
 
   normalizedHabits.forEach((habit) => {
@@ -277,7 +366,7 @@ export function buildCategoryBreakdown(habits = [], completions = [], windowDays
       const category = categories.get(habit.category)
       category.scheduledCount++
 
-      if (completionMap.has(`${habit.id}:${dateKey}`)) {
+      if (isHabitCompleteOnDate(habit, completions, dateKey, completionLookup)) {
         category.completedCount++
       }
     })
@@ -295,7 +384,7 @@ export function buildCategoryBreakdown(habits = [], completions = [], windowDays
 
 export function buildWeeklySchedule(habits = [], completions = []) {
   const normalizedHabits = habits.map((habit) => normalizeHabit(habit))
-  const completionMap = getCompletionMap(completions)
+  const completionLookup = buildCompletionLookup(completions)
   const now = new Date()
   const mondayOffset = now.getDay() === 0 ? -6 : 1 - now.getDay()
   const weekStart = shiftDate(now, mondayOffset)
@@ -312,7 +401,7 @@ export function buildWeeklySchedule(habits = [], completions = []) {
         .sort((a, b) => (a.time || '').localeCompare(b.time || ''))
         .map((habit) => ({
           ...habit,
-          completed: completionMap.has(`${habit.id}:${dateKey}`)
+          completed: isHabitCompleteOnDate(habit, completions, dateKey, completionLookup)
         }))
     }
   })
