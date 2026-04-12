@@ -106,6 +106,7 @@ import { useHabitsStore } from 'src/stores/habits'
 import { useCompletionsStore } from 'src/stores/completions'
 import { computed, onMounted, onUnmounted, watch } from 'vue'
 import NotificationBell from 'src/components/NotificationBell.vue'
+import VoiceTaskInput from 'src/components/VoiceTaskInput.vue'
 
 const $q = useQuasar()
 const route = useRoute()
