@@ -69,7 +69,7 @@
           <q-card-section>
             <div class="text-caption text-grey-7">Finishing soon</div>
             <div class="text-h5 text-weight-bold q-mt-xs">{{ nearFinish.length }}</div>
-            <div class="text-body2 text-grey-7 q-mt-sm">Missions with fewer than seven sessions left.</div>
+            <div class="text-body2 text-grey-7 q-mt-sm">Missions with fewer than seven days left.</div>
           </q-card-section>
         </q-card>
       </div>
@@ -164,7 +164,7 @@
                     <div class="text-h6 q-mr-sm">{{ habit.emoji }}</div>
                     <div class="col">
                       <div class="text-body2 text-weight-bold">{{ habit.name }}</div>
-                      <div class="text-caption text-grey-7">{{ habit.remainingSessions }} sessions left</div>
+                      <div class="text-caption text-grey-7">{{ habit.remainingSessions }} days left</div>
                     </div>
                   </div>
                   <q-linear-progress :value="habit.progress" rounded size="8px" :color="habit.categoryMeta.accent" track-color="grey-3" />
@@ -203,6 +203,7 @@ import {
   buildIdentityInsight,
   calculateMomentum,
   getCategoryMeta,
+  isHabitCompleteOnDate,
   getMissionProgress,
   getReminderSummary
 } from 'src/utils/habitModel'
@@ -215,8 +216,9 @@ const loading = ref(true)
 
 const habits = computed(() => habitsStore.habits)
 const todayHabits = computed(() => habitsStore.todayHabits)
-const completedIds = computed(() => completionsStore.completedHabitIds)
-const completedToday = computed(() => todayHabits.value.filter((habit) => completedIds.value.has(habit.id)).length)
+const completedToday = computed(() => {
+  return todayHabits.value.filter((habit) => isHabitCompleteOnDate(habit, completionsStore.completions)).length
+})
 const currentPlan = computed(() => authStore.currentPlan)
 
 const momentum = computed(() => calculateMomentum(habits.value, completionsStore.completions))
@@ -227,7 +229,7 @@ const todayFocus = computed(() => todayHabits.value.map((habit) => {
   const missionProgress = getMissionProgress(habit, completionsStore.completions)
   return {
     ...habit,
-    completed: completedIds.value.has(habit.id),
+    completed: isHabitCompleteOnDate(habit, completionsStore.completions),
     missionProgress,
     reminderSummary: getReminderSummary(habit),
     categoryMeta: getCategoryMeta(habit.category)

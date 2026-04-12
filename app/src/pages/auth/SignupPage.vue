@@ -3,6 +3,9 @@
     <q-card-section>
       <div class="text-h6 text-weight-bold q-mb-xs">Create your account</div>
       <div class="text-body2 text-grey-7 q-mb-lg">Start with a simple habit and let the system grow around it.</div>
+      <q-banner v-if="demoMode" dense rounded class="q-mb-md bg-blue-1 text-blue-9">
+        Demo local mode is active. This account is stored only on this device.
+      </q-banner>
 
       <q-form @submit="handleSignup" class="q-gutter-md">
         <q-input
@@ -72,6 +75,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
 import { useAuthStore } from 'src/stores/auth'
+import { isDemoMode } from 'src/boot/firebase'
 
 const router = useRouter()
 const $q = useQuasar()
@@ -82,6 +86,7 @@ const email = ref('')
 const password = ref('')
 const showPassword = ref(false)
 const loading = ref(false)
+const demoMode = isDemoMode
 
 async function handleSignup() {
   loading.value = true

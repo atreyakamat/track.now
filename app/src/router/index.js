@@ -41,7 +41,7 @@ const routes = [
   },
   {
     path: '/:catchAll(.*)*',
-    component: () => import('pages/TodayPage.vue')
+    redirect: '/today'
   }
 ]
 

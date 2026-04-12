@@ -31,7 +31,8 @@ function buildDemoAuthUser(profile) {
 
 function sanitizeDemoProfile(profile) {
   if (!profile) return null
-  const { password, ...rest } = profile
+  const rest = { ...profile }
+  delete rest.password
   return rest
 }
 

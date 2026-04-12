@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Track.now | Focused growth, without noise</title>
+  <meta name="description" content="Track.now is a mission-based habit system for today-first discipline, calmer reminders, and long-term consistency." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f3f5f6;
+      --surface: rgba(255, 255, 255, 0.86);
+      --surface-strong: #ffffff;
+      --text: #14202a;
+      --muted: #5b6975;
+      --border: rgba(55, 83, 102, 0.12);
+      --primary: #245c68;
+      --primary-soft: rgba(36, 92, 104, 0.1);
+      --accent: #d17a3c;
+      --accent-soft: rgba(209, 122, 60, 0.14);
+      --radius-xl: 32px;
+      --radius-lg: 24px;
+      --radius-md: 18px;
+      --shadow: 0 28px 60px rgba(20, 32, 42, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: 'IBM Plex Sans', sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(36, 92, 104, 0.16), transparent 32%),
+        radial-gradient(circle at top right, rgba(209, 122, 60, 0.14), transparent 24%),
+        var(--bg);
+      color: var(--text);
+    }
+
+    a { color: inherit; text-decoration: none; }
+    img { max-width: 100%; display: block; }
+
+    .shell {
+      width: min(1160px, calc(100% - 32px));
+      margin: 0 auto;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      backdrop-filter: blur(16px);
+      color: var(--muted);
+      font-size: 0.92rem;
+      font-weight: 600;
+    }
+
+    .site-nav {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      backdrop-filter: blur(18px);
+      background: rgba(243, 245, 246, 0.82);
+      border-bottom: 1px solid rgba(55, 83, 102, 0.08);
+    }
+
+    .site-nav .shell {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 0;
+      gap: 20px;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      font-family: 'Manrope', sans-serif;
+      font-weight: 800;
+    }
+
+    .brand-mark {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      box-shadow: 0 0 0 8px rgba(36, 92, 104, 0.08);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 22px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border-radius: 14px;
+      padding: 13px 18px;
+      font-weight: 700;
+      border: 1px solid transparent;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    }
+
+    .btn:hover { transform: translateY(-1px); }
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 14px 28px rgba(36, 92, 104, 0.2);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.86);
+      color: var(--text);
+      border-color: var(--border);
+    }
+
+    .hero {
+      padding: 74px 0 48px;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(320px, 430px);
+      gap: 32px;
+      align-items: center;
+    }
+
+    .hero-copy h1 {
+      margin: 22px 0 18px;
+      font-family: 'Manrope', sans-serif;
+      font-size: clamp(3rem, 7vw, 5.7rem);
+      line-height: 0.95;
+      letter-spacing: -0.04em;
+    }
+
+    .hero-copy p {
+      max-width: 610px;
+      margin: 0 0 28px;
+      color: var(--muted);
+      font-size: 1.08rem;
+      line-height: 1.75;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+    }
+
+    .hero-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    .hero-panel,
+    .card,
+    .pricing-card,
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    .hero-panel {
+      padding: 22px;
+    }
+
+    .app-shot {
+      padding: 22px;
+      border-radius: 28px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.95), rgba(248,250,251,0.98)),
+        var(--surface-strong);
+      border: 1px solid rgba(55, 83, 102, 0.12);
+    }
+
+    .shot-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+
+    .ring {
+      width: 88px;
+      height: 88px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at center, #fff 52%, transparent 53%),
+        conic-gradient(var(--primary) 0deg 248deg, rgba(36, 92, 104, 0.16) 248deg 360deg);
+      color: var(--text);
+      font-family: 'Manrope', sans-serif;
+      font-weight: 800;
+      font-size: 1.2rem;
+    }
+
+    .shot-stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .habit-row {
+      display: grid;
+      grid-template-columns: 48px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 14px;
+      border-radius: 20px;
+      background: #fbfcfd;
+      border: 1px solid rgba(55, 83, 102, 0.1);
+    }
+
+    .habit-emoji {
+      width: 48px;
+      height: 48px;
+      border-radius: 16px;
+      display: grid;
+      place-items: center;
+      font-size: 1.5rem;
+      background: rgba(36, 92, 104, 0.08);
+    }
+
+    .habit-meta strong {
+      display: block;
+      font-size: 0.98rem;
+    }
+
+    .habit-meta span,
+    .tiny {
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(55, 83, 102, 0.08);
+      font-size: 0.77rem;
+      color: #334a59;
+      font-weight: 700;
+    }
+
+    section {
+      padding: 30px 0 88px;
+    }
+
+    .section-head {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 28px;
+    }
+
+    .section-head h2 {
+      margin: 0;
+      font-family: 'Manrope', sans-serif;
+      font-size: clamp(2rem, 4vw, 3.2rem);
+      line-height: 1;
+      letter-spacing: -0.03em;
+    }
+
+    .section-head p {
+      margin: 0;
+      max-width: 640px;
+      color: var(--muted);
+      line-height: 1.75;
+    }
+
+    .feature-grid,
+    .ecosystem-grid,
+    .pricing-grid,
+    .footer-grid {
+      display: grid;
+      gap: 18px;
+    }
+
+    .feature-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .feature-card {
+      padding: 24px;
+    }
+
+    .feature-card h3,
+    .card h3,
+    .pricing-card h3 {
+      margin: 12px 0 8px;
+      font-family: 'Manrope', sans-serif;
+      font-size: 1.24rem;
+    }
+
+    .feature-card p,
+    .card p,
+    .pricing-card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .icon-badge {
+      width: 52px;
+      height: 52px;
+      border-radius: 18px;
+      display: grid;
+      place-items: center;
+      font-size: 1.4rem;
+      background: var(--primary-soft);
+    }
+
+    .card {
+      padding: 24px;
+    }
+
+    .planner-preview {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: 1.2fr 1fr;
+    }
+
+    .planner-board {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .planner-day {
+      padding: 14px;
+      border-radius: 20px;
+      background: rgba(255,255,255,0.72);
+      border: 1px solid rgba(55, 83, 102, 0.1);
+    }
+
+    .planner-day strong {
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    .mission-note {
+      padding: 16px;
+      border-radius: 20px;
+      background: rgba(36, 92, 104, 0.06);
+      border: 1px solid rgba(36, 92, 104, 0.14);
+      margin-bottom: 12px;
+    }
+
+    .ecosystem-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .pricing-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .pricing-card {
+      padding: 26px;
+    }
+
+    .pricing-card.featured {
+      border-color: rgba(36, 92, 104, 0.35);
+      transform: translateY(-6px);
+    }
+
+    .price {
+      margin: 8px 0;
+      font-family: 'Manrope', sans-serif;
+      font-size: 2.8rem;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+    }
+
+    .price span {
+      font-size: 1rem;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .pricing-card ul {
+      list-style: none;
+      padding: 0;
+      margin: 18px 0 24px;
+      display: grid;
+      gap: 10px;
+      color: var(--muted);
+    }
+
+    .pricing-card li::before {
+      content: '✓';
+      color: var(--primary);
+      margin-right: 10px;
+      font-weight: 800;
+    }
+
+    .footer {
+      padding: 0 0 40px;
+    }
+
+    .footer-grid {
+      grid-template-columns: 1.5fr repeat(3, minmax(0, 1fr));
+      padding: 28px;
+      background: rgba(255,255,255,0.72);
+      border: 1px solid var(--border);
+      border-radius: 28px;
+    }
+
+    .footer h4 {
+      margin: 0 0 10px;
+      font-family: 'Manrope', sans-serif;
+    }
+
+    .footer p,
+    .footer li,
+    .footer a {
+      color: var(--muted);
+      line-height: 1.8;
+      font-size: 0.95rem;
+    }
+
+    .footer ul {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    @media (max-width: 980px) {
+      .nav-links { display: none; }
+      .hero-grid,
+      .planner-preview,
+      .feature-grid,
+      .ecosystem-grid,
+      .pricing-grid,
+      .footer-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .hero {
+        padding-top: 48px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .site-nav .shell,
+      .hero-copy,
+      .hero-panel,
+      .feature-card,
+      .card,
+      .pricing-card,
+      .footer-grid {
+        width: 100%;
+      }
+
+      .nav-actions .btn-secondary {
+        display: none;
+      }
+
+      .hero-copy h1 {
+        font-size: 2.7rem;
+      }
+
+      .planner-board {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <nav class="site-nav">
+    <div class="shell">
+      <a class="brand" href="#top">
+        <span class="brand-mark"></span>
+        <span>Track.now</span>
+      </a>
+      <div class="nav-links">
+        <a href="#product">Product</a>
+        <a href="#planner">Planner</a>
+        <a href="#platforms">Platforms</a>
+        <a href="#pricing">Pricing</a>
+      </div>
+      <div class="nav-actions">
+        <a class="btn btn-secondary" href="../app/#/login">Log in</a>
+        <a class="btn btn-primary" href="../app/#/signup">Start free</a>
+      </div>
+    </div>
+  </nav>
+
+  <main id="top">
+    <section class="hero">
+      <div class="shell hero-grid">
+        <div class="hero-copy">
+          <div class="pill">What should I do right now?</div>
+          <h1>Build better habits with clearer missions.</h1>
+          <p>
+            Track.now is a unified habit-building ecosystem built around one calm principle: show the next meaningful action,
+            then get out of the way. Habits become 21, 45, or 90-day missions with gentle reminders, identity feedback, and just enough accountability.
+          </p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="../app/#/signup">Create your first mission</a>
+            <a class="btn btn-secondary" href="#planner">See the weekly planner</a>
+          </div>
+          <div class="hero-meta">
+            <span class="pill">Mission-based durations</span>
+            <span class="pill">WhatsApp and browser reminders</span>
+            <span class="pill">Family and group accountability</span>
+          </div>
+        </div>
+
+        <div class="hero-panel">
+          <div class="app-shot">
+            <div class="shot-top">
+              <div>
+                <div class="tiny">Friday, April 10</div>
+                <strong style="font-family: 'Manrope', sans-serif; font-size: 1.25rem;">Good morning, Mira</strong>
+              </div>
+              <div class="ring">69%</div>
+            </div>
+            <div class="shot-stack">
+              <div class="habit-row">
+                <div class="habit-emoji">📚</div>
+                <div class="habit-meta">
+                  <strong>Read 10 pages</strong>
+                  <span>8:00 PM · Learning · Day 14 / 21</span>
+                </div>
+                <span class="chip">Next</span>
+              </div>
+              <div class="habit-row">
+                <div class="habit-emoji" style="background: rgba(209, 122, 60, 0.14);">🧘</div>
+                <div class="habit-meta">
+                  <strong>Evening reset</strong>
+                  <span>7:00 PM · Mindfulness · Completed</span>
+                </div>
+                <span class="chip" style="background: rgba(36, 92, 104, 0.12);">Done</span>
+              </div>
+              <div class="habit-row">
+                <div class="habit-emoji">💧</div>
+                <div class="habit-meta">
+                  <strong>Hydration check</strong>
+                  <span>3 reminders · Nutrition · Day 7 / 45</span>
+                </div>
+                <span class="chip">Upcoming</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="product">
+      <div class="shell">
+        <div class="section-head">
+          <div class="pill">Product core</div>
+          <h2>Designed for discipline that feels sustainable.</h2>
+          <p>
+            Traditional habit tools overemphasize dashboards and streak pressure. Track.now keeps the user close to action through mission-based progress, momentum scoring, grace-friendly feedback, and a quieter visual system.
+          </p>
+        </div>
+        <div class="feature-grid">
+          <article class="feature-card">
+            <div class="icon-badge">🎯</div>
+            <h3>Mission durations</h3>
+            <p>Turn habits into 21, 45, or 90-day arcs so users feel progress and completion, not infinite maintenance.</p>
+          </article>
+          <article class="feature-card">
+            <div class="icon-badge">↗</div>
+            <h3>Momentum over shame</h3>
+            <p>A 7-day momentum score keeps the experience encouraging even when a user misses a day.</p>
+          </article>
+          <article class="feature-card">
+            <div class="icon-badge">🫶</div>
+            <h3>Identity feedback</h3>
+            <p>Categories like Learning or Fitness connect habits to who a user is becoming, not just what they checked off.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="planner">
+      <div class="shell">
+        <div class="section-head">
+          <div class="pill">Planning page</div>
+          <h2>A weekly map that stays readable on desktop and mobile.</h2>
+          <p>
+            The planner gives users a one-screen view of the week ahead, including scheduled sessions, finish lines, and which missions are closing soon.
+          </p>
+        </div>
+        <div class="planner-preview">
+          <article class="card">
+            <div class="mission-note">
+              <strong>Weekly intention</strong>
+              <p>Protect the evening learning block, keep hydration frictionless, and finish the 21-day reading mission.</p>
+            </div>
+            <div class="planner-board">
+              <div class="planner-day">
+                <strong>Mon</strong>
+                <span class="chip">7:00 PM Reset</span>
+              </div>
+              <div class="planner-day">
+                <strong>Tue</strong>
+                <span class="chip">8:00 PM Reading</span>
+              </div>
+              <div class="planner-day">
+                <strong>Wed</strong>
+                <span class="chip">6:30 AM Walk</span>
+              </div>
+            </div>
+          </article>
+          <article class="card">
+            <h3>Why the planner matters</h3>
+            <p>
+              People abandon habit systems when they feel vague. The planning page helps them front-load clarity so the Today screen can stay calm and narrow.
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="platforms">
+      <div class="shell">
+        <div class="section-head">
+          <div class="pill">Ecosystem</div>
+          <h2>One product, several practical surfaces.</h2>
+          <p>
+            Track.now is built as a unified system across web, Android via Capacitor, the browser extension, WhatsApp touchpoints, and the conversion-focused landing experience.
+          </p>
+        </div>
+        <div class="ecosystem-grid">
+          <article class="card">
+            <h3>Web app</h3>
+            <p>Daily tracking, planner, analytics, settings, and social layers in a calm Quasar experience.</p>
+          </article>
+          <article class="card">
+            <h3>Browser extension</h3>
+            <p>Quick habit check-ins and reminder visibility from any tab without opening a full productivity app.</p>
+          </article>
+          <article class="card">
+            <h3>Bookmark Action</h3>
+            <p>Drag this <a href="javascript:(function(){window.open('https://tracknow.app/#/today','_blank')})();" style="color: var(--primary); font-weight: bold; text-decoration: underline;">Track.now</a> button to your bookmarks bar for 1-click access to your daily missions.</p>
+          </article>
+          <article class="card">
+            <h3>WhatsApp reminders</h3>
+            <p>Optional nudges and summaries inside a channel users already check every day.</p>
+          </article>
+          <article class="card">
+            <h3>Family and groups</h3>
+            <p>Controlled accountability for households, clubs, or friend circles who want consistency without distraction.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="pricing">
+      <div class="shell">
+        <div class="section-head">
+          <div class="pill">Pricing</div>
+          <h2>A freemium model with a clear upgrade path.</h2>
+          <p>
+            Start with the free version, move to Pro for analytics and reminder depth, or choose Family for shared routines across multiple people.
+          </p>
+        </div>
+        <div class="pricing-grid">
+          <article class="pricing-card">
+            <span class="chip">Free</span>
+            <div class="price">$0 <span>/mo</span></div>
+            <p>Best for getting the Today habit loop right.</p>
+            <ul>
+              <li>Up to 5 habits</li>
+              <li>Mission-based tracking</li>
+              <li>Basic calendar history</li>
+            </ul>
+            <a class="btn btn-secondary" href="../app/#/signup">Start free</a>
+          </article>
+          <article class="pricing-card featured">
+            <span class="chip" style="background: var(--primary-soft); color: var(--primary);">Most popular</span>
+            <div class="price">$4.99 <span>/mo</span></div>
+            <p>Best for serious habit builders who want more insight and reminder coverage.</p>
+            <ul>
+              <li>Unlimited habits</li>
+              <li>Advanced analytics</li>
+              <li>WhatsApp summaries</li>
+              <li>Friends and groups</li>
+            </ul>
+            <a class="btn btn-primary" href="../app/#/signup">Go Pro</a>
+          </article>
+          <article class="pricing-card">
+            <span class="chip" style="background: var(--accent-soft); color: #9b5a29;">Family</span>
+            <div class="price">$9.99 <span>/mo</span></div>
+            <p>Best for homes building supportive routines together.</p>
+            <ul>
+              <li>Everything in Pro</li>
+              <li>Up to 6 members</li>
+              <li>Family rituals</li>
+              <li>Priority support</li>
+            </ul>
+            <a class="btn btn-secondary" href="../app/#/signup">Start Family</a>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="shell">
+        <div class="card" style="padding: 34px; text-align: center;">
+          <div class="pill" style="margin-bottom: 18px;">Ready to launch your first mission?</div>
+          <h2 style="margin: 0 0 12px; font-family: 'Manrope', sans-serif; font-size: clamp(2.2rem, 5vw, 3.8rem);">Consistency gets easier when the product feels quieter.</h2>
+          <p style="max-width: 700px; margin: 0 auto 24px; color: var(--muted); line-height: 1.75;">
+            Track.now helps users focus on what matters now, while still giving them structure, accountability, and a real sense of progress.
+          </p>
+          <div class="hero-actions" style="justify-content: center;">
+            <a class="btn btn-primary" href="../app/#/signup">Open the app</a>
+            <a class="btn btn-secondary" href="../app/#/pricing">View plans</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="shell footer-grid">
+      <div>
+        <div class="brand" style="margin-bottom: 12px;">
+          <span class="brand-mark"></span>
+          <span>Track.now</span>
+        </div>
+        <p>A daily companion for focused people who want better habits without louder software.</p>
+      </div>
+      <div>
+        <h4>Product</h4>
+        <ul>
+          <li><a href="#product">Features</a></li>
+          <li><a href="#planner">Planner</a></li>
+          <li><a href="#pricing">Pricing</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>App</h4>
+        <ul>
+          <li><a href="../app/#/signup">Sign up</a></li>
+          <li><a href="../app/#/login">Log in</a></li>
+          <li><a href="../app/#/today">Today view</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Launch</h4>
+        <ul>
+          <li>Firebase backend</li>
+          <li>Browser extension</li>
+          <li>WhatsApp reminders</li>
+        </ul>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

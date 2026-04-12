@@ -63,7 +63,7 @@
                 <div class="text-body2 text-grey-7 q-mt-sm">
                   {{ missionProgress.missionDone
                     ? 'This mission has reached its finish line. You can now archive it or replace it with a new one.'
-                    : `${missionProgress.remainingSessions} sessions remain in this arc.` }}
+                    : `${missionProgress.remainingSessions} days remain in this arc.` }}
                 </div>
                 <div class="row q-gutter-sm q-mt-md">
                   <q-chip dense square class="meta-chip">{{ durationMeta.label }}</q-chip>
@@ -211,7 +211,7 @@ function shareHabit() {
   if (!habit.value) return
 
   whatsappService.shareAchievement(
-    `I'm building "${habit.value.name}" on Track.now. ${missionProgress.value.completedSessions}/${missionProgress.value.durationDays} sessions complete so far.`
+    `I'm building "${habit.value.name}" on Track.now. ${missionProgress.value.completedSessions}/${missionProgress.value.durationDays} mission days complete so far.`
   )
 }
 </script>

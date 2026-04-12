@@ -103,6 +103,7 @@ import { notificationService } from 'src/services/notificationService'
 import { useAuthStore } from 'src/stores/auth'
 import { usePreferencesStore } from 'src/stores/preferences'
 import { useHabitsStore } from 'src/stores/habits'
+import { useCompletionsStore } from 'src/stores/completions'
 import { computed, onMounted, onUnmounted, watch } from 'vue'
 import NotificationBell from 'src/components/NotificationBell.vue'
 
@@ -112,22 +113,41 @@ const router = useRouter()
 const authStore = useAuthStore()
 const preferencesStore = usePreferencesStore()
 const habitsStore = useHabitsStore()
+const completionsStore = useCompletionsStore()
 const reminderOptions = computed(() => ({
   preReminder: preferencesStore.preferences.reminderPreview,
   exactReminder: preferencesStore.preferences.exactReminders,
-  requestPermission: false
+  requestPermission: false,
+  completedSessionIdsByHabit: completionsStore.todayCompletions.reduce((map, completion) => {
+    if (!completion?.habitId || !completion?.sessionId) return map
+    if (!map[completion.habitId]) {
+      map[completion.habitId] = []
+    }
+    map[completion.habitId].push(completion.sessionId)
+    return map
+  }, {})
 }))
 const reminderSignature = computed(() => habitsStore.todayHabits
   .map((habit) => `${habit.id}:${(habit.reminderTimes || [habit.time]).join(',')}`)
   .join('|'))
+const completionSignature = computed(() => completionsStore.todayCompletions
+  .map((completion) => `${completion.habitId}:${completion.sessionId || 'legacy'}`)
+  .sort()
+  .join('|'))
 
 onMounted(async () => {
   habitsStore.subscribe()
+  await completionsStore.fetchToday()
   await authStore.loadProfile()
 })
 onUnmounted(() => habitsStore.unsubscribeAll())
 
-watch(() => [reminderSignature.value, reminderOptions.value.preReminder, reminderOptions.value.exactReminder], async () => {
+watch(() => [
+  reminderSignature.value,
+  completionSignature.value,
+  reminderOptions.value.preReminder,
+  reminderOptions.value.exactReminder
+], async () => {
   const todayHabits = habitsStore.todayHabits
   const options = reminderOptions.value
   if (!Array.isArray(todayHabits) || todayHabits.length === 0) {
