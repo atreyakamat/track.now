@@ -103,15 +103,22 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useQuasar } from 'quasar'
 import { notificationService } from 'src/services/notificationService'
+import { useCompletionsStore } from 'src/stores/completions'
 import { useHabitsStore } from 'src/stores/habits'
 import { usePreferencesStore } from 'src/stores/preferences'
-import { formatTimeLabel, getCategoryMeta, normalizeReminderTimes } from 'src/utils/habitModel'
+import {
+  formatTimeLabel,
+  getCategoryMeta,
+  getHabitSessionProgressForDate,
+  normalizeReminderTimes
+} from 'src/utils/habitModel'
 
 const $q = useQuasar()
 const habitsStore = useHabitsStore()
+const completionsStore = useCompletionsStore()
 const preferencesStore = usePreferencesStore()
 const permissionState = ref(typeof Notification === 'undefined' ? 'unsupported' : Notification.permission)
 
@@ -119,7 +126,11 @@ const preferences = computed(() => preferencesStore.preferences)
 
 const reminderPreview = computed(() => {
   return habitsStore.todayHabits.flatMap((habit) => {
-    return normalizeReminderTimes(habit.reminderTimes, habit.time).flatMap((time) => {
+    const sessionProgress = getHabitSessionProgressForDate(habit, completionsStore.completions)
+    const pendingTimes = normalizeReminderTimes(habit.reminderTimes, habit.time)
+      .filter((time) => !sessionProgress.completedSessionSet.has(time))
+
+    return pendingTimes.flatMap((time) => {
       const category = getCategoryMeta(habit.category)
 
       return [
@@ -142,6 +153,12 @@ const reminderPreview = computed(() => {
       ]
     })
   })
+})
+
+onMounted(async () => {
+  if (completionsStore.completions.length === 0) {
+    await completionsStore.fetchToday()
+  }
 })
 
 async function handlePermission() {

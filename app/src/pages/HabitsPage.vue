@@ -34,7 +34,7 @@
         <q-card-section>
           <div class="text-caption text-grey-7">Closing soon</div>
           <div class="text-h5 text-weight-bold q-mt-xs">{{ closingSoonCount }}</div>
-          <div class="text-body2 text-grey-7 q-mt-sm">Missions with seven sessions or fewer left to finish.</div>
+          <div class="text-body2 text-grey-7 q-mt-sm">Missions with seven days or fewer left to finish.</div>
         </q-card-section>
       </q-card>
     </div>
@@ -142,7 +142,7 @@
                   <div class="text-caption text-grey-6">
                     {{ habit.missionProgress.missionDone
                       ? 'Ready to archive or replace'
-                      : `${habit.missionProgress.remainingSessions} sessions left` }}
+                      : `${habit.missionProgress.remainingSessions} days left` }}
                   </div>
                 </div>
                 <div class="mission-track">

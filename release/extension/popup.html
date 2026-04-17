@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Track.now</title>
+  <style>
+    :root {
+      --bg: #f3f5f6;
+      --surface: #ffffff;
+      --muted: #60707d;
+      --text: #17222b;
+      --border: rgba(55, 83, 102, 0.12);
+      --primary: #245c68;
+      --accent: #d17a3c;
+      --positive: #2f855a;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      width: 360px;
+      min-height: 520px;
+      background:
+        radial-gradient(circle at top left, rgba(36, 92, 104, 0.16), transparent 34%),
+        var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    }
+
+    button { font: inherit; }
+
+    .wrap {
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .panel {
+      background: rgba(255, 255, 255, 0.94);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      box-shadow: 0 18px 32px rgba(23, 34, 43, 0.06);
+      backdrop-filter: blur(16px);
+    }
+
+    .hero {
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .brand-lock {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 800;
+    }
+
+    .brand-mark {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      box-shadow: 0 0 0 8px rgba(36, 92, 104, 0.08);
+    }
+
+    .open-link,
+    .cta,
+    .ghost {
+      border: 0;
+      border-radius: 14px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .open-link,
+    .ghost {
+      padding: 10px 12px;
+      background: rgba(36, 92, 104, 0.08);
+      color: var(--primary);
+      font-weight: 700;
+    }
+
+    .cta {
+      padding: 12px 14px;
+      background: var(--primary);
+      color: white;
+      font-weight: 700;
+    }
+
+    .hero-row {
+      display: grid;
+      grid-template-columns: 88px 1fr;
+      gap: 14px;
+      align-items: center;
+    }
+
+    .ring {
+      width: 88px;
+      height: 88px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at center, #fff 52%, transparent 53%),
+        conic-gradient(var(--primary) 0deg var(--progress-angle), rgba(36, 92, 104, 0.14) var(--progress-angle) 360deg);
+      text-align: center;
+      font-weight: 800;
+    }
+
+    .ring small {
+      display: block;
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+
+    .muted {
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .stat {
+      padding: 12px;
+      border-radius: 18px;
+      background: rgba(36, 92, 104, 0.06);
+      border: 1px solid rgba(36, 92, 104, 0.12);
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 1.05rem;
+    }
+
+    .block {
+      padding: 16px;
+    }
+
+    .block-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .block-head h2 {
+      margin: 0;
+      font-size: 1rem;
+    }
+
+    .list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .habit {
+      display: grid;
+      grid-template-columns: 46px 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 12px;
+      border-radius: 18px;
+      background: #fbfcfd;
+      border: 1px solid var(--border);
+    }
+
+    .habit.done {
+      opacity: 0.72;
+    }
+
+    .emoji {
+      width: 46px;
+      height: 46px;
+      border-radius: 16px;
+      display: grid;
+      place-items: center;
+      background: rgba(36, 92, 104, 0.08);
+      font-size: 1.35rem;
+    }
+
+    .habit strong {
+      display: block;
+      font-size: 0.95rem;
+    }
+
+    .habit span {
+      color: var(--muted);
+      font-size: 0.76rem;
+    }
+
+    .check {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      border: 2px solid rgba(36, 92, 104, 0.28);
+      background: white;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      color: transparent;
+      transition: all 0.2s ease;
+    }
+
+    .check.done {
+      background: var(--positive);
+      border-color: var(--positive);
+      color: white;
+    }
+
+    .empty {
+      padding: 28px 14px;
+      text-align: center;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="panel hero">
+      <div class="brand">
+        <div class="brand-lock">
+          <span class="brand-mark"></span>
+          <span>Track.now</span>
+        </div>
+        <a class="open-link" href="https://tracknow.app" target="_blank" rel="noreferrer">Open app</a>
+      </div>
+
+      <div class="hero-row">
+        <div class="ring" id="progress-ring" style="--progress-angle: 0deg;">
+          <div>
+            <div id="progress-value">0%</div>
+            <small>today</small>
+          </div>
+        </div>
+        <div>
+          <strong id="hero-title">No missions yet</strong>
+          <div class="muted" id="hero-body">Add your first habit in the main app and the extension will stay in sync.</div>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="stat">
+          <strong id="stat-done">0</strong>
+          <span class="muted">done</span>
+        </div>
+        <div class="stat">
+          <strong id="stat-total">0</strong>
+          <span class="muted">today</span>
+        </div>
+        <div class="stat">
+          <strong id="stat-pending">0</strong>
+          <span class="muted">pending</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel block">
+      <div class="block-head">
+        <h2>Today’s missions</h2>
+        <a class="ghost" href="https://tracknow.app/#/planner" target="_blank" rel="noreferrer">Planner</a>
+      </div>
+      <div id="pending-list" class="list"></div>
+      <div id="completed-list" class="list"></div>
+      <div id="empty-state" class="empty" hidden></div>
+    </section>
+
+    <a class="cta" href="https://tracknow.app/#/add" target="_blank" rel="noreferrer">Create a new mission</a>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,5 +1,5 @@
 <template>
-  <q-card class="habit-card q-mb-md" :class="{ 'completed-card': isCompleted }" flat bordered>
+  <q-card class="habit-card q-mb-md" :class="{ 'completed-card': isCompleted }" flat bordered v-ripple>
     <q-card-section class="habit-card-section">
       <div class="row items-start no-wrap q-col-gutter-md">
         <div class="col-auto">
@@ -65,8 +65,12 @@
               {{ reminderSummary }}
             </span>
             <span class="habit-meta-item">
+              <q-icon name="task_alt" size="14px" />
+              {{ todaySessionProgress.completedSessions }}/{{ todaySessionProgress.totalSessions }} today
+            </span>
+            <span class="habit-meta-item">
               <q-icon name="flag" size="14px" />
-              {{ missionProgress.completedSessions }}/{{ missionProgress.durationDays }} sessions
+              {{ missionProgress.completedSessions }}/{{ missionProgress.durationDays }} mission days
             </span>
           </div>
 
@@ -101,9 +105,11 @@ import { computed, ref } from 'vue'
 import { useQuasar } from 'quasar'
 import { useCompletionsStore } from 'src/stores/completions'
 import {
+  formatTimeLabel,
   formatDayList,
   getCategoryMeta,
   getDifficultyMeta,
+  getHabitSessionProgressForDate,
   getMissionProgress,
   getReminderSummary
 } from 'src/utils/habitModel'
@@ -123,22 +129,36 @@ const difficultyMeta = computed(() => getDifficultyMeta(props.habit.difficulty))
 const reminderSummary = computed(() => getReminderSummary(props.habit))
 const dayLabel = computed(() => formatDayList(props.habit.days))
 const missionProgress = computed(() => getMissionProgress(props.habit, completionsStore.completions))
+const todaySessionProgress = computed(() => getHabitSessionProgressForDate(props.habit, completionsStore.completions))
 const missionHeadline = computed(() => {
   if (missionProgress.value.missionDone) return 'Mission complete'
   return `Day ${missionProgress.value.displayDay} / ${missionProgress.value.durationDays}`
 })
 const missionSupport = computed(() => {
   if (missionProgress.value.missionDone) return 'Ready for a new mission'
-  return `${missionProgress.value.remainingSessions} sessions to go`
+  if (todaySessionProgress.value.completed) {
+    return `${missionProgress.value.remainingSessions} mission days to go`
+  }
+  return `Next session at ${formatTimeLabel(todaySessionProgress.value.nextSessionId || props.habit.time)}`
 })
 
 async function handleComplete() {
+  const sessionStatus = todaySessionProgress.value
+  const targetSessionId = sessionStatus.nextSessionId
+  if (sessionStatus.completed || !targetSessionId) return
+
   completing.value = true
   try {
-    await completionsStore.markComplete(props.habit.id)
+    await completionsStore.markComplete(props.habit.id, targetSessionId)
     emit('completed', props.habit.id)
+
+    const afterCount = Math.min(sessionStatus.completedSessions + 1, sessionStatus.totalSessions)
+    const dayCompleted = afterCount >= sessionStatus.totalSessions
+
     $q.notify({
-      message: `${props.habit.emoji} ${props.habit.name} completed`,
+      message: dayCompleted
+        ? `${props.habit.emoji} ${props.habit.name} completed for today`
+        : `${props.habit.emoji} ${props.habit.name}: session ${afterCount}/${sessionStatus.totalSessions}`,
       color: 'positive',
       icon: 'check_circle',
       timeout: 2000
@@ -154,6 +174,7 @@ async function handleUncomplete() {
   try {
     await completionsStore.unmarkComplete(props.habit.id)
     emit('uncompleted', props.habit.id)
+    $q.notify({ message: 'Last session undone', color: 'info' })
   } catch {
     $q.notify({ message: 'Failed to update', color: 'negative' })
   }

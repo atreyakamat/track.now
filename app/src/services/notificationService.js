@@ -46,7 +46,8 @@ export const notificationService = {
     const {
       preReminder = true,
       exactReminder = true,
-      requestPermission = false
+      requestPermission = false,
+      completedSessionIds = []
     } = options
 
     this.cancelHabitReminder(habit.id)
@@ -58,8 +59,11 @@ export const notificationService = {
     if (!hasPermission || (!preReminder && !exactReminder)) return
 
     const reminderTimes = normalizeReminderTimes(habit.reminderTimes, habit.time)
+    const completedSessionSet = new Set((completedSessionIds || []).filter(Boolean))
 
     for (const reminderTime of reminderTimes) {
+      if (completedSessionSet.has(reminderTime)) continue
+
       if (preReminder) {
         await this.scheduleSingleReminder(habit, reminderTime, 'upcoming', PRE_NOTIFICATION_MINUTES)
       }
@@ -160,7 +164,11 @@ export const notificationService = {
 
   async scheduleAll(habits, options = {}) {
     for (const habit of habits) {
-      await this.scheduleHabitReminder(habit, options)
+      const completedSessionIds = options.completedSessionIdsByHabit?.[habit.id] || []
+      await this.scheduleHabitReminder(habit, {
+        ...options,
+        completedSessionIds
+      })
     }
   }
 }

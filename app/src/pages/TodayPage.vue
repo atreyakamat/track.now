@@ -144,8 +144,10 @@ import { useHabitsStore } from 'src/stores/habits'
 import {
   buildIdentityInsight,
   calculateMomentum,
-  getReminderSummary,
-  getTodayHeadline
+  formatTimeLabel,
+  getHabitSessionProgressForDate,
+  getTodayHeadline,
+  isHabitCompleteOnDate
 } from 'src/utils/habitModel'
 
 const authStore = useAuthStore()
@@ -176,14 +178,14 @@ const greeting = computed(() => {
 })
 
 const todayHabits = computed(() => habitsStore.todayHabits)
-const completedHabitIds = computed(() => completionsStore.completedHabitIds)
+const isHabitDoneToday = (habit) => isHabitCompleteOnDate(habit, completionsStore.completions)
 
 const pendingHabits = computed(() => {
-  return todayHabits.value.filter((habit) => !completedHabitIds.value.has(habit.id))
+  return todayHabits.value.filter((habit) => !isHabitDoneToday(habit))
 })
 
 const completedHabits = computed(() => {
-  return todayHabits.value.filter((habit) => completedHabitIds.value.has(habit.id))
+  return todayHabits.value.filter((habit) => isHabitDoneToday(habit))
 })
 
 const completedCount = computed(() => completedHabits.value.length)
@@ -206,7 +208,11 @@ const headline = computed(() => {
 
 const nextReminderLabel = computed(() => {
   if (pendingHabits.value.length === 0) return 'Nothing left today'
-  return `Next: ${getReminderSummary(pendingHabits.value[0])}`
+
+  const nextHabit = pendingHabits.value[0]
+  const sessionProgress = getHabitSessionProgressForDate(nextHabit, completionsStore.completions)
+  const nextSessionTime = sessionProgress.nextSessionId || nextHabit.time
+  return `Next: ${formatTimeLabel(nextSessionTime)}`
 })
 
 const supportText = computed(() => {

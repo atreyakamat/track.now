@@ -3,6 +3,9 @@
     <q-card-section>
       <div class="text-h6 text-weight-bold q-mb-xs">Sign in</div>
       <div class="text-body2 text-grey-7 q-mb-lg">Continue your mission streak with one clean login.</div>
+      <q-banner v-if="demoMode" dense rounded class="q-mb-md bg-blue-1 text-blue-9">
+        Demo local mode is active. Data is saved on this device.
+      </q-banner>
 
       <q-form @submit="handleLogin" class="q-gutter-md">
         <q-input
@@ -37,6 +40,17 @@
           size="lg"
           :loading="loading"
         />
+
+        <q-btn
+          outline
+          color="grey-8"
+          label="Continue with Google"
+          icon="img:https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg"
+          class="full-width"
+          size="lg"
+          :loading="loading"
+          @click="handleGoogleLogin"
+        />
       </q-form>
 
       <div class="text-center q-mt-lg">
@@ -56,6 +70,7 @@ import { useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
 import { useAuthStore } from 'src/stores/auth'
 import { usePreferencesStore } from 'src/stores/preferences'
+import { isDemoMode } from 'src/boot/firebase'
 
 const router = useRouter()
 const $q = useQuasar()
@@ -66,6 +81,7 @@ const email = ref('')
 const password = ref('')
 const showPassword = ref(false)
 const loading = ref(false)
+const demoMode = isDemoMode
 
 async function handleLogin() {
   loading.value = true
@@ -74,6 +90,18 @@ async function handleLogin() {
     router.push(`/${preferencesStore.startPage}`)
   } catch (error) {
     $q.notify({ message: error.message || 'Login failed', color: 'negative', icon: 'error' })
+  } finally {
+    loading.value = false
+  }
+}
+
+async function handleGoogleLogin() {
+  loading.value = true
+  try {
+    await authStore.loginWithGoogle()
+    router.push(`/${preferencesStore.startPage}`)
+  } catch (error) {
+    $q.notify({ message: error.message || 'Google Login failed', color: 'negative', icon: 'error' })
   } finally {
     loading.value = false
   }

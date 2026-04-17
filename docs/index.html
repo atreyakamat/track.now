@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Track.now Docs Portal</title>
+  <style>
+    :root {
+      --bg: #f2f6f7;
+      --panel: rgba(255, 255, 255, 0.9);
+      --text: #12212b;
+      --muted: #5e6f7a;
+      --primary: #245c68;
+      --accent: #d17a3c;
+      --border: rgba(18, 33, 43, 0.1);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 0% 0%, rgba(36, 92, 104, 0.16), transparent 36%),
+        radial-gradient(circle at 100% 0%, rgba(209, 122, 60, 0.14), transparent 28%),
+        var(--bg);
+    }
+    .shell {
+      width: min(1100px, calc(100% - 32px));
+      margin: 28px auto 50px;
+    }
+    .hero {
+      padding: 24px;
+      border-radius: 26px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      backdrop-filter: blur(14px);
+    }
+    .hero h1 {
+      margin: 6px 0 10px;
+      font-size: clamp(2rem, 4vw, 3.2rem);
+      line-height: 1;
+    }
+    .hero p {
+      margin: 0;
+      color: var(--muted);
+      max-width: 780px;
+      line-height: 1.7;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 14px;
+      margin-top: 14px;
+    }
+    .card {
+      padding: 18px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+    }
+    .card h2 {
+      margin: 0 0 8px;
+      font-size: 1.05rem;
+    }
+    .card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 0.93rem;
+    }
+    .links {
+      margin-top: 26px;
+      display: grid;
+      gap: 12px;
+    }
+    .link {
+      display: block;
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      color: inherit;
+      text-decoration: none;
+      background: #ffffff;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+    .link:hover {
+      transform: translateY(-1px);
+      border-color: rgba(36, 92, 104, 0.4);
+    }
+    .link strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+    .meta {
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      padding: 8px 12px;
+      background: rgba(36, 92, 104, 0.1);
+      color: var(--primary);
+      font-weight: 700;
+      font-size: 0.85rem;
+    }
+    .footer {
+      margin-top: 22px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .brand-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <span class="pill"><span class="brand-dot"></span> Track.now Docs Portal</span>
+      <h1>Everything in one place</h1>
+      <p>
+        This portal is the single launch point for PRD, product specs, workflows, business value,
+        implementation status, deployment steps, and release packaging instructions.
+      </p>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <h2>Product</h2>
+        <p>PRD, full product specification, UX design strategy, and user workflows.</p>
+      </article>
+      <article class="card">
+        <h2>Business</h2>
+        <p>Business model, pricing structure, monetization plan, and growth logic.</p>
+      </article>
+      <article class="card">
+        <h2>Launch</h2>
+        <p>Implementation status, launch checklist, deployment path, and Android install guide.</p>
+      </article>
+      <article class="card">
+        <h2>Release</h2>
+        <p>One-command release packaging under <code>release/</code> for app, docs, extension, and landing.</p>
+      </article>
+    </section>
+
+    <section class="links">
+      <a class="link" href="./MASTER_INDEX.md">
+        <strong>Master Index</strong>
+        <span class="meta">Primary map of all project documentation.</span>
+      </a>
+      <a class="link" href="./IMPLEMENTATION_STATUS.md">
+        <strong>Implementation Status</strong>
+        <span class="meta">What is complete now, what remains optional, and launch readiness.</span>
+      </a>
+      <a class="link" href="./DEPLOY_ANDROID_GUIDE.md">
+        <strong>Deploy + Android Guide</strong>
+        <span class="meta">Fast no-backend path and optional APK/AAB path.</span>
+      </a>
+      <a class="link" href="./BUSINESS_VALUE_AND_MONETIZATION.md">
+        <strong>Business Value + Monetization</strong>
+        <span class="meta">Free/Pro/Family model and conversion strategy.</span>
+      </a>
+      <a class="link" href="../PRD.md">
+        <strong>PRD</strong>
+        <span class="meta">Core product requirements and principles.</span>
+      </a>
+      <a class="link" href="../Product%20Spec.md">
+        <strong>Product Spec</strong>
+        <span class="meta">Route map, feature definitions, architecture, and build phases.</span>
+      </a>
+      <a class="link" href="../Business.md">
+        <strong>Business Strategy</strong>
+        <span class="meta">Market, differentiation, retention, and scalability analysis.</span>
+      </a>
+      <a class="link" href="../LAUNCH_CHECKLIST.md">
+        <strong>Launch Checklist</strong>
+        <span class="meta">Credentials, integrations, and pre-publish checks.</span>
+      </a>
+    </section>
+
+    <div class="footer">
+      Tip: run <code>powershell -ExecutionPolicy Bypass -File scripts/prepare-release.ps1</code> to generate a complete deliverable bundle.
+    </div>
+  </main>
+</body>
+</html>

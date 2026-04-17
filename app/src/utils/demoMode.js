@@ -2,6 +2,7 @@ const STORAGE_KEYS = {
   users: 'tracknow_demo_users',
   currentUser: 'tracknow_demo_current_user',
   habits: 'tracknow_demo_habits',
+  tasks: 'tracknow_demo_tasks',
   completions: 'tracknow_demo_completions',
   friendships: 'tracknow_demo_friendships',
   groups: 'tracknow_demo_groups'

@@ -24,6 +24,7 @@ const routes = [
       { path: '/dashboard', component: () => import('pages/DashboardPage.vue'), meta: { requiresAuth: true } },
       { path: '/today', component: () => import('pages/TodayPage.vue'), meta: { requiresAuth: true } },
       { path: '/planner', component: () => import('pages/PlanningPage.vue'), meta: { requiresAuth: true } },
+      { path: '/tasks', component: () => import('pages/TasksPage.vue'), meta: { requiresAuth: true } },
       { path: '/habits', component: () => import('pages/HabitsPage.vue'), meta: { requiresAuth: true } },
       { path: '/habit/:id', component: () => import('pages/HabitDetailPage.vue'), meta: { requiresAuth: true } },
       { path: '/add', component: () => import('pages/AddHabitPage.vue'), meta: { requiresAuth: true } },
@@ -41,7 +42,7 @@ const routes = [
   },
   {
     path: '/:catchAll(.*)*',
-    component: () => import('pages/TodayPage.vue')
+    redirect: '/today'
   }
 ]
 

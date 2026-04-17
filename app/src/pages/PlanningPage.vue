@@ -131,7 +131,7 @@
                     <div class="text-caption text-grey-7">{{ habit.reminderSummary }}</div>
                   </div>
                   <div class="text-caption text-grey-7 q-mt-xs">
-                    {{ habit.dayLabel }} • {{ habit.remainingSessions }} sessions left
+                    {{ habit.dayLabel }} • {{ habit.remainingSessions }} days left
                   </div>
                   <q-linear-progress
                     class="q-mt-sm"

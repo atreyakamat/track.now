@@ -1,22 +1,28 @@
 import { boot } from 'quasar/wrappers'
 import { onAuthStateChanged } from 'firebase/auth'
-import { auth } from './firebase'
+import { auth, isDemoMode } from './firebase'
 import { useAuthStore } from 'src/stores/auth'
 import { usePreferencesStore } from 'src/stores/preferences'
+import { getDemoCurrentUser } from 'src/utils/demoMode'
 
 export default boot(({ router }) => {
   return new Promise((resolve) => {
-    onAuthStateChanged(auth, async (user) => {
-      const authStore = useAuthStore()
-      authStore.setUser(user)
-      if (user) {
-        await authStore.loadProfile()
-      }
-      resolve()
-    })
+    const authStore = useAuthStore()
+
+    if (isDemoMode) {
+      authStore.setUser(getDemoCurrentUser())
+      Promise.resolve(authStore.loadProfile()).finally(() => resolve())
+    } else {
+      onAuthStateChanged(auth, async (user) => {
+        authStore.setUser(user)
+        if (user) {
+          await authStore.loadProfile()
+        }
+        resolve()
+      })
+    }
 
     router.beforeEach((to, from, next) => {
-      const authStore = useAuthStore()
       const preferencesStore = usePreferencesStore()
       const requiresAuth = to.meta.requiresAuth
       const isAuth = authStore.isAuthenticated

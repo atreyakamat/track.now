@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@quasar/extras": "^1.16.0",
+    "chrono-node": "^2.9.0",
     "firebase": "^10.7.0",
     "pinia": "^2.1.0",
     "quasar": "^2.19.3",

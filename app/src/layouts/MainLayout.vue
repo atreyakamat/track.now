@@ -21,6 +21,13 @@
                 <q-item-section avatar><q-icon name="view_week" /></q-item-section>
                 <q-item-section>Planner</q-item-section>
               </q-item>
+              <q-item clickable v-close-popup @click="$router.push('/tasks')">
+                <q-item-section avatar><q-icon name="task" /></q-item-section>
+                <q-item-section>
+                  Tasks
+                  <q-badge v-if="tasksStore.openTasks.length > 0" color="negative" :label="tasksStore.openTasks.length" />
+                </q-item-section>
+              </q-item>
               <q-item clickable v-close-popup @click="$router.push('/habits')">
                 <q-item-section avatar><q-icon name="list" /></q-item-section>
                 <q-item-section>My Habits</q-item-section>
@@ -77,9 +84,9 @@
         <q-icon name="home" size="24px" />
         <span class="text-caption">Today</span>
       </q-btn>
-      <q-btn flat :color="isActive('/planner') ? 'primary' : 'grey'" stack no-caps @click="$router.push('/planner')">
-        <q-icon name="view_week" size="24px" />
-        <span class="text-caption">Plan</span>
+      <q-btn flat :color="isActive('/tasks') ? 'primary' : 'grey'" stack no-caps @click="$router.push('/tasks')">
+        <q-icon name="task_alt" size="24px" />
+        <span class="text-caption">Tasks</span>
       </q-btn>
       <div class="add-btn-wrap">
         <q-btn class="add-btn-fab" unelevated round icon="add" @click="$router.push('/add')" />
@@ -88,9 +95,9 @@
         <q-icon name="format_list_bulleted" size="24px" />
         <span class="text-caption">Habits</span>
       </q-btn>
-      <q-btn flat :color="isActive('/analytics') ? 'primary' : 'grey'" stack no-caps @click="$router.push('/analytics')">
-        <q-icon name="bar_chart" size="24px" />
-        <span class="text-caption">Stats</span>
+      <q-btn flat :color="isActive('/planner') ? 'primary' : 'grey'" stack no-caps @click="$router.push('/planner')">
+        <q-icon name="view_week" size="24px" />
+        <span class="text-caption">Plan</span>
       </q-btn>
     </div>
   </q-layout>
@@ -103,6 +110,8 @@ import { notificationService } from 'src/services/notificationService'
 import { useAuthStore } from 'src/stores/auth'
 import { usePreferencesStore } from 'src/stores/preferences'
 import { useHabitsStore } from 'src/stores/habits'
+import { useCompletionsStore } from 'src/stores/completions'
+import { useTasksStore } from 'src/stores/tasks'
 import { computed, onMounted, onUnmounted, watch } from 'vue'
 import NotificationBell from 'src/components/NotificationBell.vue'
 
@@ -112,22 +121,46 @@ const router = useRouter()
 const authStore = useAuthStore()
 const preferencesStore = usePreferencesStore()
 const habitsStore = useHabitsStore()
+const completionsStore = useCompletionsStore()
+const tasksStore = useTasksStore()
 const reminderOptions = computed(() => ({
   preReminder: preferencesStore.preferences.reminderPreview,
   exactReminder: preferencesStore.preferences.exactReminders,
-  requestPermission: false
+  requestPermission: false,
+  completedSessionIdsByHabit: completionsStore.todayCompletions.reduce((map, completion) => {
+    if (!completion?.habitId || !completion?.sessionId) return map
+    if (!map[completion.habitId]) {
+      map[completion.habitId] = []
+    }
+    map[completion.habitId].push(completion.sessionId)
+    return map
+  }, {})
 }))
 const reminderSignature = computed(() => habitsStore.todayHabits
   .map((habit) => `${habit.id}:${(habit.reminderTimes || [habit.time]).join(',')}`)
   .join('|'))
+const completionSignature = computed(() => completionsStore.todayCompletions
+  .map((completion) => `${completion.habitId}:${completion.sessionId || 'legacy'}`)
+  .sort()
+  .join('|'))
 
 onMounted(async () => {
   habitsStore.subscribe()
+  tasksStore.subscribe()
+  await completionsStore.fetchToday()
   await authStore.loadProfile()
 })
-onUnmounted(() => habitsStore.unsubscribeAll())
+onUnmounted(() => {
+  habitsStore.unsubscribeAll()
+  tasksStore.unsubscribeAll()
+})
 
-watch(() => [reminderSignature.value, reminderOptions.value.preReminder, reminderOptions.value.exactReminder], async () => {
+watch(() => [
+  reminderSignature.value,
+  completionSignature.value,
+  reminderOptions.value.preReminder,
+  reminderOptions.value.exactReminder
+], async () => {
   const todayHabits = habitsStore.todayHabits
   const options = reminderOptions.value
   if (!Array.isArray(todayHabits) || todayHabits.length === 0) {

@@ -115,11 +115,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
-import { collection, getDocs, query, where } from 'firebase/firestore'
-import { db } from 'src/boot/firebase'
 import { whatsappService } from 'src/services/whatsappService'
 import { useFriendsStore } from 'src/stores/friends'
 
@@ -130,19 +128,18 @@ const friendsStore = useFriendsStore()
 const addDialog = ref(false)
 const friendEmail = ref('')
 const sending = ref(false)
+const initialLoading = ref(true)
 
-const friends = ref([])
-const friendRequests = ref([])
-const loading = ref(true)
+const friends = computed(() => friendsStore.friends)
+const friendRequests = computed(() => friendsStore.friendRequests)
+const loading = computed(() => initialLoading.value || friendsStore.loading)
 
 onMounted(async () => {
   await Promise.all([
     friendsStore.fetchFriends(),
     friendsStore.fetchFriendRequests()
   ])
-  friends.value = friendsStore.friends
-  friendRequests.value = friendsStore.friendRequests
-  loading.value = false
+  initialLoading.value = false
 })
 
 async function sendRequest() {
@@ -150,15 +147,14 @@ async function sendRequest() {
 
   sending.value = true
   try {
-    const userQuery = query(collection(db, 'users'), where('email', '==', friendEmail.value))
-    const snapshot = await getDocs(userQuery)
+    const targetUser = await friendsStore.findUserByEmail(friendEmail.value)
 
-    if (snapshot.empty) {
+    if (!targetUser) {
       $q.notify({ message: 'User not found', color: 'warning' })
       return
     }
 
-    await friendsStore.sendFriendRequest(snapshot.docs[0].id)
+    await friendsStore.sendFriendRequest(targetUser.id)
     $q.notify({ message: 'Friend request sent', color: 'positive' })
     addDialog.value = false
     friendEmail.value = ''
@@ -171,8 +167,6 @@ async function sendRequest() {
 
 async function acceptRequest(id) {
   await friendsStore.acceptRequest(id)
-  friends.value = friendsStore.friends
-  friendRequests.value = friendsStore.friendRequests
   $q.notify({ message: 'Friend added', color: 'positive' })
 }
 

@@ -42,7 +42,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCompletionsStore } from 'src/stores/completions'
 import { useHabitsStore } from 'src/stores/habits'
-import { getReminderSummary } from 'src/utils/habitModel'
+import { formatTimeLabel, getHabitSessionProgressForDate, isHabitCompleteOnDate } from 'src/utils/habitModel'
 
 const router = useRouter()
 const habitsStore = useHabitsStore()
@@ -50,15 +50,24 @@ const completionsStore = useCompletionsStore()
 const showNotifications = ref(false)
 
 const notifications = computed(() => {
-  const pendingHabits = habitsStore.todayHabits.filter((habit) => !completionsStore.completedHabitIds.has(habit.id))
+  const pendingHabits = habitsStore.todayHabits.filter((habit) => {
+    return !isHabitCompleteOnDate(habit, completionsStore.completions)
+  })
 
-  const habitNotifications = pendingHabits.slice(0, 4).map((habit) => ({
-    id: habit.id,
-    title: `${habit.emoji} ${habit.name}`,
-    body: `Next reminder: ${getReminderSummary(habit)}`,
-    icon: 'schedule',
-    color: 'primary'
-  }))
+  const habitNotifications = pendingHabits.slice(0, 4).map((habit) => {
+    const sessionProgress = getHabitSessionProgressForDate(habit, completionsStore.completions)
+    const nextSessionLabel = formatTimeLabel(sessionProgress.nextSessionId || habit.time)
+
+    return {
+      id: habit.id,
+      title: `${habit.emoji} ${habit.name}`,
+      body: sessionProgress.totalSessions > 1
+        ? `${sessionProgress.completedSessions}/${sessionProgress.totalSessions} sessions done today. Next at ${nextSessionLabel}.`
+        : `Next reminder: ${nextSessionLabel}`,
+      icon: 'schedule',
+      color: 'primary'
+    }
+  })
 
   if (pendingHabits.length === 0 && habitsStore.todayHabits.length > 0) {
     return [{
