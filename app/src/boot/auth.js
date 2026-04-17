@@ -6,6 +6,7 @@ import { usePreferencesStore } from 'src/stores/preferences'
 import { getDemoCurrentUser } from 'src/utils/demoMode'
 
 export default boot(({ router, store }) => {
+  console.log('Auth boot, store:', !!store)
   return new Promise((resolve) => {
     const authStore = useAuthStore(store)
 

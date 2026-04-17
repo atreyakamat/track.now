@@ -8,9 +8,9 @@ import { onMounted } from 'vue'
 import { usePreferencesStore } from 'src/stores/preferences'
 
 const $q = useQuasar()
-const preferencesStore = usePreferencesStore()
 
 onMounted(() => {
+  const preferencesStore = usePreferencesStore()
   const themePreference = preferencesStore.themePreference
   const stored = localStorage.getItem('dark-mode')
 
