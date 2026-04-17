@@ -7,41 +7,34 @@
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
-  background: #f4f6f7;
-  color: #17212b;
+  background: #0f0f0f;
+  color: #ffffff;
 }
 
 .q-page {
-  background:
-    radial-gradient(circle at top left, rgba(36, 92, 104, 0.06), transparent 32%),
-    linear-gradient(180deg, #f4f6f7 0%, #f7f8fb 100%);
-  .body--dark & {
-    background: #0f0f0f;
-  }
+  background: #0f0f0f;
 }
 
 .habit-card {
-  border-radius: 20px;
+  border-radius: 12px;
   transition: all 0.2s ease;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
   &:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.1);
-  }
-  .body--dark & {
-    background: #1a1a1a;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
   }
 }
 
 .q-btn {
-  border-radius: 10px;
-  font-weight: 600;
+  border-radius: 8px;
+  font-weight: 500;
 }
 
 .q-card {
-  border-radius: 20px;
-  .body--dark & {
-    background: #1a1a1a;
-  }
+  border-radius: 12px;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
 }
 
 .page-container {
@@ -76,13 +69,8 @@ body {
   left: 0;
   right: 0;
   z-index: 100;
-  background: rgba(255,255,255,0.92);
-  backdrop-filter: blur(18px);
-  border-top: 1px solid rgba(36,92,104,0.08);
-  .body--dark & {
-    background: #1a1a1a;
-    border-top-color: rgba(255,255,255,0.08);
-  }
+  background: #1a1a1a;
+  border-top: 1px solid #2a2a2a;
 }
 
 .add-btn-fab {

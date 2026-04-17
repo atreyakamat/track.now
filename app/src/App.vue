@@ -10,21 +10,7 @@ import { usePreferencesStore } from 'src/stores/preferences'
 const $q = useQuasar()
 
 onMounted(() => {
-  const preferencesStore = usePreferencesStore()
-  const themePreference = preferencesStore.themePreference
-  const stored = localStorage.getItem('dark-mode')
-
-  if (themePreference === 'dark' || stored === 'true') {
-    $q.dark.set(true)
-    return
-  }
-
-  if (themePreference === 'light' || stored === 'false') {
-    $q.dark.set(false)
-    return
-  }
-
-  const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-  $q.dark.set(prefersDark)
+  // Force dark mode as per PRD/Design guidelines
+  $q.dark.set(true)
 })
 </script>
