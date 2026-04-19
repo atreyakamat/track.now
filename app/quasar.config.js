@@ -18,6 +18,7 @@ module.exports = configure(function (ctx) {
     animations: 'all',
     ssr: { pwa: false, prodPort: 3000, middlewares: ['render'] },
     pwa: {
+<<<<<<< HEAD
       workboxMode: 'generateSW',
       injectPwaMetaTags: true,
       swFilename: 'sw.js',
@@ -36,6 +37,19 @@ module.exports = configure(function (ctx) {
         background_color: '#f8fafc',
         theme_color: '#245c68',
         start_url: './#/today',
+=======
+      workboxMode: 'generateSW', // or 'injectManifest'
+      injectPwaMetaTags: true,
+      swFilename: 'sw.js',
+      manifest: {
+        name: 'Track.now',
+        short_name: 'Track.now',
+        description: 'Premium Habit Tracking',
+        display: 'standalone',
+        orientation: 'portrait',
+        background_color: '#ffffff',
+        theme_color: '#1976d2',
+>>>>>>> a019a5362bacb14dd7013981da66fa5d112d04b7
         icons: [
           {
             src: 'icons/icon-128x128.png',

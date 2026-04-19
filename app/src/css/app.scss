@@ -22,6 +22,7 @@ body,
 body {
   font-family: 'IBM Plex Sans', 'Segoe UI', Tahoma, sans-serif;
   -webkit-font-smoothing: antialiased;
+<<<<<<< HEAD
   color: var(--text-strong);
   background:
     radial-gradient(circle at top left, rgba(36, 92, 104, 0.15), transparent 30%),
@@ -85,6 +86,36 @@ body.body--dark .q-card {
   &:active {
     transform: scale(0.985);
   }
+=======
+  background: #0f0f0f;
+  color: #ffffff;
+}
+
+.q-page {
+  background: #0f0f0f;
+}
+
+.habit-card {
+  border-radius: 12px;
+  transition: all 0.2s ease;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  }
+}
+
+.q-btn {
+  border-radius: 8px;
+  font-weight: 500;
+}
+
+.q-card {
+  border-radius: 12px;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+>>>>>>> a019a5362bacb14dd7013981da66fa5d112d04b7
 }
 
 .q-btn {
@@ -107,6 +138,7 @@ body.body--dark .q-card {
   left: 0;
   right: 0;
   z-index: 100;
+<<<<<<< HEAD
   height: 74px;
   background: rgba(255, 255, 255, 0.84);
   backdrop-filter: blur(18px);
@@ -121,6 +153,10 @@ body.body--dark .bottom-nav {
 
 .nav-btn {
   min-width: 56px;
+=======
+  background: #1a1a1a;
+  border-top: 1px solid #2a2a2a;
+>>>>>>> a019a5362bacb14dd7013981da66fa5d112d04b7
 }
 
 .add-btn-fab {

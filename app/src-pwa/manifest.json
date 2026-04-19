@@ -1,4 +1,5 @@
 {
+<<<<<<< HEAD
   "name": "Track.now",
   "short_name": "Track.now",
   "description": "Mission-based habit and task tracking with reminders, planning, and analytics.",
@@ -7,6 +8,11 @@
   "orientation": "portrait",
   "background_color": "#f8fafc",
   "theme_color": "#245c68",
+=======
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#027be3",
+>>>>>>> a019a5362bacb14dd7013981da66fa5d112d04b7
   "icons": [
     {
       "src": "icons/icon-128x128.png",

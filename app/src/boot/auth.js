@@ -5,9 +5,10 @@ import { useAuthStore } from 'src/stores/auth'
 import { usePreferencesStore } from 'src/stores/preferences'
 import { getDemoCurrentUser } from 'src/utils/demoMode'
 
-export default boot(({ router }) => {
+export default boot(({ router, store }) => {
+  console.log('Auth boot, store:', !!store)
   return new Promise((resolve) => {
-    const authStore = useAuthStore()
+    const authStore = useAuthStore(store)
 
     if (isDemoMode) {
       authStore.setUser(getDemoCurrentUser())
@@ -23,7 +24,7 @@ export default boot(({ router }) => {
     }
 
     router.beforeEach((to, from, next) => {
-      const preferencesStore = usePreferencesStore()
+      const preferencesStore = usePreferencesStore(store)
       const requiresAuth = to.meta.requiresAuth
       const isAuth = authStore.isAuthenticated
       const preferredStartPage = preferencesStore.startPage || 'today'
