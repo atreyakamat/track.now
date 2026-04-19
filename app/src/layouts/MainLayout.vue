@@ -21,9 +21,13 @@
           <q-btn flat round dense class="icon-btn" icon="more_horiz">
             <q-menu class="menu-surface">
               <q-list style="min-width: 220px">
-                <q-item clickable v-close-popup @click="$router.push('/today')">
-                  <q-item-section avatar><q-icon name="today" /></q-item-section>
-                  <q-item-section>Today</q-item-section>
+                <q-item clickable v-close-popup @click="$router.push('/dashboard')">
+                  <q-item-section avatar><q-icon name="dashboard" /></q-item-section>
+                  <q-item-section>Dashboard</q-item-section>
+                </q-item>
+                <q-item clickable v-close-popup @click="$router.push('/planner')">
+                  <q-item-section avatar><q-icon name="event" /></q-item-section>
+                  <q-item-section>Planner</q-item-section>
                 </q-item>
                 <q-item clickable v-close-popup @click="$router.push('/tasks')">
                   <q-item-section avatar><q-icon name="task" /></q-item-section>
@@ -34,23 +38,49 @@
                 </q-item>
                 <q-item clickable v-close-popup @click="$router.push('/habits')">
                   <q-item-section avatar><q-icon name="repeat" /></q-item-section>
-                  <q-item-section>Habits</q-item-section>
+                  <q-item-section>My Habits</q-item-section>
                 </q-item>
-                <q-item clickable v-close-popup @click="$router.push('/planner')">
-                  <q-item-section avatar><q-icon name="event" /></q-item-section>
-                  <q-item-section>Planner</q-item-section>
-                </q-item>
-                <q-item clickable v-close-popup @click="$router.push('/friends')">
-                  <q-item-section avatar><q-icon name="group" /></q-item-section>
-                  <q-item-section>Activity</q-item-section>
+                <q-item clickable v-close-popup @click="$router.push('/calendar')">
+                  <q-item-section avatar><q-icon name="calendar_month" /></q-item-section>
+                  <q-item-section>Calendar</q-item-section>
                 </q-item>
                 <q-item clickable v-close-popup @click="$router.push('/analytics')">
                   <q-item-section avatar><q-icon name="bar_chart" /></q-item-section>
                   <q-item-section>Analytics</q-item-section>
                 </q-item>
+                <q-item clickable v-close-popup @click="$router.push('/notifications')">
+                  <q-item-section avatar><q-icon name="notifications" /></q-item-section>
+                  <q-item-section>Notifications</q-item-section>
+                </q-item>
                 <q-item clickable v-close-popup @click="$router.push('/settings')">
                   <q-item-section avatar><q-icon name="settings" /></q-item-section>
-                  <q-item-section>Profile</q-item-section>
+                  <q-item-section>Settings</q-item-section>
+                </q-item>
+                <q-item clickable v-close-popup @click="$router.push('/friends')">
+                  <q-item-section avatar><q-icon name="people" /></q-item-section>
+                  <q-item-section>Friends</q-item-section>
+                </q-item>
+                <q-item clickable v-close-popup @click="$router.push('/groups')">
+                  <q-item-section avatar><q-icon name="groups" /></q-item-section>
+                  <q-item-section>Groups</q-item-section>
+                </q-item>
+                <q-item clickable v-close-popup @click="$router.push('/family')">
+                  <q-item-section avatar><q-icon name="family_restroom" /></q-item-section>
+                  <q-item-section>Family</q-item-section>
+                </q-item>
+
+                <q-separator dark />
+
+                <q-item clickable v-close-popup @click="$router.push('/pricing')">
+                  <q-item-section avatar><q-icon name="workspace_premium" /></q-item-section>
+                  <q-item-section>
+                    PRO
+                    <q-badge color="primary" :label="String(authStore.currentPlan || 'free').toUpperCase()" />
+                  </q-item-section>
+                </q-item>
+                <q-item clickable v-close-popup @click="$router.push('/pricing')">
+                  <q-item-section avatar><q-icon name="payments" /></q-item-section>
+                  <q-item-section>Pricing</q-item-section>
                 </q-item>
                 <q-separator dark />
                 <q-item clickable v-close-popup @click="handleLogout">
@@ -142,16 +172,17 @@ const routeTitleMap = {
   '/today': 'Today',
   '/tasks': 'Tasks',
   '/add': 'New Mission',
-  '/habits': 'Habits',
+  '/habits': 'My Habits',
   '/planner': 'Planner',
-  '/friends': 'Activity',
+  '/friends': 'Friends',
   '/analytics': 'Analytics',
-  '/notifications': 'Alerts',
-  '/settings': 'Profile',
+  '/notifications': 'Notifications',
+  '/settings': 'Settings',
   '/groups': 'Groups',
   '/family': 'Family',
   '/dashboard': 'Dashboard',
-  '/calendar': 'Calendar'
+  '/calendar': 'Calendar',
+  '/pricing': 'Pricing'
 }
 
 let reminderSyncTimer = null
