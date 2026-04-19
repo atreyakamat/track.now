@@ -204,6 +204,7 @@ import { useAuthStore } from 'src/stores/auth'
 import { useCompletionsStore } from 'src/stores/completions'
 import { useFriendsStore } from 'src/stores/friends'
 import { getDateKey, shiftDate } from 'src/utils/habitModel'
+import { setupRevealOnScroll } from 'src/utils/revealMotion'
 
 const MAP_PIN_SLOTS = [
   { x: 32, y: 24 },
@@ -229,7 +230,7 @@ const initialLoading = ref(true)
 const ghostMode = ref(false)
 const selectedFriend = ref(null)
 
-let revealObserver = null
+let cleanupReveal = null
 
 const friends = computed(() => friendsStore.friends)
 const friendRequests = computed(() => friendsStore.friendRequests)
@@ -285,13 +286,16 @@ onMounted(async () => {
   initialLoading.value = false
 
   await nextTick()
-  initRevealObserver()
+  cleanupReveal = setupRevealOnScroll('.social-map-page', {
+    threshold: 0.12,
+    rootMargin: '0px 0px -10% 0px'
+  })
 })
 
 onUnmounted(() => {
-  if (revealObserver) {
-    revealObserver.disconnect()
-    revealObserver = null
+  if (cleanupReveal) {
+    cleanupReveal()
+    cleanupReveal = null
   }
 })
 
@@ -395,33 +399,6 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value))
 }
 
-function initRevealObserver() {
-  const targets = Array.from(document.querySelectorAll('.social-map-page [data-reveal]'))
-  if (!targets.length) return
-
-  const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  if (reduceMotion) {
-    targets.forEach((target) => target.classList.add('is-visible'))
-    return
-  }
-
-  revealObserver = new IntersectionObserver((entries) => {
-    entries.forEach((entry) => {
-      if (!entry.isIntersecting) return
-      entry.target.classList.add('is-visible')
-      revealObserver?.unobserve(entry.target)
-    })
-  }, {
-    threshold: 0.12,
-    rootMargin: '0px 0px -10% 0px'
-  })
-
-  targets.forEach((target, index) => {
-    target.classList.add('reveal-target')
-    target.style.transitionDelay = `${Math.min((index % 6) * 70, 280)}ms`
-    revealObserver?.observe(target)
-  })
-}
 </script>
 
 <style scoped lang="scss">

@@ -1,14 +1,17 @@
 <template>
   <transition name="fade" appear>
     <div class="full-width">
-      <q-card flat class="auth-card glass-panel">
+      <q-card flat class="auth-form-card">
         <q-card-section class="q-pa-xl">
-          <div class="text-h6 text-weight-bold q-mb-xs">Create account</div>
-          <p class="text-body2 text-slate-500 q-mb-lg">Join 10,000+ high performers.</p>
-          
-          <q-banner v-if="demoMode" dense rounded class="q-mb-lg bg-indigo-50 text-indigo-700 border-indigo-100">
+          <div class="form-head">
+            <p>Track.now</p>
+            <h2>Create account</h2>
+            <span>Start your first mission and build consistent momentum.</span>
+          </div>
+
+          <q-banner v-if="demoMode" dense rounded class="demo-banner q-mb-lg">
             <template #avatar>
-              <q-icon name="o_info" color="primary" />
+              <q-icon name="info" color="white" />
             </template>
             Demo mode is active.
           </q-banner>
@@ -18,11 +21,11 @@
               v-model="displayName"
               label="Full name"
               outlined
-              bg-color="white"
-              class="premium-input"
+              dark
+              class="auth-input"
               :rules="[v => !!v || 'Required']"
             >
-              <template #prepend><q-icon name="o_person" color="slate-400" /></template>
+              <template #prepend><q-icon name="person" color="grey-5" /></template>
             </q-input>
 
             <q-input
@@ -30,11 +33,11 @@
               type="email"
               label="Email address"
               outlined
-              bg-color="white"
-              class="premium-input"
+              dark
+              class="auth-input"
               :rules="[v => !!v || 'Required', v => /.+@.+/.test(v) || 'Invalid email']"
             >
-              <template #prepend><q-icon name="o_mail" color="slate-400" /></template>
+              <template #prepend><q-icon name="mail" color="grey-5" /></template>
             </q-input>
 
             <q-input
@@ -42,17 +45,17 @@
               :type="showPassword ? 'text' : 'password'"
               label="Password"
               outlined
-              bg-color="white"
-              class="premium-input"
+              dark
+              class="auth-input"
               :rules="[v => !!v || 'Required', v => v.length >= 6 || 'Min 6 characters']"
             >
-              <template #prepend><q-icon name="o_lock" color="slate-400" /></template>
+              <template #prepend><q-icon name="lock" color="grey-5" /></template>
               <template #append>
-                <q-icon 
-                  :name="showPassword ? 'o_visibility_off' : 'o_visibility'" 
-                  class="cursor-pointer" 
-                  color="slate-400"
-                  @click="showPassword = !showPassword" 
+                <q-icon
+                  :name="showPassword ? 'visibility_off' : 'visibility'"
+                  class="cursor-pointer"
+                  color="grey-5"
+                  @click="showPassword = !showPassword"
                 />
               </template>
             </q-input>
@@ -60,23 +63,20 @@
             <q-btn
               type="submit"
               label="Create account"
-              color="primary"
               unelevated
-              class="full-width glow-btn q-py-md"
+              class="full-width primary-btn q-py-md"
               size="lg"
               :loading="loading"
             />
 
-            <div class="row items-center q-my-md">
-              <q-separator class="col" />
-              <span class="q-px-md text-caption text-slate-400 font-bold">OR</span>
-              <q-separator class="col" />
+            <div class="divider-row">
+              <q-separator dark class="col" />
+              <span>OR</span>
+              <q-separator dark class="col" />
             </div>
 
             <q-btn
               outline
-              color="slate-200"
-              text-color="slate-900"
               label="Sign up with Google"
               icon="img:https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg"
               class="full-width google-btn q-py-md"
@@ -86,17 +86,18 @@
             />
           </q-form>
 
-          <div class="text-center q-mt-xl">
-            <span class="text-slate-500">Already have an account? </span>
-            <router-link to="/login" class="text-primary text-weight-bolder no-decoration">Sign in</router-link>
+          <div class="form-footer">
+            <span>Already have an account?</span>
+            <router-link to="/login">Sign in</router-link>
           </div>
         </q-card-section>
       </q-card>
-      
-      <p class="text-center q-mt-lg text-caption text-slate-400">
-        By signing up, you agree to our 
-        <a href="#" class="text-weight-bold no-decoration text-slate-500">Terms</a> and 
-        <a href="#" class="text-weight-bold no-decoration text-slate-500">Privacy Policy</a>.
+
+      <p class="terms-copy">
+        By signing up, you agree to our
+        <a href="#">Terms</a>
+        and
+        <a href="#">Privacy Policy</a>.
       </p>
     </div>
   </transition>
@@ -126,7 +127,7 @@ async function handleSignup() {
     await authStore.signup(email.value, password.value, displayName.value)
     router.push('/onboarding')
   } catch (error) {
-    $q.notify({ message: error.message || 'Signup failed', color: 'negative', icon: 'o_error' })
+    $q.notify({ message: error.message || 'Signup failed', color: 'negative', icon: 'error' })
   } finally {
     loading.value = false
   }
@@ -138,7 +139,7 @@ async function handleGoogleSignup() {
     await authStore.loginWithGoogle()
     router.push('/onboarding')
   } catch (error) {
-    $q.notify({ message: error.message || 'Google Signup failed', color: 'negative', icon: 'o_error' })
+    $q.notify({ message: error.message || 'Google Signup failed', color: 'negative', icon: 'error' })
   } finally {
     loading.value = false
   }
@@ -146,33 +147,101 @@ async function handleGoogleSignup() {
 </script>
 
 <style scoped lang="scss">
-.auth-card {
-  border-radius: 32px;
-  border: 1px solid rgba(255,255,255,0.4);
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.08);
-  overflow: hidden;
+.auth-form-card {
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(14, 14, 14, 0.92);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
 }
 
-.google-btn {
-  border: 1px solid #e2e8f0 !important;
-  background: white !important;
-  &:hover {
-    background: #f8fafc !important;
+.form-head {
+  margin-bottom: 16px;
+
+  p {
+    margin: 0;
+    color: #8c8c92;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-weight: 700;
+  }
+
+  h2 {
+    margin: 6px 0 2px;
+    color: #fff;
+    font-size: 1.7rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+  }
+
+  span {
+    color: #a2a2a7;
+    font-size: 0.92rem;
   }
 }
 
-.no-decoration {
-  text-decoration: none;
+.demo-banner {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.18);
 }
 
-.text-slate-400 { color: #94a3b8; }
-.text-slate-500 { color: #64748b; }
-.text-slate-900 { color: #0f172a; }
+.auth-input :deep(.q-field__control) {
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.02);
+}
 
-.glow-btn {
-  box-shadow: 0 10px 15px -3px rgba($primary, 0.3);
-  &:active {
-    transform: scale(0.98);
+.primary-btn {
+  border-radius: 14px;
+  background: #fff;
+  color: #000;
+  font-weight: 800;
+}
+
+.divider-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 10px 0;
+
+  span {
+    color: #8b8b90;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+  }
+}
+
+.google-btn {
+  border-radius: 14px;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  color: #e5e5e5;
+}
+
+.form-footer {
+  margin-top: 20px;
+  text-align: center;
+  color: #9f9fa4;
+  font-size: 0.88rem;
+
+  a {
+    color: #fff;
+    text-decoration: none;
+    font-weight: 700;
+    margin-left: 6px;
+  }
+}
+
+.terms-copy {
+  margin-top: 14px;
+  text-align: center;
+  color: #8f8f95;
+  font-size: 0.72rem;
+
+  a {
+    color: #e6e6e6;
+    text-decoration: none;
+    margin: 0 2px;
   }
 }
 </style>

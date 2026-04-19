@@ -142,6 +142,7 @@ import {
   isHabitScheduledForDate,
   shiftDate
 } from 'src/utils/habitModel'
+import { setupRevealOnScroll } from 'src/utils/revealMotion'
 
 const ANALYTICS_DAYS_WINDOW = 90
 const TREND_DAYS = 7
@@ -152,7 +153,7 @@ const habitsStore = useHabitsStore()
 const completionsStore = useCompletionsStore()
 
 const loading = ref(true)
-let revealObserver = null
+let cleanupReveal = null
 
 const avatarInitial = computed(() => {
   const source = String(authStore.displayName || authStore.user?.email || 'T').trim()
@@ -353,13 +354,16 @@ onMounted(async () => {
   loading.value = false
 
   await nextTick()
-  initRevealObserver()
+  cleanupReveal = setupRevealOnScroll('.analytics-page', {
+    threshold: 0.12,
+    rootMargin: '0px 0px -10% 0px'
+  })
 })
 
 onUnmounted(() => {
-  if (revealObserver) {
-    revealObserver.disconnect()
-    revealObserver = null
+  if (cleanupReveal) {
+    cleanupReveal()
+    cleanupReveal = null
   }
 })
 
@@ -451,33 +455,6 @@ function getCompletionStreak(completions) {
   return streak
 }
 
-function initRevealObserver() {
-  const targets = Array.from(document.querySelectorAll('.analytics-page [data-reveal]'))
-  if (!targets.length) return
-
-  const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  if (reduceMotion) {
-    targets.forEach((target) => target.classList.add('is-visible'))
-    return
-  }
-
-  revealObserver = new IntersectionObserver((entries) => {
-    entries.forEach((entry) => {
-      if (!entry.isIntersecting) return
-      entry.target.classList.add('is-visible')
-      revealObserver?.unobserve(entry.target)
-    })
-  }, {
-    threshold: 0.12,
-    rootMargin: '0px 0px -10% 0px'
-  })
-
-  targets.forEach((target, index) => {
-    target.classList.add('reveal-target')
-    target.style.transitionDelay = `${Math.min((index % 6) * 70, 280)}ms`
-    revealObserver?.observe(target)
-  })
-}
 </script>
 
 <style scoped lang="scss">
