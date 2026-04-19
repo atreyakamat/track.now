@@ -287,6 +287,7 @@ import {
 import { useAuthStore } from 'src/stores/auth'
 import { useTasksStore } from 'src/stores/tasks'
 import { formatTaskDue, normalizeTask, parseVoiceTask } from 'src/utils/taskModel'
+import { setupRevealOnScroll } from 'src/utils/revealMotion'
 
 const $q = useQuasar()
 const authStore = useAuthStore()
@@ -309,7 +310,7 @@ const categoryOptions = TASK_CATEGORY_OPTIONS.map((item) => ({ label: item.label
 const priorityOptions = TASK_PRIORITY_OPTIONS.map((item) => ({ label: item.label, value: item.value }))
 
 let recognitionInstance = null
-let revealObserver = null
+let cleanupReveal = null
 
 const avatarInitial = computed(() => {
   const seed = String(authStore.displayName || authStore.user?.email || 'T').trim()
@@ -350,37 +351,16 @@ const completedPreview = computed(() => tasksStore.completedTasks.slice(0, 8))
 const hasAnyTasks = computed(() => tasksStore.tasks.length > 0)
 
 onMounted(() => {
-  const revealNodes = Array.from(document.querySelectorAll('.brain-dump-page [data-reveal]'))
-  if (!revealNodes.length) return
-
-  const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  if (reduceMotion) {
-    revealNodes.forEach((node) => node.classList.add('is-visible'))
-    return
-  }
-
-  revealObserver = new IntersectionObserver((entries) => {
-    entries.forEach((entry) => {
-      if (!entry.isIntersecting) return
-      entry.target.classList.add('is-visible')
-      revealObserver?.unobserve(entry.target)
-    })
-  }, {
+  cleanupReveal = setupRevealOnScroll('.brain-dump-page', {
     threshold: 0.14,
     rootMargin: '0px 0px -12% 0px'
-  })
-
-  revealNodes.forEach((node, index) => {
-    node.classList.add('reveal-target')
-    node.style.transitionDelay = `${Math.min((index % 6) * 70, 280)}ms`
-    revealObserver?.observe(node)
   })
 })
 
 onUnmounted(() => {
-  if (revealObserver) {
-    revealObserver.disconnect()
-    revealObserver = null
+  if (cleanupReveal) {
+    cleanupReveal()
+    cleanupReveal = null
   }
 
   if (recognitionInstance) {

@@ -126,6 +126,7 @@ import {
 } from 'src/utils/habitModel'
 import { TASK_PRIORITY_META, TASK_PRIORITY_OPTIONS } from 'src/constants/taskMeta'
 import { toDisplayTime } from 'src/utils/taskModel'
+import { setupRevealOnScroll } from 'src/utils/revealMotion'
 
 const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/
 const PERIOD_ORDER = { morning: 0, afternoon: 1, evening: 2 }
@@ -142,7 +143,7 @@ const habitsStore = useHabitsStore()
 const tasksStore = useTasksStore()
 const completionsStore = useCompletionsStore()
 
-let revealObserver = null
+let cleanupReveal = null
 
 const loading = computed(() => habitsStore.loading || tasksStore.loading || completionsStore.loading)
 
@@ -312,13 +313,16 @@ const stressMessage = computed(() => {
 onMounted(async () => {
   await completionsStore.fetchLast90Days()
   await nextTick()
-  initRevealObserver()
+  cleanupReveal = setupRevealOnScroll('.planner-view-page', {
+    threshold: 0.12,
+    rootMargin: '0px 0px -10% 0px'
+  })
 })
 
 onUnmounted(() => {
-  if (revealObserver) {
-    revealObserver.disconnect()
-    revealObserver = null
+  if (cleanupReveal) {
+    cleanupReveal()
+    cleanupReveal = null
   }
 })
 
@@ -346,33 +350,6 @@ function getTimeSortValue(value) {
   return (hours * 60) + minutes
 }
 
-function initRevealObserver() {
-  const targets = Array.from(document.querySelectorAll('.planner-view-page [data-reveal]'))
-  if (!targets.length) return
-
-  const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  if (reduceMotion) {
-    targets.forEach((target) => target.classList.add('is-visible'))
-    return
-  }
-
-  revealObserver = new IntersectionObserver((entries) => {
-    entries.forEach((entry) => {
-      if (!entry.isIntersecting) return
-      entry.target.classList.add('is-visible')
-      revealObserver?.unobserve(entry.target)
-    })
-  }, {
-    threshold: 0.12,
-    rootMargin: '0px 0px -10% 0px'
-  })
-
-  targets.forEach((target, index) => {
-    target.classList.add('reveal-target')
-    target.style.transitionDelay = `${Math.min((index % 6) * 70, 280)}ms`
-    revealObserver?.observe(target)
-  })
-}
 </script>
 
 <style scoped lang="scss">

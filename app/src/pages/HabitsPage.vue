@@ -206,6 +206,7 @@ import {
   getMissionProgress,
   isHabitScheduledForDate
 } from 'src/utils/habitModel'
+import { setupRevealOnScroll } from 'src/utils/revealMotion'
 
 const router = useRouter()
 const $q = useQuasar()
@@ -217,7 +218,7 @@ const deleteDialog = ref(false)
 const habitToDelete = ref(null)
 const deleting = ref(false)
 const pausedTodayMap = ref({})
-let revealObserver = null
+let cleanupReveal = null
 
 const loading = computed(() => habitsStore.loading || completionsStore.loading)
 const habits = computed(() => habitsStore.habits)
@@ -346,13 +347,16 @@ onMounted(async () => {
 
   loadPauseState()
   await nextTick()
-  initRevealObserver()
+  cleanupReveal = setupRevealOnScroll('.habit-command-page', {
+    threshold: 0.12,
+    rootMargin: '0px 0px -10% 0px'
+  })
 })
 
 onUnmounted(() => {
-  if (revealObserver) {
-    revealObserver.disconnect()
-    revealObserver = null
+  if (cleanupReveal) {
+    cleanupReveal()
+    cleanupReveal = null
   }
 })
 
@@ -474,33 +478,6 @@ function persistPauseState() {
   )
 }
 
-function initRevealObserver() {
-  const targets = Array.from(document.querySelectorAll('.habit-command-page [data-reveal]'))
-  if (!targets.length) return
-
-  const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  if (reduceMotion) {
-    targets.forEach((target) => target.classList.add('is-visible'))
-    return
-  }
-
-  revealObserver = new IntersectionObserver((entries) => {
-    entries.forEach((entry) => {
-      if (!entry.isIntersecting) return
-      entry.target.classList.add('is-visible')
-      revealObserver?.unobserve(entry.target)
-    })
-  }, {
-    threshold: 0.12,
-    rootMargin: '0px 0px -10% 0px'
-  })
-
-  targets.forEach((target, index) => {
-    target.classList.add('reveal-target')
-    target.style.transitionDelay = `${Math.min((index % 6) * 70, 280)}ms`
-    revealObserver?.observe(target)
-  })
-}
 </script>
 
 <style scoped lang="scss">

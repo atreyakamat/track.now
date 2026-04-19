@@ -123,6 +123,7 @@ import {
   getMissionProgress,
   isHabitCompleteOnDate
 } from 'src/utils/habitModel'
+import { setupRevealOnScroll } from 'src/utils/revealMotion'
 
 const $q = useQuasar()
 const authStore = useAuthStore()
@@ -130,7 +131,7 @@ const habitsStore = useHabitsStore()
 const completionsStore = useCompletionsStore()
 
 const loading = ref(true)
-let revealObserver = null
+let cleanupReveal = null
 
 const avatarInitial = computed(() => {
   const seed = String(authStore.displayName || authStore.user?.email || 'T').trim()
@@ -230,37 +231,16 @@ onMounted(async () => {
   await completionsStore.fetchLast90Days()
   loading.value = false
 
-  const revealNodes = Array.from(document.querySelectorAll('.action-hub-page [data-reveal]'))
-  if (!revealNodes.length) return
-
-  const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  if (reduceMotion) {
-    revealNodes.forEach((node) => node.classList.add('is-visible'))
-    return
-  }
-
-  revealObserver = new IntersectionObserver((entries) => {
-    entries.forEach((entry) => {
-      if (!entry.isIntersecting) return
-      entry.target.classList.add('is-visible')
-      revealObserver?.unobserve(entry.target)
-    })
-  }, {
+  cleanupReveal = setupRevealOnScroll('.action-hub-page', {
     threshold: 0.14,
     rootMargin: '0px 0px -10% 0px'
-  })
-
-  revealNodes.forEach((node, index) => {
-    node.classList.add('reveal-target')
-    node.style.transitionDelay = `${Math.min((index % 6) * 70, 280)}ms`
-    revealObserver?.observe(node)
   })
 })
 
 onUnmounted(() => {
-  if (revealObserver) {
-    revealObserver.disconnect()
-    revealObserver = null
+  if (cleanupReveal) {
+    cleanupReveal()
+    cleanupReveal = null
   }
 })
 

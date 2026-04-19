@@ -170,6 +170,7 @@ import {
   getMissionProgress,
   shiftDate
 } from 'src/utils/habitModel'
+import { setupRevealOnScroll } from 'src/utils/revealMotion'
 
 const router = useRouter()
 const $q = useQuasar()
@@ -180,7 +181,7 @@ const completionsStore = useCompletionsStore()
 const preferencesStore = usePreferencesStore()
 
 const loading = ref(true)
-let revealObserver = null
+let cleanupReveal = null
 
 const preferences = computed(() => preferencesStore.preferences)
 const profilePhoto = computed(() => authStore.user?.photoURL || '')
@@ -256,13 +257,16 @@ onMounted(async () => {
 
   loading.value = false
   await nextTick()
-  initRevealObserver()
+  cleanupReveal = setupRevealOnScroll('.profile-home-page', {
+    threshold: 0.12,
+    rootMargin: '0px 0px -10% 0px'
+  })
 })
 
 onUnmounted(() => {
-  if (revealObserver) {
-    revealObserver.disconnect()
-    revealObserver = null
+  if (cleanupReveal) {
+    cleanupReveal()
+    cleanupReveal = null
   }
 })
 
@@ -405,33 +409,6 @@ function getCompletionStreak(completions) {
   return streak
 }
 
-function initRevealObserver() {
-  const targets = Array.from(document.querySelectorAll('.profile-home-page [data-reveal]'))
-  if (!targets.length) return
-
-  const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  if (reduceMotion) {
-    targets.forEach((target) => target.classList.add('is-visible'))
-    return
-  }
-
-  revealObserver = new IntersectionObserver((entries) => {
-    entries.forEach((entry) => {
-      if (!entry.isIntersecting) return
-      entry.target.classList.add('is-visible')
-      revealObserver?.unobserve(entry.target)
-    })
-  }, {
-    threshold: 0.12,
-    rootMargin: '0px 0px -10% 0px'
-  })
-
-  targets.forEach((target, index) => {
-    target.classList.add('reveal-target')
-    target.style.transitionDelay = `${Math.min((index % 6) * 70, 280)}ms`
-    revealObserver?.observe(target)
-  })
-}
 </script>
 
 <style scoped lang="scss">
