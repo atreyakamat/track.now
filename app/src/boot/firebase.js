@@ -3,6 +3,17 @@ import { initializeApp } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 
+function hasRealConfigValue(value) {
+  const normalized = String(value || '').trim()
+  if (!normalized) return false
+
+  const lower = normalized.toLowerCase()
+  if (lower.startsWith('your_') || lower.startsWith('your-') || lower.startsWith('your-project')) return false
+  if (lower.includes('<') || lower.includes('>')) return false
+
+  return true
+}
+
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || '',
@@ -13,14 +24,21 @@ const firebaseConfig = {
 }
 
 const explicitDemoMode = String(import.meta.env.VITE_USE_DEMO_MODE || '').toLowerCase() === 'true'
+const strictProdFirebase = String(import.meta.env.VITE_REQUIRE_FIREBASE_IN_PROD || '').toLowerCase() === 'true'
 const hasFirebaseConfig = [
   firebaseConfig.apiKey,
   firebaseConfig.authDomain,
   firebaseConfig.projectId,
   firebaseConfig.appId
-].every((value) => !!value)
+].every((value) => hasRealConfigValue(value))
 
 export const isDemoMode = explicitDemoMode || !hasFirebaseConfig
+
+if (import.meta.env.PROD && strictProdFirebase && isDemoMode) {
+  throw new Error(
+    'Firebase production configuration is missing. Set VITE_FIREBASE_* values and VITE_USE_DEMO_MODE=false in .env.production.'
+  )
+}
 
 const firebaseApp = isDemoMode ? null : initializeApp(firebaseConfig)
 const auth = firebaseApp ? getAuth(firebaseApp) : null

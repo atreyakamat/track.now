@@ -12,7 +12,6 @@ import { computed, onMounted, watch } from 'vue'
 import { usePreferencesStore } from 'src/stores/preferences'
 
 const $q = useQuasar()
-<<<<<<< HEAD
 const preferencesStore = usePreferencesStore()
 const reduceMotion = computed(() => Boolean(preferencesStore.preferences.reduceMotion))
 
@@ -46,11 +45,5 @@ watch(reduceMotion, (value) => {
   document.body.classList.toggle('reduce-motion', value)
 }, {
   immediate: true
-=======
-
-onMounted(() => {
-  // Force dark mode as per PRD/Design guidelines
-  $q.dark.set(true)
->>>>>>> a019a5362bacb14dd7013981da66fa5d112d04b7
 })
 </script>
