@@ -86,6 +86,112 @@
             background: rgba(255, 255, 255, 0.7);
             backdrop-filter: blur(20px);
         }
+        :root {
+            --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        nav {
+            transition: box-shadow 350ms var(--ease-out-expo), background-color 350ms var(--ease-out-expo);
+        }
+        nav.nav-scrolled {
+            box-shadow: 0 12px 40px rgba(15, 23, 42, 0.12);
+        }
+        .hero-copy-enter {
+            animation: fade-up 850ms var(--ease-out-expo) both;
+        }
+        .hero-device-enter {
+            animation: fade-up 950ms 120ms var(--ease-out-expo) both, float-card 6s ease-in-out 1.2s infinite;
+        }
+        .hero-glow {
+            animation: ambient-drift 9s ease-in-out infinite alternate;
+        }
+        .hero-ring-track {
+            animation: slow-spin 6s linear infinite;
+            transform-origin: center;
+        }
+        .logo-row {
+            animation: drift-x 18s linear infinite alternate;
+        }
+        .pro-card {
+            transition: transform 320ms var(--ease-out-expo), box-shadow 320ms var(--ease-out-expo), border-color 320ms var(--ease-out-expo);
+        }
+        .pro-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 24px 48px rgba(15, 23, 42, 0.14);
+            border-color: rgba(0, 0, 0, 0.18);
+        }
+        .reveal {
+            opacity: 0;
+            transform: translateY(24px);
+            transition: opacity 700ms var(--ease-out-expo), transform 700ms var(--ease-out-expo);
+        }
+        .reveal.is-visible {
+            opacity: 1;
+            transform: none;
+        }
+        @keyframes fade-up {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: none;
+            }
+        }
+        @keyframes float-card {
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+        @keyframes ambient-drift {
+            from {
+                transform: translate3d(0, 0, 0) scale(1);
+            }
+            to {
+                transform: translate3d(-10px, 10px, 0) scale(1.08);
+            }
+        }
+        @keyframes slow-spin {
+            from {
+                transform: rotate(-45deg);
+            }
+            to {
+                transform: rotate(315deg);
+            }
+        }
+        @keyframes drift-x {
+            from {
+                transform: translateX(-8px);
+            }
+            to {
+                transform: translateX(8px);
+            }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .hero-copy-enter,
+            .hero-device-enter,
+            .hero-glow,
+            .hero-ring-track,
+            .logo-row {
+                animation: none !important;
+            }
+            .reveal,
+            .reveal.is-visible {
+                opacity: 1;
+                transform: none;
+                transition: none;
+            }
+            .pro-card,
+            .pro-card:hover {
+                transition: none;
+                transform: none;
+                box-shadow: none;
+            }
+        }
     </style>
 </head>
 <body class="bg-surface text-on-surface selection:bg-primary selection:text-on-primary">
@@ -93,18 +199,18 @@
 <div class="flex items-center justify-between px-8 py-4 w-full max-w-7xl mx-auto">
 <div class="text-xl font-bold text-black dark:text-white tracking-tighter">Track.now</div>
 <div class="hidden md:flex items-center space-gap-8 gap-x-8">
-<a class="text-black dark:text-white font-bold border-b-2 border-black dark:border-white pb-1 font-inter tracking-[-0.02em]" href="#">Mission</a>
-<a class="text-zinc-500 dark:text-zinc-400 hover:text-black dark:hover:text-white transition-all duration-300 font-inter tracking-[-0.02em]" href="#">Features</a>
-<a class="text-zinc-500 dark:text-zinc-400 hover:text-black dark:hover:text-white transition-all duration-300 font-inter tracking-[-0.02em]" href="#">Social</a>
-<a class="text-zinc-500 dark:text-zinc-400 hover:text-black dark:hover:text-white transition-all duration-300 font-inter tracking-[-0.02em]" href="#">Pricing</a>
+<a class="text-black dark:text-white font-bold border-b-2 border-black dark:border-white pb-1 font-inter tracking-[-0.02em]" href="#mission">Mission</a>
+<a class="text-zinc-500 dark:text-zinc-400 hover:text-black dark:hover:text-white transition-all duration-300 font-inter tracking-[-0.02em]" href="#features">Features</a>
+<a class="text-zinc-500 dark:text-zinc-400 hover:text-black dark:hover:text-white transition-all duration-300 font-inter tracking-[-0.02em]" href="#social-proof">Social</a>
+<a class="text-zinc-500 dark:text-zinc-400 hover:text-black dark:hover:text-white transition-all duration-300 font-inter tracking-[-0.02em]" href="#faq">FAQ</a>
 </div>
-<button class="bg-primary text-on-primary px-6 py-2 rounded-lg font-bold active:scale-95 transition-transform">Get Started</button>
+<a class="bg-primary text-on-primary px-6 py-2 rounded-lg font-bold active:scale-95 transition-transform inline-flex items-center justify-center" href="../app/#/signup">Get Started</a>
 </div>
 </nav>
 <main class="pt-24">
-<section class="relative px-8 py-20 lg:py-32 max-w-7xl mx-auto overflow-hidden">
+<section class="relative px-8 py-20 lg:py-32 max-w-7xl mx-auto overflow-hidden" id="mission">
 <div class="grid lg:grid-cols-2 gap-16 items-center">
-<div class="z-10">
+<div class="z-10 hero-copy-enter" data-reveal>
 <h1 class="text-5xl lg:text-7xl font-bold tracking-[-0.02em] leading-[1.1] text-primary mb-6">
                         Master Your Habits. <span class="text-secondary">Reclaim 10 Hours a Week.</span>
 </h1>
@@ -112,18 +218,18 @@
                         The definitive high-fidelity ledger for high-performers. Automate your discipline with obsidian-grade tracking and voice intelligence.
                     </p>
 <div class="flex flex-col sm:flex-row gap-4">
-<button class="bg-primary text-on-primary px-8 py-4 rounded-lg font-bold text-lg hover:shadow-xl transition-all">Start Your 14-Day Free Trial</button>
-<button class="border border-outline-variant px-8 py-4 rounded-lg font-bold text-lg flex items-center justify-center gap-2 hover:bg-surface-container-low transition-colors">
+<a class="bg-primary text-on-primary px-8 py-4 rounded-lg font-bold text-lg hover:shadow-xl transition-all inline-flex items-center justify-center" href="../app/#/signup">Start Your 14-Day Free Trial</a>
+<a class="border border-outline-variant px-8 py-4 rounded-lg font-bold text-lg flex items-center justify-center gap-2 hover:bg-surface-container-low transition-colors" href="#features">
 <span class="material-symbols-outlined">play_circle</span> Watch Demo
-                        </button>
+                        </a>
 </div>
 </div>
-<div class="relative flex justify-center lg:justify-end">
-<div class="relative w-full max-w-[400px] aspect-[9/19] bg-primary rounded-[3rem] p-4 shadow-2xl overflow-hidden">
+<div class="relative flex justify-center lg:justify-end hero-device-enter" data-reveal>
+<div class="relative w-full max-w-[400px] aspect-[9/19] bg-primary rounded-[3rem] p-4 shadow-2xl overflow-hidden pro-card">
 <div class="absolute inset-0 bg-gradient-to-br from-primary-container to-primary opacity-50"></div>
 <div class="relative h-full w-full bg-black rounded-[2.5rem] overflow-hidden flex flex-col items-center justify-center border border-white/10">
 <div class="w-48 h-48 rounded-full border-[12px] border-zinc-800 flex items-center justify-center relative">
-<div class="absolute inset-0 rounded-full border-[12px] border-white border-t-transparent -rotate-45"></div>
+<div class="absolute inset-0 rounded-full border-[12px] border-white border-t-transparent hero-ring-track"></div>
 <span class="text-4xl font-bold text-white">84%</span>
 </div>
 <div class="mt-8 space-y-4 w-full px-6">
@@ -133,14 +239,14 @@
 </div>
 </div>
 </div>
-<div class="absolute -z-10 -right-20 -top-20 w-80 h-80 bg-secondary-container rounded-full blur-[100px] opacity-30"></div>
+<div class="absolute -z-10 -right-20 -top-20 w-80 h-80 bg-secondary-container rounded-full blur-[100px] opacity-30 hero-glow"></div>
 </div>
 </div>
 </section>
-<section class="bg-surface-container-low py-12">
-<div class="max-w-7xl mx-auto px-8">
+<section class="bg-surface-container-low py-12" id="social-proof">
+<div class="max-w-7xl mx-auto px-8" data-reveal>
 <p class="text-label-md uppercase tracking-[0.1em] text-secondary font-bold text-center mb-10">Powering the daily routines of teams at:</p>
-<div class="flex flex-wrap justify-center items-center gap-12 grayscale opacity-60">
+<div class="flex flex-wrap justify-center items-center gap-12 grayscale opacity-60 logo-row">
 <span class="text-2xl font-black">Linear</span>
 <span class="text-2xl font-black">Notion</span>
 <span class="text-2xl font-black">Stripe</span>
@@ -149,23 +255,23 @@
 </div>
 </div>
 </section>
-<section class="py-24 px-8 max-w-7xl mx-auto">
-<div class="mb-16">
+<section class="py-24 px-8 max-w-7xl mx-auto" id="features">
+<div class="mb-16" data-reveal>
 <h2 class="text-3xl lg:text-5xl font-bold tracking-tight text-primary mb-4">Good intentions aren't enough</h2>
 <p class="text-lg text-on-surface-variant">The friction of traditional tracking is what kills momentum.</p>
 </div>
 <div class="grid md:grid-cols-3 gap-8">
-<div class="p-8 bg-surface-container-lowest border-l-4 border-primary">
+<div class="p-8 bg-surface-container-lowest border-l-4 border-primary pro-card" data-reveal>
 <span class="material-symbols-outlined text-4xl mb-4">timer_off</span>
 <h3 class="text-xl font-bold mb-3">Manual Entry Fatigue</h3>
 <p class="text-on-surface-variant">Logging takes longer than the habit itself. You stop tracking after day four.</p>
 </div>
-<div class="p-8 bg-surface-container-lowest border-l-4 border-primary">
+<div class="p-8 bg-surface-container-lowest border-l-4 border-primary pro-card" data-reveal>
 <span class="material-symbols-outlined text-4xl mb-4">analytics</span>
 <h3 class="text-xl font-bold mb-3">Data Without Insight</h3>
 <p class="text-on-surface-variant">Spreadsheets show numbers but don't tell you why your streaks keep breaking.</p>
 </div>
-<div class="p-8 bg-surface-container-lowest border-l-4 border-primary">
+<div class="p-8 bg-surface-container-lowest border-l-4 border-primary pro-card" data-reveal>
 <span class="material-symbols-outlined text-4xl mb-4">psychology</span>
 <h3 class="text-xl font-bold mb-3">Lack of Identity</h3>
 <p class="text-on-surface-variant">Apps treat habits as tasks. We treat them as who you are becoming.</p>
@@ -173,7 +279,7 @@
 </div>
 </section>
 <section class="bg-primary text-on-primary py-24 px-8">
-<div class="max-w-7xl mx-auto flex flex-col lg:flex-row gap-16">
+<div class="max-w-7xl mx-auto flex flex-col lg:flex-row gap-16" data-reveal>
 <div class="lg:w-1/3">
 <h2 class="text-4xl font-bold leading-tight">Track.now is a premium, high-fidelity ledger.</h2>
 </div>
@@ -194,7 +300,7 @@
 </div>
 </section>
 <section class="py-24 px-8 max-w-7xl mx-auto space-y-32">
-<div class="flex flex-col lg:flex-row items-center gap-16">
+<div class="flex flex-col lg:flex-row items-center gap-16" data-reveal>
 <div class="lg:w-1/2">
 <div class="inline-block px-3 py-1 bg-secondary-container text-on-secondary-container text-xs font-bold rounded mb-6 uppercase tracking-widest">Intelligence</div>
 <h3 class="text-4xl font-bold mb-6">Voice Intelligence</h3>
@@ -204,11 +310,11 @@
 <li class="flex items-center gap-3 font-medium"><span class="material-symbols-outlined text-primary">check_circle</span> Zero-touch interaction</li>
 </ul>
 </div>
-<div class="lg:w-1/2 aspect-video bg-surface-container-high rounded-xl overflow-hidden">
+<div class="lg:w-1/2 aspect-video bg-surface-container-high rounded-xl overflow-hidden pro-card">
 <img class="w-full h-full object-cover" data-alt="Close-up of a minimalist microphone on a dark desk with dramatic rim lighting and moody atmosphere" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAlHMzPI85JhzCIn_jq7_K6kyQ0wdgg9zi6eKNhXO7jilkI_Gvo1fi0QmLEPDCszdI9CBo5fEvZQyF0_jn9J-1W5mNbjnMFBSHvX-tt_WN9qWMMURs3Xykryk1uLfdQraUDQ4UvdN8MwwS6vYlh7nvaP4c1uuYDlCh7LqEtlH-RX58RKTiPKgwumnqEd0P8eyEqbUCAIg1rMuMQP3GW-Yz0S_-DrzQll7uY3zkWjNqir0gB6aJx27WKFzQOfm-lNQkHjyPn_tsz9e8"/>
 </div>
 </div>
-<div class="flex flex-col lg:flex-row-reverse items-center gap-16">
+<div class="flex flex-col lg:flex-row-reverse items-center gap-16" data-reveal>
 <div class="lg:w-1/2">
 <div class="inline-block px-3 py-1 bg-secondary-container text-on-secondary-container text-xs font-bold rounded mb-6 uppercase tracking-widest">Psychology</div>
 <h3 class="text-4xl font-bold mb-6">Identity Progression</h3>
@@ -218,13 +324,13 @@
 <li class="flex items-center gap-3 font-medium"><span class="material-symbols-outlined text-primary">check_circle</span> Long-term identity mapping</li>
 </ul>
 </div>
-<div class="lg:w-1/2 aspect-video bg-surface-container-high rounded-xl overflow-hidden">
+<div class="lg:w-1/2 aspect-video bg-surface-container-high rounded-xl overflow-hidden pro-card">
 <img class="w-full h-full object-cover" data-alt="Modern architectural stairs in black and white with strong shadows and geometric perspective" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCjtOYO3euHHsQ1KHibnYvKAoa33qoBTg1Ctu13tYTu22Y-ngI24UvM9rr4NGgV-BE0CxhtcfzxWdXX1pCt5Eei6z03PG48uyD2z1RcPTx_Mk-Pz8Jp84YBCI2pFuUTX0Zp6NCUVBYlGcf8thfSmnwcrlnPFyw38sb4QFG03Ff4Dq1Mbw4js92iG3MbwcR2Y8LGpQKl1QNi1cRXP2r5G6WT1V1J0r-9hDqzF8-LU9_c4QCCPRZgxu_WKvfHvu4hrAlwl_DpyQG1wbg"/>
 </div>
 </div>
 </section>
 <section class="bg-surface-container-low py-24 px-8">
-<div class="max-w-7xl mx-auto">
+<div class="max-w-7xl mx-auto" data-reveal>
 <h2 class="text-3xl font-bold text-center mb-20">The Frictionless Path</h2>
 <div class="grid md:grid-cols-3 gap-12 text-center">
 <div>
@@ -246,8 +352,8 @@
 </div>
 </section>
 <section class="py-24 px-8 max-w-7xl mx-auto">
-<h2 class="text-3xl font-bold mb-16">Compare the Standards</h2>
-<div class="overflow-x-auto">
+<h2 class="text-3xl font-bold mb-16" data-reveal>Compare the Standards</h2>
+<div class="overflow-x-auto pro-card" data-reveal>
 <table class="w-full text-left border-collapse">
 <thead>
 <tr class="border-b-2 border-primary">
@@ -277,7 +383,7 @@
 </div>
 </section>
 <section class="hidden py-24 px-8 max-w-7xl mx-auto">
-<div class="text-center mb-16">
+<div class="text-center mb-16" data-reveal>
 <h2 class="text-4xl font-bold mb-4">Investment in Performance</h2>
 <p class="text-on-surface-variant">Choose the layer that fits your ambition.</p>
 </div>
@@ -306,24 +412,24 @@
 </div>
 </div>
 </section>
-<section class="py-24 px-8 max-w-3xl mx-auto">
+<section class="py-24 px-8 max-w-3xl mx-auto" id="faq">
 <h2 class="text-3xl font-bold mb-12 text-center">Frequently Asked Questions</h2>
 <div class="space-y-4">
-<details class="group p-6 bg-surface-container-low rounded-lg">
+<details class="group p-6 bg-surface-container-low rounded-lg pro-card" data-reveal>
 <summary class="list-none font-bold text-lg cursor-pointer flex justify-between items-center">
                         Is my voice data secure?
                         <span class="material-symbols-outlined transition-transform group-open:rotate-180">expand_more</span>
 </summary>
 <p class="mt-4 text-on-surface-variant leading-relaxed">We use edge-computing for voice processing. Your audio never leaves your device; only the transcribed intent is synced with your encrypted ledger.</p>
 </details>
-<details class="group p-6 bg-surface-container-low rounded-lg">
+<details class="group p-6 bg-surface-container-low rounded-lg pro-card" data-reveal>
 <summary class="list-none font-bold text-lg cursor-pointer flex justify-between items-center">
                         Can I export my data?
                         <span class="material-symbols-outlined transition-transform group-open:rotate-180">expand_more</span>
 </summary>
 <p class="mt-4 text-on-surface-variant leading-relaxed">Yes. We support full CSV and JSON exports at any time. We believe in data sovereignty.</p>
 </details>
-<details class="group p-6 bg-surface-container-low rounded-lg">
+<details class="group p-6 bg-surface-container-low rounded-lg pro-card" data-reveal>
 <summary class="list-none font-bold text-lg cursor-pointer flex justify-between items-center">
                         What happens after the 14-day trial?
                         <span class="material-symbols-outlined transition-transform group-open:rotate-180">expand_more</span>
@@ -332,13 +438,13 @@
 </details>
 </div>
 </section>
-<section class="py-32 px-8">
-<div class="max-w-5xl mx-auto bg-primary text-on-primary p-12 lg:p-20 text-center rounded-2xl relative overflow-hidden">
+<section class="py-32 px-8" id="start">
+<div class="max-w-5xl mx-auto bg-primary text-on-primary p-12 lg:p-20 text-center rounded-2xl relative overflow-hidden pro-card" data-reveal>
 <div class="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"></div>
 <div class="relative z-10">
 <h2 class="text-4xl lg:text-6xl font-bold mb-8">Ready to reclaim your time?</h2>
 <p class="text-xl mb-12 opacity-80 max-w-2xl mx-auto">Join over 10,000 high-performers tracking their way to mastery. No credit card required to start.</p>
-<button class="bg-on-primary text-primary px-10 py-5 rounded-lg text-xl font-bold hover:scale-105 transition-transform mb-6">Start Your 14-Day Free Trial</button>
+<a class="bg-on-primary text-primary px-10 py-5 rounded-lg text-xl font-bold hover:scale-105 transition-transform mb-6 inline-flex items-center justify-center" href="../app/#/signup">Start Your 14-Day Free Trial</a>
 <p class="text-sm opacity-60">Money-back guarantee. Cancel anytime with one click.</p>
 </div>
 </div>
@@ -353,7 +459,45 @@
 <a class="font-inter text-[0.75rem] uppercase tracking-[0.05em] text-zinc-400 dark:text-zinc-600 hover:text-black dark:hover:text-white hover:underline underline-offset-4" href="#">Terms</a>
 <a class="font-inter text-[0.75rem] uppercase tracking-[0.05em] text-zinc-400 dark:text-zinc-600 hover:text-black dark:hover:text-white hover:underline underline-offset-4" href="#">Privacy</a>
 </div>
-<p class="font-inter text-[0.75rem] uppercase tracking-[0.05em] text-zinc-400 dark:text-zinc-600">© 2024 Track.now. Precision in motion.</p>
+<p class="font-inter text-[0.75rem] uppercase tracking-[0.05em] text-zinc-400 dark:text-zinc-600">&copy; 2024 Track.now. Precision in motion.</p>
 </div>
 </footer>
+<script>
+        (() => {
+            const nav = document.querySelector('nav');
+            const onScroll = () => {
+                if (!nav) return;
+                nav.classList.toggle('nav-scrolled', window.scrollY > 8);
+            };
+
+            onScroll();
+            window.addEventListener('scroll', onScroll, { passive: true });
+
+            const revealNodes = Array.from(document.querySelectorAll('[data-reveal]'));
+            if (!revealNodes.length) return;
+
+            const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            if (reduceMotion) {
+                revealNodes.forEach((node) => node.classList.add('is-visible'));
+                return;
+            }
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach((entry) => {
+                    if (!entry.isIntersecting) return;
+                    entry.target.classList.add('is-visible');
+                    observer.unobserve(entry.target);
+                });
+            }, {
+                threshold: 0.14,
+                rootMargin: '0px 0px -10% 0px'
+            });
+
+            revealNodes.forEach((node, index) => {
+                node.classList.add('reveal');
+                node.style.transitionDelay = `${Math.min((index % 6) * 80, 320)}ms`;
+                observer.observe(node);
+            });
+        })();
+    </script>
 </body></html>
