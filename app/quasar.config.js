@@ -34,7 +34,7 @@ module.exports = configure(function (ctx) {
         display: 'standalone',
         orientation: 'portrait',
         background_color: '#f8fafc',
-        theme_color: '#245c68',
+        theme_color: '#4f46e5',
         start_url: './#/today',
         icons: [
           {
