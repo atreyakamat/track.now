@@ -219,9 +219,21 @@ export const useAuthStore = defineStore('auth', () => {
       return profile.value
     }
 
-    const snap = await getDoc(doc(db, 'users', user.value.uid))
-    profile.value = snap.exists() ? snap.data() : null
-    return profile.value
+    try {
+      const snap = await getDoc(doc(db, 'users', user.value.uid))
+      profile.value = snap.exists() ? snap.data() : null
+      return profile.value
+    } catch (e) {
+      console.warn('Profile fetch failed (likely offline or blocked):', e.message)
+      // Fallback to a basic profile so the app doesn't crash
+      profile.value = {
+        uid: user.value.uid,
+        email: user.value.email,
+        displayName: user.value.displayName,
+        plan: 'free'
+      }
+      return profile.value
+    }
   }
 
   async function updateUserProfile(updates) {

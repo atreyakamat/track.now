@@ -2,6 +2,7 @@ import { boot } from 'quasar/wrappers'
 import { initializeApp } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
+import { getAnalytics, isSupported as isAnalyticsSupported } from 'firebase/analytics'
 
 function hasRealConfigValue(value) {
   const normalized = String(value || '').trim()
@@ -20,7 +21,8 @@ const firebaseConfig = {
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || '',
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || '',
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || ''
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || '',
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || ''
 }
 
 const explicitDemoMode = String(import.meta.env.VITE_USE_DEMO_MODE || '').toLowerCase() === 'true'
@@ -43,6 +45,13 @@ if (import.meta.env.PROD && strictProdFirebase && isDemoMode) {
 const firebaseApp = isDemoMode ? null : initializeApp(firebaseConfig)
 const auth = firebaseApp ? getAuth(firebaseApp) : null
 const db = firebaseApp ? getFirestore(firebaseApp) : null
+
+// Initialize Analytics if supported and not in demo mode
+if (firebaseApp) {
+  isAnalyticsSupported().then(supported => {
+    if (supported) getAnalytics(firebaseApp)
+  })
+}
 
 export { auth, db }
 
