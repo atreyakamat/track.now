@@ -1,61 +1,61 @@
 <template>
-  <q-layout view="lHh lpr lFf">
-    <q-page-container>
-      <q-page class="page-container pricing-page q-py-xl">
-        <div class="pricing-hero q-mb-xl">
-          <div class="text-overline text-primary">Pricing</div>
-          <div class="text-h3 text-weight-bold q-mt-sm">Simple plans for focused growth</div>
-          <div class="text-body2 text-grey-7 q-mt-sm">
-            Start free, move to Pro when analytics and reminders matter more, and use Family when the product becomes a shared household system.
+  <q-page class="page-container pricing-page q-py-xl bg-mesh">
+    <div class="pricing-hero q-mb-xl text-center">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase tracking-widest q-mb-md">
+        Invest in yourself
+      </div>
+      <h1 class="text-h3 text-weight-bolder tracking-tighter text-slate-900 q-mt-none">Focused growth, <br/>simple pricing.</h1>
+      <p class="text-h6 text-slate-500 text-weight-medium max-w-2xl mx-auto q-mt-md">
+        Start for free, upgrade when your discipline demands more power.
+      </p>
+    </div>
+
+    <div class="plan-grid q-mb-xl">
+      <q-card v-for="plan in plans" :key="plan.name" flat class="plan-card glass-panel" :class="{ featured: plan.featured }">
+        <q-card-section class="q-pa-xl">
+          <div v-if="plan.badge" class="row justify-start q-mb-md">
+            <span class="plan-badge">{{ plan.badge }}</span>
           </div>
-        </div>
+          <div class="text-subtitle1 text-weight-bolder text-slate-400 uppercase tracking-widest">{{ plan.name }}</div>
+          <div class="text-h2 text-weight-bolder text-slate-900 q-my-md">
+            {{ plan.price }}<span class="text-h6 text-slate-400 font-medium lowercase">{{ plan.period }}</span>
+          </div>
+          <p class="text-body2 text-slate-500 q-mb-xl min-height-48">{{ plan.description }}</p>
+          
+          <q-list class="q-mb-xl">
+            <q-item v-for="feature in plan.features" :key="feature" dense class="q-px-none q-mb-sm">
+              <q-item-section avatar min-width="24px">
+                <q-icon name="o_check_circle" color="primary" size="18px" />
+              </q-item-section>
+              <q-item-section class="text-slate-700 text-weight-medium">{{ feature }}</q-item-section>
+            </q-item>
+          </q-list>
+          
+          <q-btn
+            :label="ctaLabel(plan)"
+            :color="plan.featured ? 'primary' : 'slate-900'"
+            :outline="!plan.featured"
+            unelevated
+            class="full-width glow-btn q-py-md text-weight-bolder"
+            size="lg"
+            @click="selectPlan(plan.name)"
+          />
+        </q-card-section>
+      </q-card>
+    </div>
 
-        <div class="plan-grid q-mb-xl">
-          <q-card v-for="plan in plans" :key="plan.name" flat bordered class="plan-card" :class="{ featured: plan.featured }">
-            <q-card-section>
-              <q-badge v-if="plan.badge" :label="plan.badge" color="primary" class="q-mb-md" />
-              <div class="text-h5 text-weight-bold">{{ plan.name }}</div>
-              <div class="text-h3 text-weight-bold text-primary q-mt-sm">
-                {{ plan.price }}<span class="text-h6 text-grey-7">{{ plan.period }}</span>
-              </div>
-              <div class="text-body2 text-grey-7 q-mt-sm q-mb-lg">{{ plan.description }}</div>
-              <q-list dense class="q-mb-lg">
-                <q-item v-for="feature in plan.features" :key="feature">
-                  <q-item-section avatar>
-                    <q-icon name="check_circle" color="positive" />
-                  </q-item-section>
-                  <q-item-section>{{ feature }}</q-item-section>
-                </q-item>
-              </q-list>
-              <q-btn
-                :label="ctaLabel(plan)"
-                :color="plan.featured ? 'primary' : 'grey-3'"
-                :text-color="plan.featured ? 'white' : 'dark'"
-                unelevated
-                no-caps
-                class="full-width"
-                @click="selectPlan(plan.name)"
-              />
-            </q-card-section>
-          </q-card>
+    <div class="row justify-center">
+      <q-card flat class="pricing-note glass-panel q-pa-lg max-w-xl full-width">
+        <div class="row items-center justify-between no-wrap">
+          <div>
+            <div class="text-subtitle2 text-slate-400 uppercase tracking-widest font-bold">Your Status</div>
+            <div class="text-h6 text-weight-bolder text-slate-900">Current plan: {{ authStore.currentPlan }}</div>
+          </div>
+          <q-btn flat color="slate-400" icon="o_arrow_back" label="Return" @click="goBack" class="text-weight-bolder" />
         </div>
-
-        <q-card flat bordered class="pricing-note">
-          <q-card-section class="row items-center q-col-gutter-md">
-            <div class="col">
-              <div class="text-subtitle1 text-weight-bold">Current plan: {{ authStore.currentPlan }}</div>
-              <div class="text-body2 text-grey-7 q-mt-sm">
-                Plan selection updates the account profile immediately. Payment processing can be connected to Stripe when keys are configured.
-              </div>
-            </div>
-            <div class="col-auto">
-              <q-btn flat no-caps label="Back to app" icon="arrow_back" @click="goBack" />
-            </div>
-          </q-card-section>
-        </q-card>
-      </q-page>
-    </q-page-container>
-  </q-layout>
+      </q-card>
+    </div>
+  </q-page>
 </template>
 
 <script setup>
@@ -74,8 +74,8 @@ const plans = [
     label: 'Free',
     price: '$0',
     period: '/mo',
-    description: 'Great for building the habit loop and keeping the product simple.',
-    features: ['Up to 5 habits', 'Today view', 'Basic calendar history', 'Core mission tracking'],
+    description: 'Perfect for building the habit loop and starting your journey.',
+    features: ['Up to 5 habits', 'Today focus view', '7-day momentum', 'Core mission tracking'],
     featured: false
   },
   {
@@ -83,20 +83,20 @@ const plans = [
     label: 'Pro',
     price: '$4.99',
     period: '/mo',
-    description: 'For users who want analytics, reminders, and deeper accountability.',
-    features: ['Unlimited habits', 'Advanced analytics', 'WhatsApp summaries', 'Friends and groups'],
+    description: 'For power users who need advanced analytics and reminders.',
+    features: ['Unlimited habits', 'Advanced analytics', 'WhatsApp summaries', 'Full friends & groups'],
     featured: true,
-    badge: 'Most popular'
+    badge: 'Highly Recommended'
   },
   {
     name: 'family',
     label: 'Family',
     price: '$9.99',
     period: '/mo',
-    description: 'Shared routines and gentle household accountability for multiple members.',
-    features: ['Everything in Pro', 'Up to 6 members', 'Family space', 'Priority support'],
+    description: 'Collaborative tracking for teams or households of up to 6.',
+    features: ['Everything in Pro', 'Up to 6 members', 'Shared missions', 'Priority response'],
     featured: false,
-    badge: 'Best for households'
+    badge: 'Household Choice'
   }
 ]
 
@@ -113,16 +113,16 @@ async function selectPlan(planName) {
   }
 
   await authStore.updateAccountPlan(planName)
-  $q.notify({ message: `Plan updated to ${planName}`, color: 'positive' })
+  $q.notify({ message: `Plan upgraded to ${planName}`, color: 'primary', icon: 'o_auto_awesome' })
 }
 
 function ctaLabel(plan) {
-  return authStore.currentPlan === plan.name ? 'Current plan' : `Choose ${plan.label}`
+  return authStore.currentPlan === plan.name ? 'Current' : `Upgrade to ${plan.label}`
 }
 
 function goBack() {
   if (authStore.isAuthenticated) {
-    router.push('/dashboard')
+    router.push('/today')
     return
   }
 
@@ -131,28 +131,79 @@ function goBack() {
 </script>
 
 <style scoped lang="scss">
-.pricing-hero,
-.pricing-note,
-.plan-card {
-  border-radius: 24px;
-  border: 1px solid rgba(148, 163, 184, 0.16);
+.pricing-page {
+  min-height: 100vh;
 }
 
-.pricing-hero {
-  padding: 24px;
-  background:
-    radial-gradient(circle at top left, rgba(36, 92, 104, 0.12), transparent 48%),
-    #ffffff;
+.bg-mesh {
+  background-color: #f8fafc;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(79, 70, 229, 0.04) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(99, 102, 241, 0.04) 0px, transparent 50%);
 }
 
 .plan-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 24px;
+  max-width: 1100px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
-.featured {
-  border-color: rgba(36, 92, 104, 0.4);
-  box-shadow: 0 18px 36px rgba(36, 92, 104, 0.08);
+.plan-card {
+  border-radius: 32px;
+  border: 1px solid rgba(255,255,255,0.4);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.04);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+
+  &:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.1);
+    border-color: rgba($primary, 0.2);
+  }
+
+  &.featured {
+    border: 2px solid $primary;
+    box-shadow: 0 20px 40px -12px rgba($primary, 0.15);
+  }
+}
+
+.plan-badge {
+  padding: 4px 12px;
+  background: $primary;
+  color: white;
+  border-radius: 99px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.min-height-48 {
+  min-height: 48px;
+}
+
+.pricing-note {
+  border-radius: 24px;
+}
+
+.glow-btn {
+  box-shadow: 0 10px 15px -3px rgba($primary, 0.2);
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+.text-slate-400 { color: #94a3b8; }
+.text-slate-500 { color: #64748b; }
+.text-slate-700 { color: #334155; }
+.text-slate-900 { color: #0f172a; }
+
+@media (max-width: 600px) {
+  .plan-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
