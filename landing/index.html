@@ -1,503 +1,313 @@
 <!DOCTYPE html>
-
-<html class="light" lang="en"><head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Track.now | Master Your Habits</title>
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<script id="tailwind-config">
+<html class="light" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Track.now | Master Your Habits</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <script id="tailwind-config">
         tailwind.config = {
             darkMode: "class",
             theme: {
                 extend: {
-                    "colors": {
-                        "surface-container-high": "#e6e8ea",
-                        "inverse-primary": "#bec6e0",
-                        "error": "#ba1a1a",
-                        "tertiary-fixed-dim": "#474747",
-                        "on-primary": "#dae2fd",
-                        "tertiary": "#3b3b3b",
-                        "on-tertiary": "#e2e2e2",
-                        "secondary": "#505f76",
-                        "on-primary-fixed-variant": "#dae2fd",
-                        "on-tertiary-container": "#ffffff",
-                        "on-secondary-container": "#0b1c30",
-                        "on-surface": "#191c1e",
-                        "on-secondary-fixed": "#0b1c30",
-                        "background": "#f7f9fb",
-                        "surface-variant": "#e0e3e5",
-                        "outline": "#777777",
-                        "surface-container": "#eceef0",
-                        "on-secondary": "#ffffff",
-                        "secondary-fixed": "#b7c8e1",
-                        "surface-bright": "#f7f9fb",
-                        "surface-dim": "#d8dadc",
-                        "on-background": "#191c1e",
-                        "tertiary-fixed": "#5e5e5e",
-                        "surface-container-lowest": "#ffffff",
-                        "tertiary-container": "#747474",
-                        "on-tertiary-fixed": "#ffffff",
-                        "primary": "#000000",
-                        "surface": "#f7f9fb",
-                        "on-surface-variant": "#474747",
-                        "on-error-container": "#410002",
-                        "surface-container-highest": "#e0e3e5",
-                        "error-container": "#ffdad6",
-                        "inverse-surface": "#2d3133",
-                        "on-secondary-fixed-variant": "#2d3c51",
-                        "primary-container": "#333b50",
-                        "surface-tint": "#565e74",
-                        "outline-variant": "#c6c6c6",
-                        "on-primary-fixed": "#ffffff",
-                        "secondary-container": "#c5d6f0",
-                        "secondary-fixed-dim": "#9cacc5",
-                        "primary-fixed": "#565e74",
-                        "primary-fixed-dim": "#3f465c",
-                        "on-tertiary-fixed-variant": "#e2e2e2",
-                        "on-primary-container": "#ffffff",
-                        "surface-container-low": "#f2f4f6",
-                        "inverse-on-surface": "#eff1f3",
-                        "on-error": "#ffffff"
+                    colors: {
+                        "primary": "#4f46e5", // Modern Indigo
+                        "secondary": "#6366f1",
+                        "accent": "#f59e0b",
+                        "background": "#f8fafc",
+                        "slate-900": "#0f172a",
+                        "slate-500": "#64748b"
                     },
-                    "borderRadius": {
-                        "DEFAULT": "0.125rem",
-                        "lg": "0.25rem",
-                        "xl": "0.5rem",
-                        "full": "0.75rem"
+                    borderRadius: {
+                        "DEFAULT": "1rem",
+                        "lg": "1.5rem",
+                        "xl": "2rem",
+                        "2xl": "2.5rem",
+                        "full": "9999px"
                     },
-                    "fontFamily": {
-                        "headline": ["Inter"],
-                        "body": ["Inter"],
-                        "label": ["Inter"]
+                    fontFamily: {
+                        sans: ["Inter", "sans-serif"]
                     }
                 },
             },
         }
     </script>
-<style>
+    <style>
         .material-symbols-outlined {
             font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
         }
         body { font-family: 'Inter', sans-serif; }
-        .glass-card {
+        .glass-panel {
             background: rgba(255, 255, 255, 0.7);
-            backdrop-filter: blur(20px);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
         }
-        :root {
-            --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        nav {
-            transition: box-shadow 350ms var(--ease-out-expo), background-color 350ms var(--ease-out-expo);
-        }
-        nav.nav-scrolled {
-            box-shadow: 0 12px 40px rgba(15, 23, 42, 0.12);
-        }
-        .hero-copy-enter {
-            animation: fade-up 850ms var(--ease-out-expo) both;
-        }
-        .hero-device-enter {
-            animation: fade-up 950ms 120ms var(--ease-out-expo) both, float-card 6s ease-in-out 1.2s infinite;
-        }
-        .hero-glow {
-            animation: ambient-drift 9s ease-in-out infinite alternate;
-        }
-        .hero-ring-track {
-            animation: slow-spin 6s linear infinite;
-            transform-origin: center;
-        }
-        .logo-row {
-            animation: drift-x 18s linear infinite alternate;
-        }
-        .pro-card {
-            transition: transform 320ms var(--ease-out-expo), box-shadow 320ms var(--ease-out-expo), border-color 320ms var(--ease-out-expo);
-        }
-        .pro-card:hover {
-            transform: translateY(-6px);
-            box-shadow: 0 24px 48px rgba(15, 23, 42, 0.14);
-            border-color: rgba(0, 0, 0, 0.18);
+        .hero-gradient {
+            background: radial-gradient(circle at top left, rgba(79, 70, 229, 0.08), transparent 40%),
+                        radial-gradient(circle at bottom right, rgba(16, 185, 129, 0.05), transparent 40%);
         }
         .reveal {
             opacity: 0;
-            transform: translateY(24px);
-            transition: opacity 700ms var(--ease-out-expo), transform 700ms var(--ease-out-expo);
+            transform: translateY(20px);
+            transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
         }
         .reveal.is-visible {
             opacity: 1;
-            transform: none;
+            transform: translateY(0);
         }
-        @keyframes fade-up {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: none;
-            }
+        .float-animation {
+            animation: float 6s ease-in-out infinite;
         }
-        @keyframes float-card {
-            0%,
-            100% {
-                transform: translateY(0);
-            }
-            50% {
-                transform: translateY(-10px);
-            }
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-15px); }
         }
-        @keyframes ambient-drift {
-            from {
-                transform: translate3d(0, 0, 0) scale(1);
-            }
-            to {
-                transform: translate3d(-10px, 10px, 0) scale(1.08);
-            }
+        .squircle {
+            border-radius: 20%;
         }
-        @keyframes slow-spin {
-            from {
-                transform: rotate(-45deg);
-            }
-            to {
-                transform: rotate(315deg);
-            }
-        }
-        @keyframes drift-x {
-            from {
-                transform: translateX(-8px);
-            }
-            to {
-                transform: translateX(8px);
-            }
-        }
-        @media (prefers-reduced-motion: reduce) {
-            .hero-copy-enter,
-            .hero-device-enter,
-            .hero-glow,
-            .hero-ring-track,
-            .logo-row {
-                animation: none !important;
-            }
-            .reveal,
-            .reveal.is-visible {
-                opacity: 1;
-                transform: none;
-                transition: none;
-            }
-            .pro-card,
-            .pro-card:hover {
-                transition: none;
-                transform: none;
-                box-shadow: none;
-            }
+        .btn-glow:hover {
+            box-shadow: 0 0 25px rgba(79, 70, 229, 0.4);
         }
     </style>
 </head>
-<body class="bg-surface text-on-surface selection:bg-primary selection:text-on-primary">
-<nav class="fixed top-0 w-full z-50 bg-white/70 dark:bg-black/70 backdrop-blur-[20px]">
-<div class="flex items-center justify-between px-8 py-4 w-full max-w-7xl mx-auto">
-<div class="text-xl font-bold text-black dark:text-white tracking-tighter">Track.now</div>
-<div class="hidden md:flex items-center space-gap-8 gap-x-8">
-<a class="text-black dark:text-white font-bold border-b-2 border-black dark:border-white pb-1 font-inter tracking-[-0.02em]" href="#mission">Mission</a>
-<a class="text-zinc-500 dark:text-zinc-400 hover:text-black dark:hover:text-white transition-all duration-300 font-inter tracking-[-0.02em]" href="#features">Features</a>
-<a class="text-zinc-500 dark:text-zinc-400 hover:text-black dark:hover:text-white transition-all duration-300 font-inter tracking-[-0.02em]" href="#social-proof">Social</a>
-<a class="text-zinc-500 dark:text-zinc-400 hover:text-black dark:hover:text-white transition-all duration-300 font-inter tracking-[-0.02em]" href="#faq">FAQ</a>
-</div>
-<a class="bg-primary text-on-primary px-6 py-2 rounded-lg font-bold active:scale-95 transition-transform inline-flex items-center justify-center" href="../app/#/signup">Get Started</a>
-</div>
-</nav>
-<main class="pt-24">
-<section class="relative px-8 py-20 lg:py-32 max-w-7xl mx-auto overflow-hidden" id="mission">
-<div class="grid lg:grid-cols-2 gap-16 items-center">
-<div class="z-10 hero-copy-enter" data-reveal>
-<h1 class="text-5xl lg:text-7xl font-bold tracking-[-0.02em] leading-[1.1] text-primary mb-6">
-                        Master Your Habits. <span class="text-secondary">Reclaim 10 Hours a Week.</span>
-</h1>
-<p class="text-xl text-on-surface-variant leading-relaxed mb-10 max-w-lg">
-                        The definitive high-fidelity ledger for high-performers. Automate your discipline with obsidian-grade tracking and voice intelligence.
+<body class="bg-background text-slate-900 overflow-x-hidden selection:bg-primary/20">
+    <!-- Navigation -->
+    <nav class="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md border-b border-slate-200/50">
+        <div class="flex items-center justify-between px-6 py-4 max-w-7xl mx-auto">
+            <div class="flex items-center gap-2">
+                <div class="w-3 h-3 rounded-full bg-primary shadow-[0_0_10px_rgba(79,70,229,0.5)]"></div>
+                <span class="text-xl font-extrabold tracking-tight">Track.now</span>
+            </div>
+            <div class="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-500">
+                <a href="#missions" class="hover:text-primary transition-colors">Missions</a>
+                <a href="#identity" class="hover:text-primary transition-colors">Identity</a>
+                <a href="#social" class="hover:text-primary transition-colors">Social</a>
+            </div>
+            <a href="../app/#/signup" class="bg-primary text-white px-5 py-2.5 rounded-xl font-bold text-sm btn-glow transition-all active:scale-95">
+                Get Started Free
+            </a>
+        </div>
+    </nav>
+
+    <main class="hero-gradient">
+        <!-- Hero Section -->
+        <section class="px-6 pt-32 pb-20 lg:pt-48 lg:pb-32 max-w-7xl mx-auto text-center">
+            <div class="reveal" data-reveal>
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase tracking-widest mb-6">
+                    <span class="relative flex h-2 w-2">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                    </span>
+                    Join the v1.0 Beta
+                </div>
+                <h1 class="text-5xl lg:text-8xl font-[800] tracking-tighter leading-[0.95] mb-8">
+                    Build habits that <br/><span class="text-primary italic">actually stick.</span>
+                </h1>
+                <p class="text-xl text-slate-500 max-w-2xl mx-auto mb-12 leading-relaxed">
+                    The premium habit ledger for high-performers. Move from simple streaks to identity-based missions. Installable as a PWA on any device.
+                </p>
+                <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                    <a href="../app/#/signup" class="w-full sm:w-auto bg-slate-900 text-white px-10 py-5 rounded-2xl font-extrabold text-lg hover:bg-black transition-all btn-glow">
+                        Start Your First Mission
+                    </a>
+                    <a href="#missions" class="text-slate-500 font-bold hover:text-primary transition-colors px-8 py-5 flex items-center gap-2">
+                        See how it works <span class="material-symbols-outlined">arrow_downward</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- App Mockup -->
+            <div class="mt-20 lg:mt-32 relative reveal" data-reveal>
+                <div class="max-w-4xl mx-auto relative px-4">
+                    <div class="bg-slate-900 rounded-[2.5rem] p-3 shadow-2xl shadow-primary/20 float-animation overflow-hidden">
+                        <img src="https://images.unsplash.com/photo-1611162617474-5b21e879e113?auto=format&fit=crop&q=80&w=1200" alt="App Dashboard" class="rounded-[2rem] w-full opacity-90 grayscale hover:grayscale-0 transition-all duration-700"/>
+                        <!-- Floating Glass UI Elements -->
+                        <div class="absolute -top-10 -right-10 glass-panel p-6 rounded-2xl shadow-xl hidden lg:block">
+                            <div class="flex items-center gap-4 mb-4">
+                                <div class="w-12 h-12 squircle bg-primary/20 flex items-center justify-center text-primary text-2xl font-bold">📚</div>
+                                <div>
+                                    <div class="text-sm font-bold">Deep Work</div>
+                                    <div class="text-xs text-slate-500">Day 14 of 21</div>
+                                </div>
+                            </div>
+                            <div class="w-48 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                <div class="w-[66%] h-full bg-primary"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Social Proof / Logo Row -->
+        <section class="py-12 bg-white/50 border-y border-slate-100">
+            <div class="max-w-7xl mx-auto px-6 text-center">
+                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-8">Designed for professionals at</p>
+                <div class="flex flex-wrap justify-center items-center gap-12 grayscale opacity-40 hover:opacity-100 transition-opacity">
+                    <span class="text-2xl font-black italic">LINEAR</span>
+                    <span class="text-2xl font-black">Notion</span>
+                    <span class="text-2xl font-black tracking-tighter">vercel</span>
+                    <span class="text-2xl font-black">framer</span>
+                    <span class="text-2xl font-black">Stripe</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- The Three Pillars -->
+        <section id="missions" class="py-24 lg:py-40 px-6 max-w-7xl mx-auto">
+            <div class="grid lg:grid-cols-3 gap-12">
+                <!-- Mission Pillar -->
+                <div class="reveal" data-reveal>
+                    <div class="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center mb-8 text-primary">
+                        <span class="material-symbols-outlined text-3xl">flag</span>
+                    </div>
+                    <h3 class="text-2xl font-extrabold mb-4 tracking-tight">Mission-Based Tracking</h3>
+                    <p class="text-slate-500 leading-relaxed">
+                        Infinite streaks lead to burnout. We use 21, 45, and 90-day missions. Focused sprints that build permanent habits without the anxiety of a broken streak.
                     </p>
-<div class="flex flex-col sm:flex-row gap-4">
-<a class="bg-primary text-on-primary px-8 py-4 rounded-lg font-bold text-lg hover:shadow-xl transition-all inline-flex items-center justify-center" href="../app/#/signup">Start Your 14-Day Free Trial</a>
-<a class="border border-outline-variant px-8 py-4 rounded-lg font-bold text-lg flex items-center justify-center gap-2 hover:bg-surface-container-low transition-colors" href="#features">
-<span class="material-symbols-outlined">play_circle</span> Watch Demo
-                        </a>
-</div>
-</div>
-<div class="relative flex justify-center lg:justify-end hero-device-enter" data-reveal>
-<div class="relative w-full max-w-[400px] aspect-[9/19] bg-primary rounded-[3rem] p-4 shadow-2xl overflow-hidden pro-card">
-<div class="absolute inset-0 bg-gradient-to-br from-primary-container to-primary opacity-50"></div>
-<div class="relative h-full w-full bg-black rounded-[2.5rem] overflow-hidden flex flex-col items-center justify-center border border-white/10">
-<div class="w-48 h-48 rounded-full border-[12px] border-zinc-800 flex items-center justify-center relative">
-<div class="absolute inset-0 rounded-full border-[12px] border-white border-t-transparent hero-ring-track"></div>
-<span class="text-4xl font-bold text-white">84%</span>
-</div>
-<div class="mt-8 space-y-4 w-full px-6">
-<div class="h-12 w-full glass-card rounded-xl border border-white/20"></div>
-<div class="h-12 w-full glass-card rounded-xl border border-white/20"></div>
-<div class="h-12 w-full glass-card rounded-xl border border-white/20"></div>
-</div>
-</div>
-</div>
-<div class="absolute -z-10 -right-20 -top-20 w-80 h-80 bg-secondary-container rounded-full blur-[100px] opacity-30 hero-glow"></div>
-</div>
-</div>
-</section>
-<section class="bg-surface-container-low py-12" id="social-proof">
-<div class="max-w-7xl mx-auto px-8" data-reveal>
-<p class="text-label-md uppercase tracking-[0.1em] text-secondary font-bold text-center mb-10">Powering the daily routines of teams at:</p>
-<div class="flex flex-wrap justify-center items-center gap-12 grayscale opacity-60 logo-row">
-<span class="text-2xl font-black">Linear</span>
-<span class="text-2xl font-black">Notion</span>
-<span class="text-2xl font-black">Stripe</span>
-<span class="text-2xl font-black">Vercel</span>
-<span class="text-2xl font-black">Airbnb</span>
-</div>
-</div>
-</section>
-<section class="py-24 px-8 max-w-7xl mx-auto" id="features">
-<div class="mb-16" data-reveal>
-<h2 class="text-3xl lg:text-5xl font-bold tracking-tight text-primary mb-4">Good intentions aren't enough</h2>
-<p class="text-lg text-on-surface-variant">The friction of traditional tracking is what kills momentum.</p>
-</div>
-<div class="grid md:grid-cols-3 gap-8">
-<div class="p-8 bg-surface-container-lowest border-l-4 border-primary pro-card" data-reveal>
-<span class="material-symbols-outlined text-4xl mb-4">timer_off</span>
-<h3 class="text-xl font-bold mb-3">Manual Entry Fatigue</h3>
-<p class="text-on-surface-variant">Logging takes longer than the habit itself. You stop tracking after day four.</p>
-</div>
-<div class="p-8 bg-surface-container-lowest border-l-4 border-primary pro-card" data-reveal>
-<span class="material-symbols-outlined text-4xl mb-4">analytics</span>
-<h3 class="text-xl font-bold mb-3">Data Without Insight</h3>
-<p class="text-on-surface-variant">Spreadsheets show numbers but don't tell you why your streaks keep breaking.</p>
-</div>
-<div class="p-8 bg-surface-container-lowest border-l-4 border-primary pro-card" data-reveal>
-<span class="material-symbols-outlined text-4xl mb-4">psychology</span>
-<h3 class="text-xl font-bold mb-3">Lack of Identity</h3>
-<p class="text-on-surface-variant">Apps treat habits as tasks. We treat them as who you are becoming.</p>
-</div>
-</div>
-</section>
-<section class="bg-primary text-on-primary py-24 px-8">
-<div class="max-w-7xl mx-auto flex flex-col lg:flex-row gap-16" data-reveal>
-<div class="lg:w-1/3">
-<h2 class="text-4xl font-bold leading-tight">Track.now is a premium, high-fidelity ledger.</h2>
-</div>
-<div class="lg:w-2/3 grid sm:grid-cols-2 gap-12">
-<div>
-<h4 class="text-lg font-bold mb-2">Automated Resilience</h4>
-<p class="text-on-primary/70">Using ambient signals and voice to ensure 0% logging friction.</p>
-</div>
-<div>
-<h4 class="text-lg font-bold mb-2">Obsidian Aesthetic</h4>
-<p class="text-on-primary/70">A distraction-free UI designed for the professional workspace.</p>
-</div>
-<div>
-<h4 class="text-lg font-bold mb-2">Predictive Logic</h4>
-<p class="text-on-primary/70">AI that identifies pattern breakage before it happens.</p>
-</div>
-</div>
-</div>
-</section>
-<section class="py-24 px-8 max-w-7xl mx-auto space-y-32">
-<div class="flex flex-col lg:flex-row items-center gap-16" data-reveal>
-<div class="lg:w-1/2">
-<div class="inline-block px-3 py-1 bg-secondary-container text-on-secondary-container text-xs font-bold rounded mb-6 uppercase tracking-widest">Intelligence</div>
-<h3 class="text-4xl font-bold mb-6">Voice Intelligence</h3>
-<p class="text-lg text-on-surface-variant mb-8">Stop typing. Just say "Completed my morning deep work session" and let our neural engine log the duration, intensity, and focus level automatically.</p>
-<ul class="space-y-4">
-<li class="flex items-center gap-3 font-medium"><span class="material-symbols-outlined text-primary">check_circle</span> Natural language processing</li>
-<li class="flex items-center gap-3 font-medium"><span class="material-symbols-outlined text-primary">check_circle</span> Zero-touch interaction</li>
-</ul>
-</div>
-<div class="lg:w-1/2 aspect-video bg-surface-container-high rounded-xl overflow-hidden pro-card">
-<img class="w-full h-full object-cover" data-alt="Close-up of a minimalist microphone on a dark desk with dramatic rim lighting and moody atmosphere" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAlHMzPI85JhzCIn_jq7_K6kyQ0wdgg9zi6eKNhXO7jilkI_Gvo1fi0QmLEPDCszdI9CBo5fEvZQyF0_jn9J-1W5mNbjnMFBSHvX-tt_WN9qWMMURs3Xykryk1uLfdQraUDQ4UvdN8MwwS6vYlh7nvaP4c1uuYDlCh7LqEtlH-RX58RKTiPKgwumnqEd0P8eyEqbUCAIg1rMuMQP3GW-Yz0S_-DrzQll7uY3zkWjNqir0gB6aJx27WKFzQOfm-lNQkHjyPn_tsz9e8"/>
-</div>
-</div>
-<div class="flex flex-col lg:flex-row-reverse items-center gap-16" data-reveal>
-<div class="lg:w-1/2">
-<div class="inline-block px-3 py-1 bg-secondary-container text-on-secondary-container text-xs font-bold rounded mb-6 uppercase tracking-widest">Psychology</div>
-<h3 class="text-4xl font-bold mb-6">Identity Progression</h3>
-<p class="text-lg text-on-surface-variant mb-8">Move beyond simple checkboxes. Track.now visualizes your evolution from 'Beginner' to 'Master' using structural architecture metaphors.</p>
-<ul class="space-y-4">
-<li class="flex items-center gap-3 font-medium"><span class="material-symbols-outlined text-primary">check_circle</span> Level-based achievement system</li>
-<li class="flex items-center gap-3 font-medium"><span class="material-symbols-outlined text-primary">check_circle</span> Long-term identity mapping</li>
-</ul>
-</div>
-<div class="lg:w-1/2 aspect-video bg-surface-container-high rounded-xl overflow-hidden pro-card">
-<img class="w-full h-full object-cover" data-alt="Modern architectural stairs in black and white with strong shadows and geometric perspective" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCjtOYO3euHHsQ1KHibnYvKAoa33qoBTg1Ctu13tYTu22Y-ngI24UvM9rr4NGgV-BE0CxhtcfzxWdXX1pCt5Eei6z03PG48uyD2z1RcPTx_Mk-Pz8Jp84YBCI2pFuUTX0Zp6NCUVBYlGcf8thfSmnwcrlnPFyw38sb4QFG03Ff4Dq1Mbw4js92iG3MbwcR2Y8LGpQKl1QNi1cRXP2r5G6WT1V1J0r-9hDqzF8-LU9_c4QCCPRZgxu_WKvfHvu4hrAlwl_DpyQG1wbg"/>
-</div>
-</div>
-</section>
-<section class="bg-surface-container-low py-24 px-8">
-<div class="max-w-7xl mx-auto" data-reveal>
-<h2 class="text-3xl font-bold text-center mb-20">The Frictionless Path</h2>
-<div class="grid md:grid-cols-3 gap-12 text-center">
-<div>
-<div class="w-16 h-16 bg-primary text-white rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-6">1</div>
-<h4 class="text-xl font-bold mb-4">Define</h4>
-<p class="text-on-surface-variant">Set your core missions and identity-based habits in our clean interface.</p>
-</div>
-<div>
-<div class="w-16 h-16 bg-primary text-white rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-6">2</div>
-<h4 class="text-xl font-bold mb-4">Log</h4>
-<p class="text-on-surface-variant">Use voice, widgets, or ambient triggers to update your progress in real-time.</p>
-</div>
-<div>
-<div class="w-16 h-16 bg-primary text-white rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-6">3</div>
-<h4 class="text-xl font-bold mb-4">Analyze</h4>
-<p class="text-on-surface-variant">Receive weekly monographs detailing your discipline and areas for growth.</p>
-</div>
-</div>
-</div>
-</section>
-<section class="py-24 px-8 max-w-7xl mx-auto">
-<h2 class="text-3xl font-bold mb-16" data-reveal>Compare the Standards</h2>
-<div class="overflow-x-auto pro-card" data-reveal>
-<table class="w-full text-left border-collapse">
-<thead>
-<tr class="border-b-2 border-primary">
-<th class="py-4 font-bold text-lg">Feature</th>
-<th class="py-4 font-bold text-lg px-6">Basic Apps</th>
-<th class="py-4 font-bold text-lg bg-surface-container-low px-6">Track.now</th>
-</tr>
-</thead>
-<tbody>
-<tr class="border-b border-outline-variant">
-<td class="py-6 font-medium">Input Method</td>
-<td class="py-6 px-6 text-on-surface-variant">Manual Typing</td>
-<td class="py-6 px-6 bg-surface-container-low font-bold">Voice Intelligence</td>
-</tr>
-<tr class="border-b border-outline-variant">
-<td class="py-6 font-medium">Design System</td>
-<td class="py-6 px-6 text-on-surface-variant">Bubbly / Consumer</td>
-<td class="py-6 px-6 bg-surface-container-low font-bold">Obsidian / Professional</td>
-</tr>
-<tr class="border-b border-outline-variant">
-<td class="py-6 font-medium">Reporting</td>
-<td class="py-6 px-6 text-on-surface-variant">Bar Charts</td>
-<td class="py-6 px-6 bg-surface-container-low font-bold">Predictive Monographs</td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-<section class="hidden py-24 px-8 max-w-7xl mx-auto">
-<div class="text-center mb-16" data-reveal>
-<h2 class="text-4xl font-bold mb-4">Investment in Performance</h2>
-<p class="text-on-surface-variant">Choose the layer that fits your ambition.</p>
-</div>
-<div class="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-<div class="p-10 border border-outline-variant rounded-xl flex flex-col">
-<h3 class="text-xl font-bold mb-2">Individual Pro</h3>
-<div class="text-4xl font-bold mb-6">$12<span class="text-lg font-normal text-on-surface-variant">/mo</span></div>
-<ul class="space-y-4 mb-10 flex-grow">
-<li class="flex items-center gap-2"><span class="material-symbols-outlined text-sm">check</span> Unlimited Habit Tracks</li>
-<li class="flex items-center gap-2"><span class="material-symbols-outlined text-sm">check</span> Voice Intelligence Engine</li>
-<li class="flex items-center gap-2"><span class="material-symbols-outlined text-sm">check</span> Weekly Identity Reports</li>
-</ul>
-<button class="w-full py-4 border border-primary font-bold rounded-lg hover:bg-surface-container-low transition-colors">Start Pro Trial</button>
-</div>
-<div class="p-10 bg-primary text-on-primary rounded-xl flex flex-col relative overflow-hidden">
-<div class="absolute top-4 right-4 bg-on-primary text-primary text-[10px] font-black px-2 py-1 rounded uppercase">Most Popular</div>
-<h3 class="text-xl font-bold mb-2">High-Performance Team</h3>
-<div class="text-4xl font-bold mb-6">$49<span class="text-lg font-normal opacity-60">/mo</span></div>
-<ul class="space-y-4 mb-10 flex-grow">
-<li class="flex items-center gap-2"><span class="material-symbols-outlined text-sm">check</span> Everything in Pro</li>
-<li class="flex items-center gap-2"><span class="material-symbols-outlined text-sm">check</span> Shared Mission Maps</li>
-<li class="flex items-center gap-2"><span class="material-symbols-outlined text-sm">check</span> Team Discipline Benchmarks</li>
-<li class="flex items-center gap-2"><span class="material-symbols-outlined text-sm">check</span> Priority Support</li>
-</ul>
-<button class="w-full py-4 bg-on-primary text-primary font-bold rounded-lg active:scale-95 transition-transform">Get Started for Teams</button>
-</div>
-</div>
-</section>
-<section class="py-24 px-8 max-w-3xl mx-auto" id="faq">
-<h2 class="text-3xl font-bold mb-12 text-center">Frequently Asked Questions</h2>
-<div class="space-y-4">
-<details class="group p-6 bg-surface-container-low rounded-lg pro-card" data-reveal>
-<summary class="list-none font-bold text-lg cursor-pointer flex justify-between items-center">
-                        Is my voice data secure?
-                        <span class="material-symbols-outlined transition-transform group-open:rotate-180">expand_more</span>
-</summary>
-<p class="mt-4 text-on-surface-variant leading-relaxed">We use edge-computing for voice processing. Your audio never leaves your device; only the transcribed intent is synced with your encrypted ledger.</p>
-</details>
-<details class="group p-6 bg-surface-container-low rounded-lg pro-card" data-reveal>
-<summary class="list-none font-bold text-lg cursor-pointer flex justify-between items-center">
-                        Can I export my data?
-                        <span class="material-symbols-outlined transition-transform group-open:rotate-180">expand_more</span>
-</summary>
-<p class="mt-4 text-on-surface-variant leading-relaxed">Yes. We support full CSV and JSON exports at any time. We believe in data sovereignty.</p>
-</details>
-<details class="group p-6 bg-surface-container-low rounded-lg pro-card" data-reveal>
-<summary class="list-none font-bold text-lg cursor-pointer flex justify-between items-center">
-                        What happens after the 14-day trial?
-                        <span class="material-symbols-outlined transition-transform group-open:rotate-180">expand_more</span>
-</summary>
-<p class="mt-4 text-on-surface-variant leading-relaxed">You will be notified 2 days before your trial ends. You can choose to upgrade or move to our limited free tier.</p>
-</details>
-</div>
-</section>
-<section class="py-32 px-8" id="start">
-<div class="max-w-5xl mx-auto bg-primary text-on-primary p-12 lg:p-20 text-center rounded-2xl relative overflow-hidden pro-card" data-reveal>
-<div class="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"></div>
-<div class="relative z-10">
-<h2 class="text-4xl lg:text-6xl font-bold mb-8">Ready to reclaim your time?</h2>
-<p class="text-xl mb-12 opacity-80 max-w-2xl mx-auto">Join over 10,000 high-performers tracking their way to mastery. No credit card required to start.</p>
-<a class="bg-on-primary text-primary px-10 py-5 rounded-lg text-xl font-bold hover:scale-105 transition-transform mb-6 inline-flex items-center justify-center" href="../app/#/signup">Start Your 14-Day Free Trial</a>
-<p class="text-sm opacity-60">Money-back guarantee. Cancel anytime with one click.</p>
-</div>
-</div>
-</section>
-</main>
-<footer class="bg-zinc-50 dark:bg-zinc-950 w-full py-16 border-t border-zinc-100 dark:border-zinc-900">
-<div class="flex flex-col md:flex-row items-center justify-between gap-8 px-8 max-w-7xl mx-auto">
-<div class="text-md font-bold text-black dark:text-white">Track.now</div>
-<div class="flex gap-8">
-<a class="font-inter text-[0.75rem] uppercase tracking-[0.05em] text-zinc-400 dark:text-zinc-600 hover:text-black dark:hover:text-white hover:underline underline-offset-4" href="#">Twitter</a>
-<a class="font-inter text-[0.75rem] uppercase tracking-[0.05em] text-zinc-400 dark:text-zinc-600 hover:text-black dark:hover:text-white hover:underline underline-offset-4" href="#">LinkedIn</a>
-<a class="font-inter text-[0.75rem] uppercase tracking-[0.05em] text-zinc-400 dark:text-zinc-600 hover:text-black dark:hover:text-white hover:underline underline-offset-4" href="#">Terms</a>
-<a class="font-inter text-[0.75rem] uppercase tracking-[0.05em] text-zinc-400 dark:text-zinc-600 hover:text-black dark:hover:text-white hover:underline underline-offset-4" href="#">Privacy</a>
-</div>
-<p class="font-inter text-[0.75rem] uppercase tracking-[0.05em] text-zinc-400 dark:text-zinc-600">&copy; 2024 Track.now. Precision in motion.</p>
-</div>
-</footer>
-<script>
-        (() => {
-            const nav = document.querySelector('nav');
-            const onScroll = () => {
-                if (!nav) return;
-                nav.classList.toggle('nav-scrolled', window.scrollY > 8);
-            };
+                </div>
+                <!-- Identity Pillar -->
+                <div class="reveal" data-reveal style="transition-delay: 100ms">
+                    <div class="w-14 h-14 bg-emerald-100 rounded-2xl flex items-center justify-center mb-8 text-emerald-600">
+                        <span class="material-symbols-outlined text-3xl">psychology</span>
+                    </div>
+                    <h3 class="text-2xl font-extrabold mb-4 tracking-tight">Identity Reinforcement</h3>
+                    <p class="text-slate-500 leading-relaxed">
+                        Track.now tells you who you are becoming. Are you a "Disciplined Athlete" or a "Mindful Learner"? Every habit completion levels up your core identity.
+                    </p>
+                </div>
+                <!-- Social Pillar -->
+                <div class="reveal" data-reveal style="transition-delay: 200ms">
+                    <div class="w-14 h-14 bg-amber-100 rounded-2xl flex items-center justify-center mb-8 text-amber-600">
+                        <span class="material-symbols-outlined text-3xl">public</span>
+                    </div>
+                    <h3 class="text-2xl font-extrabold mb-4 tracking-tight">Activity Pulse Map</h3>
+                    <p class="text-slate-500 leading-relaxed">
+                        See your collective momentum on a global map. Quiet, non-intrusive accountability by seeing your network build habits in real-time.
+                    </p>
+                </div>
+            </div>
+        </section>
 
-            onScroll();
-            window.addEventListener('scroll', onScroll, { passive: true });
+        <!-- Detailed Feature Section (Identity) -->
+        <section id="identity" class="py-24 bg-slate-900 text-white rounded-[3rem] mx-4 mb-24 overflow-hidden relative">
+            <div class="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"></div>
+            <div class="max-w-7xl mx-auto px-6 relative z-10 grid lg:grid-cols-2 gap-20 items-center">
+                <div class="reveal" data-reveal>
+                    <h2 class="text-4xl lg:text-6xl font-extrabold tracking-tighter leading-tight mb-8">
+                        Stop counting days. <br/>Start building <span class="text-primary italic">yourself.</span>
+                    </h2>
+                    <p class="text-xl text-slate-400 mb-10 leading-relaxed">
+                        Traditional apps treat you like a checklist. We treat you like a project. Every habit you track is linked to a life category that defines your progress.
+                    </p>
+                    <ul class="space-y-6">
+                        <li class="flex items-start gap-4">
+                            <span class="w-6 h-6 rounded-full bg-primary flex-shrink-0 flex items-center justify-center">
+                                <span class="material-symbols-outlined text-[14px]">check</span>
+                            </span>
+                            <div>
+                                <h4 class="font-bold text-lg">Dynamic Leveling</h4>
+                                <p class="text-slate-400">Your "Identity Level" grows as you complete mission cycles.</p>
+                            </div>
+                        </li>
+                        <li class="flex items-start gap-4">
+                            <span class="w-6 h-6 rounded-full bg-primary flex-shrink-0 flex items-center justify-center">
+                                <span class="material-symbols-outlined text-[14px]">check</span>
+                            </span>
+                            <div>
+                                <h4 class="font-bold text-lg">Grace Mode</h4>
+                                <p class="text-slate-400">Strategic skips allowed. Life happens, and your progress ledger should account for it.</p>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+                <div class="reveal" data-reveal>
+                    <div class="glass-panel bg-white/10 p-8 rounded-3xl border-white/5">
+                        <div class="space-y-8">
+                            <div>
+                                <div class="flex justify-between mb-3">
+                                    <span class="font-bold">Deep Work Architect</span>
+                                    <span class="text-primary font-bold">Lvl 42</span>
+                                </div>
+                                <div class="h-4 w-full bg-white/5 rounded-full overflow-hidden">
+                                    <div class="w-[84%] h-full bg-primary shadow-[0_0_15px_rgba(79,70,229,0.8)]"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between mb-3 text-slate-400 text-sm">
+                                    <span>Momentum</span>
+                                    <span>92%</span>
+                                </div>
+                                <div class="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                                    <div class="w-[92%] h-full bg-emerald-500"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
 
-            const revealNodes = Array.from(document.querySelectorAll('[data-reveal]'));
-            if (!revealNodes.length) return;
+        <!-- Final CTA -->
+        <section class="py-24 lg:py-40 px-6 text-center">
+            <div class="reveal" data-reveal>
+                <h2 class="text-4xl lg:text-7xl font-extrabold tracking-tighter mb-8">
+                    Your future self <br/>is waiting.
+                </h2>
+                <p class="text-xl text-slate-500 mb-12 max-w-xl mx-auto">
+                    No credit card. No subscriptions. Just pure, obsidian-grade discipline for those who mean it.
+                </p>
+                <a href="../app/#/signup" class="inline-block bg-primary text-white px-12 py-6 rounded-2xl font-black text-xl btn-glow transition-all active:scale-95 shadow-xl shadow-primary/20">
+                    Get Track.now Beta
+                </a>
+                <p class="mt-8 text-slate-400 text-sm font-semibold tracking-widest uppercase">Available as PWA for iOS & Android</p>
+            </div>
+        </section>
+    </main>
 
-            const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-            if (reduceMotion) {
-                revealNodes.forEach((node) => node.classList.add('is-visible'));
-                return;
-            }
+    <footer class="bg-white py-12 border-t border-slate-100">
+        <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-8">
+            <div class="flex items-center gap-2">
+                <div class="w-2 h-2 rounded-full bg-slate-300"></div>
+                <span class="text-sm font-black text-slate-400 uppercase tracking-widest">Track.now v1.0</span>
+            </div>
+            <div class="flex gap-8 text-slate-400 text-sm font-semibold uppercase tracking-widest">
+                <a href="#" class="hover:text-primary transition-colors">Privacy</a>
+                <a href="#" class="hover:text-primary transition-colors">Terms</a>
+                <a href="#" class="hover:text-primary transition-colors">Twitter</a>
+            </div>
+            <p class="text-slate-300 text-xs">© 2024 Track.now System. Built for builders.</p>
+        </div>
+    </footer>
 
-            const observer = new IntersectionObserver((entries) => {
-                entries.forEach((entry) => {
-                    if (!entry.isIntersecting) return;
+    <script>
+        // Scroll Animation
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: "0px 0px -50px 0px"
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
                     entry.target.classList.add('is-visible');
-                    observer.unobserve(entry.target);
-                });
-            }, {
-                threshold: 0.14,
-                rootMargin: '0px 0px -10% 0px'
+                }
             });
+        }, observerOptions);
 
-            revealNodes.forEach((node, index) => {
-                node.classList.add('reveal');
-                node.style.transitionDelay = `${Math.min((index % 6) * 80, 320)}ms`;
-                observer.observe(node);
-            });
-        })();
+        document.querySelectorAll('[data-reveal]').forEach(el => observer.observe(el));
+        
+        // Mobile Nav Color Change on Scroll
+        window.addEventListener('scroll', () => {
+            const nav = document.querySelector('nav');
+            if (window.scrollY > 20) {
+                nav.classList.add('shadow-lg');
+            } else {
+                nav.classList.remove('shadow-lg');
+            }
+        });
     </script>
-</body></html>
+</body>
+</html>

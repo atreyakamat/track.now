@@ -9,7 +9,7 @@
         </div>
       </div>
       <div class="col-auto">
-        <q-btn color="primary" unelevated no-caps icon="mic" label="Voice add" @click="openVoiceDialog" />
+        <!-- <q-btn color="primary" unelevated no-caps icon="mic" label="Voice add" @click="openVoiceDialog" /> -->
       </div>
     </div>
 
@@ -119,7 +119,7 @@
       <div class="text-h3 q-mb-sm">✓</div>
       <div class="text-h6 text-weight-bold q-mb-xs">No tasks in this view</div>
       <div class="text-body2 text-grey-7">
-        Add a task manually or use Voice add to convert speech to a scheduled task.
+        Add a task manually to start scheduling your work.
       </div>
     </div>
 
