@@ -99,7 +99,7 @@ function resolvePriority(text) {
 function extractRelativeDate(text, now = new Date()) {
   if (text.includes('tomorrow')) return getDateKey(shiftDate(now, 1))
   if (text.includes('today')) return getDateKey(now)
-  if (/\b(thos|those)\b/.test(text) && text.includes('evening')) {
+  if (/\b(this|thos|those)\b/.test(text) && text.includes('evening')) {
     const date = new Date(now)
     const targetDay = 4
     let delta = (targetDay - date.getDay() + 7) % 7

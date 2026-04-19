@@ -123,15 +123,17 @@
       </div>
     </div>
 
-    <div v-else class="column q-gutter-sm">
-      <TaskCard
-        v-for="task in filteredTasks"
-        :key="task.id"
-        :task="task"
-        @toggle="toggleTask"
-        @delete="deleteTask"
-        @edit="startEditTask"
-      />
+    <div v-else>
+      <transition-group name="list-stagger" tag="div" class="column q-gutter-sm">
+        <TaskCard
+          v-for="task in filteredTasks"
+          :key="task.id"
+          :task="task"
+          @toggle="toggleTask"
+          @delete="deleteTask"
+          @edit="startEditTask"
+        />
+      </transition-group>
     </div>
 
     <q-dialog v-model="voiceDialog">

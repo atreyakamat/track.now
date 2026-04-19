@@ -15,7 +15,7 @@ try {
 
   Write-Host ''
   Write-Host '[2/3] Build'
-  npm run build | Out-Host
+  npm run build:pwa | Out-Host
 } finally {
   Pop-Location
 }

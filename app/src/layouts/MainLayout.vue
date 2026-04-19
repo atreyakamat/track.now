@@ -75,29 +75,31 @@
       </q-toolbar>
     </q-header>
 
-    <q-page-container style="padding-bottom: 80px">
+    <q-page-container class="main-page-shell">
       <router-view />
     </q-page-container>
 
-    <div class="bottom-nav row items-center justify-around q-pa-sm">
-      <q-btn flat :color="isActive('/today') ? 'primary' : 'grey'" stack no-caps @click="$router.push('/today')">
-        <q-icon name="home" size="24px" />
-        <span class="text-caption">Today</span>
+    <div class="bottom-nav row items-center justify-around q-px-md">
+      <q-btn flat :color="isActive('/today') ? 'primary' : 'grey-7'" stack no-caps @click="$router.push('/today')" class="nav-btn">
+        <q-icon :name="isActive('/today') ? 'home' : 'outline_home'" size="26px" />
+        <span class="text-caption text-weight-medium">Today</span>
       </q-btn>
-      <q-btn flat :color="isActive('/tasks') ? 'primary' : 'grey'" stack no-caps @click="$router.push('/tasks')">
-        <q-icon name="task_alt" size="24px" />
-        <span class="text-caption">Tasks</span>
+      <q-btn flat :color="isActive('/tasks') ? 'primary' : 'grey-7'" stack no-caps @click="$router.push('/tasks')" class="nav-btn">
+        <q-icon :name="isActive('/tasks') ? 'task_alt' : 'checklist'" size="26px" />
+        <span class="text-caption text-weight-medium">Tasks</span>
       </q-btn>
+      
       <div class="add-btn-wrap">
-        <q-btn class="add-btn-fab" unelevated round icon="add" @click="$router.push('/add')" />
+        <q-btn class="add-btn-fab" unelevated icon="add" @click="$router.push('/add')" />
       </div>
-      <q-btn flat :color="isActive('/habits') ? 'primary' : 'grey'" stack no-caps @click="$router.push('/habits')">
-        <q-icon name="format_list_bulleted" size="24px" />
-        <span class="text-caption">Habits</span>
+
+      <q-btn flat :color="isActive('/habits') ? 'primary' : 'grey-7'" stack no-caps @click="$router.push('/habits')" class="nav-btn">
+        <q-icon :name="isActive('/habits') ? 'widgets' : 'outline_widgets'" size="26px" />
+        <span class="text-caption text-weight-medium">Habits</span>
       </q-btn>
-      <q-btn flat :color="isActive('/planner') ? 'primary' : 'grey'" stack no-caps @click="$router.push('/planner')">
-        <q-icon name="view_week" size="24px" />
-        <span class="text-caption">Plan</span>
+      <q-btn flat :color="isActive('/planner') ? 'primary' : 'grey-7'" stack no-caps @click="$router.push('/planner')" class="nav-btn">
+        <q-icon :name="isActive('/planner') ? 'event_note' : 'outline_event_note'" size="26px" />
+        <span class="text-caption text-weight-medium">Plan</span>
       </q-btn>
     </div>
   </q-layout>
@@ -112,7 +114,7 @@ import { usePreferencesStore } from 'src/stores/preferences'
 import { useHabitsStore } from 'src/stores/habits'
 import { useCompletionsStore } from 'src/stores/completions'
 import { useTasksStore } from 'src/stores/tasks'
-import { computed, onMounted, onUnmounted, watch } from 'vue'
+import { computed, onUnmounted, watch } from 'vue'
 import NotificationBell from 'src/components/NotificationBell.vue'
 
 const $q = useQuasar()
@@ -143,16 +145,47 @@ const completionSignature = computed(() => completionsStore.todayCompletions
   .map((completion) => `${completion.habitId}:${completion.sessionId || 'legacy'}`)
   .sort()
   .join('|'))
+let reminderSyncTimer = null
 
-onMounted(async () => {
-  habitsStore.subscribe()
-  tasksStore.subscribe()
-  await completionsStore.fetchToday()
-  await authStore.loadProfile()
-})
+async function syncReminders() {
+  const todayHabits = habitsStore.todayHabits
+  const options = reminderOptions.value
+
+  if (!Array.isArray(todayHabits) || todayHabits.length === 0) {
+    habitsStore.habits.forEach((habit) => notificationService.cancelHabitReminder(habit.id))
+    return
+  }
+
+  await notificationService.scheduleAll(todayHabits, options)
+}
+
 onUnmounted(() => {
+  if (reminderSyncTimer) {
+    clearTimeout(reminderSyncTimer)
+    reminderSyncTimer = null
+  }
   habitsStore.unsubscribeAll()
   tasksStore.unsubscribeAll()
+})
+
+watch(() => authStore.userId, async (userId, previousUserId) => {
+  if (previousUserId && previousUserId !== userId) {
+    habitsStore.unsubscribeAll()
+    tasksStore.unsubscribeAll()
+  }
+
+  if (!userId) {
+    return
+  }
+
+  habitsStore.subscribe()
+  tasksStore.subscribe()
+  await Promise.all([
+    completionsStore.fetchToday(),
+    authStore.loadProfile()
+  ])
+}, {
+  immediate: true
 })
 
 watch(() => [
@@ -160,14 +193,15 @@ watch(() => [
   completionSignature.value,
   reminderOptions.value.preReminder,
   reminderOptions.value.exactReminder
-], async () => {
-  const todayHabits = habitsStore.todayHabits
-  const options = reminderOptions.value
-  if (!Array.isArray(todayHabits) || todayHabits.length === 0) {
-    habitsStore.habits.forEach((habit) => notificationService.cancelHabitReminder(habit.id))
-    return
+], () => {
+  if (reminderSyncTimer) {
+    clearTimeout(reminderSyncTimer)
   }
-  await notificationService.scheduleAll(todayHabits, options)
+  reminderSyncTimer = setTimeout(() => {
+    void syncReminders()
+  }, 120)
+}, {
+  immediate: true
 })
 
 function isActive(path) {
@@ -217,5 +251,9 @@ async function handleLogout() {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.main-page-shell {
+  padding-bottom: 88px;
 }
 </style>

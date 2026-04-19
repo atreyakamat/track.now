@@ -31,7 +31,7 @@ function Assert-WithinRoot {
 Write-Host 'Building Track.now app...'
 Push-Location $appDir
 try {
-  npm run build | Out-Host
+  npm run build:pwa | Out-Host
 } finally {
   Pop-Location
 }
@@ -43,7 +43,7 @@ if (Test-Path $releaseDir) {
 
 New-Item -ItemType Directory -Path $releaseDir | Out-Null
 
-$distDir = Join-Path $appDir 'dist\spa'
+$distDir = Join-Path $appDir 'dist\pwa'
 if (-not (Test-Path $distDir)) {
   throw "Build output not found: $distDir"
 }
