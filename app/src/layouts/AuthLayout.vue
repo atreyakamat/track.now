@@ -1,39 +1,36 @@
 <template>
   <q-layout view="lHh lpr lFf">
     <q-page-container>
-      <q-page class="auth-page">
+      <q-page class="auth-page flex flex-center bg-mesh">
         <div class="auth-shell">
-          <div class="auth-story">
-            <div class="text-overline text-primary">Track.now</div>
-            <div class="text-h3 text-weight-bold q-mt-sm">Focused growth, without noise</div>
-            <div class="text-body1 text-grey-7 q-mt-md">
-              Build daily discipline through clear missions, calmer reminders, and progress that feels grounded instead of exhausting.
-            </div>
-
-            <div class="story-stack q-mt-xl">
-              <div class="story-card">
-                <div class="text-subtitle1 text-weight-bold">Mission-based habits</div>
-                <div class="text-body2 text-grey-7 q-mt-xs">Every habit has a finish line: 21, 45, or 90 days.</div>
+          <!-- Left side: The Vision (Hidden on Mobile) -->
+          <div class="auth-vision">
+            <div class="column q-gutter-y-md">
+              <div class="row items-center gap-2 q-mb-md">
+                <div class="brand-dot"></div>
+                <span class="text-h6 text-weight-bolder tracking-tight">Track.now</span>
               </div>
-              <div class="story-card">
-                <div class="text-subtitle1 text-weight-bold">Action-first Today view</div>
-                <div class="text-body2 text-grey-7 q-mt-xs">Open the app and instantly know what matters now.</div>
-              </div>
-              <div class="story-card">
-                <div class="text-subtitle1 text-weight-bold">Optional accountability</div>
-                <div class="text-body2 text-grey-7 q-mt-xs">Bring in friends, groups, or family only when it helps.</div>
+              <h1 class="text-h2 text-weight-bolder leading-tight tracking-tighter text-slate-900">
+                Consistency <br/>is the only <br/><span class="text-primary italic">secret.</span>
+              </h1>
+              <p class="text-h6 text-slate-500 text-weight-medium max-w-md q-mt-lg">
+                Join high-performers using mission-based tracking to reclaim their time and identity.
+              </p>
+              
+              <div class="feature-list q-mt-xl">
+                <div v-for="f in features" :key="f.title" class="feature-item row no-wrap items-start q-mb-lg">
+                  <q-icon :name="f.icon" size="24px" color="primary" class="q-mr-md q-mt-xs" />
+                  <div>
+                    <div class="text-subtitle1 text-weight-bold text-slate-900">{{ f.title }}</div>
+                    <div class="text-body2 text-slate-500">{{ f.desc }}</div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          <div class="auth-panel">
-            <div class="auth-header text-center q-mb-lg">
-              <div class="app-logo q-mb-md">
-                <span class="brand-mark" />
-              </div>
-              <div class="text-h5 text-weight-bold">Welcome to Track.now</div>
-              <div class="text-body2 text-grey-7 q-mt-sm">A calmer habit system for people who want consistency to feel sustainable.</div>
-            </div>
+          <!-- Right side: The Form -->
+          <div class="auth-panel-container">
             <router-view />
           </div>
         </div>
@@ -42,73 +39,62 @@
   </q-layout>
 </template>
 
+<script setup>
+const features = [
+  { icon: 'o_flag', title: 'Mission-Based', desc: 'Sprints of 21, 45, or 90 days.' },
+  { icon: 'o_bolt', title: 'Action-First', desc: 'One clear task at a time.' },
+  { icon: 'o_public', title: 'Shared Focus', desc: 'Optional social activity maps.' }
+]
+</script>
+
 <style scoped lang="scss">
 .auth-page {
   min-height: 100vh;
-  padding: 24px;
-  background:
-    radial-gradient(circle at top left, rgba(36, 92, 104, 0.12), transparent 38%),
-    linear-gradient(180deg, #f4f6f7 0%, #f8fafb 100%);
+  padding: 40px 24px;
+}
+
+.bg-mesh {
+  background-color: #f8fafc;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(79, 70, 229, 0.05) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(99, 102, 241, 0.05) 0px, transparent 50%);
 }
 
 .auth-shell {
-  max-width: 1120px;
-  margin: 0 auto;
-  min-height: calc(100vh - 48px);
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
-  gap: 24px;
+  grid-template-columns: 1fr 1fr;
+  gap: 80px;
+  width: 100%;
+  max-width: 1100px;
   align-items: center;
 }
 
-.auth-story,
-.auth-panel {
-  border-radius: 28px;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(18px);
-}
-
-.auth-story {
-  padding: 40px;
-}
-
-.auth-panel {
-  padding: 32px 24px;
-}
-
-.story-stack {
-  display: grid;
-  gap: 14px;
-}
-
-.story-card {
-  padding: 18px;
-  border-radius: 20px;
-  background: #fbfcfd;
-  border: 1px solid rgba(148, 163, 184, 0.12);
-}
-
-.app-logo {
-  display: flex;
-  justify-content: center;
-}
-
-.brand-mark {
-  width: 24px;
-  height: 24px;
+.brand-dot {
+  width: 12px;
+  height: 12px;
+  background: $primary;
   border-radius: 50%;
-  display: inline-block;
-  background: linear-gradient(135deg, #245c68, #d17a3c);
-  box-shadow: 0 0 0 10px rgba(36, 92, 104, 0.08);
+  box-shadow: 0 0 10px rgba($primary, 0.4);
 }
 
-@media (max-width: 960px) {
+.auth-vision {
+  padding: 20px;
+}
+
+.auth-panel-container {
+  width: 100%;
+  max-width: 440px;
+}
+
+.text-slate-500 { color: #64748b; }
+.text-slate-900 { color: #0f172a; }
+
+@media (max-width: 1024px) {
   .auth-shell {
     grid-template-columns: 1fr;
+    max-width: 440px;
   }
-
-  .auth-story {
+  .auth-vision {
     display: none;
   }
 }
