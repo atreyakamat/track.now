@@ -1,65 +1,95 @@
 <template>
-  <q-page class="page-container pricing-page q-py-xl bg-mesh">
-    <div class="pricing-hero q-mb-xl text-center">
-      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase tracking-widest q-mb-md">
-        Invest in yourself
-      </div>
-      <h1 class="text-h3 text-weight-bolder tracking-tighter text-slate-900 q-mt-none">Focused growth, <br/>simple pricing.</h1>
-      <p class="text-h6 text-slate-500 text-weight-medium max-w-2xl mx-auto q-mt-md">
-        Start for free, upgrade when your discipline demands more power.
-      </p>
-    </div>
-
-    <div class="plan-grid q-mb-xl">
-      <q-card v-for="plan in plans" :key="plan.name" flat class="plan-card glass-panel" :class="{ featured: plan.featured }">
+  <transition name="fade" appear>
+    <div class="full-width pricing-shell">
+      <q-card flat class="pricing-card">
         <q-card-section class="q-pa-xl">
-          <div v-if="plan.badge" class="row justify-start q-mb-md">
-            <span class="plan-badge">{{ plan.badge }}</span>
+          <p class="brand-kicker">Track.now</p>
+          <h1 class="lead-title">Consistency is the only secret.</h1>
+          <p class="lead-copy">
+            Mission-based tracking for people who want calm execution, visible progress, and real identity change.
+          </p>
+
+          <div class="pillar-grid">
+            <article v-for="pillar in pillars" :key="pillar.title" class="pillar-card">
+              <q-icon :name="pillar.icon" size="18px" color="grey-3" />
+              <div>
+                <strong>{{ pillar.title }}</strong>
+                <span>{{ pillar.description }}</span>
+              </div>
+            </article>
           </div>
-          <div class="text-subtitle1 text-weight-bolder text-slate-400 uppercase tracking-widest">{{ plan.name }}</div>
-          <div class="text-h2 text-weight-bolder text-slate-900 q-my-md">
-            {{ plan.price }}<span class="text-h6 text-slate-400 font-medium lowercase">{{ plan.period }}</span>
+
+          <div class="pricing-head">
+            <p>Invest in yourself</p>
+            <h2>Focused growth, simple pricing.</h2>
+            <span>Start for free, upgrade when your discipline demands more power.</span>
           </div>
-          <p class="text-body2 text-slate-500 q-mb-xl min-height-48">{{ plan.description }}</p>
-          
-          <q-list class="q-mb-xl">
-            <q-item v-for="feature in plan.features" :key="feature" dense class="q-px-none q-mb-sm">
-              <q-item-section avatar min-width="24px">
-                <q-icon name="o_check_circle" color="primary" size="18px" />
-              </q-item-section>
-              <q-item-section class="text-slate-700 text-weight-medium">{{ feature }}</q-item-section>
-            </q-item>
-          </q-list>
-          
-          <q-btn
-            :label="ctaLabel(plan)"
-            :color="plan.featured ? 'primary' : 'slate-900'"
-            :outline="!plan.featured"
-            unelevated
-            class="full-width glow-btn q-py-md text-weight-bolder"
-            size="lg"
-            @click="selectPlan(plan.name)"
-          />
+
+          <div class="plan-stack">
+            <article
+              v-for="plan in plans"
+              :key="plan.name"
+              class="plan-card"
+              :class="{ featured: plan.featured, current: currentPlan === plan.name }"
+            >
+              <div class="plan-top">
+                <p class="plan-name">{{ plan.name }}</p>
+                <span v-if="plan.badge" class="plan-badge">{{ plan.badge }}</span>
+              </div>
+
+              <div class="plan-price-wrap">
+                <span class="plan-price">{{ plan.price }}</span>
+                <span class="plan-period">{{ plan.period }}</span>
+              </div>
+
+              <p class="plan-description">{{ plan.description }}</p>
+
+              <ul class="feature-list">
+                <li v-for="feature in plan.features" :key="feature" class="feature-item">
+                  <q-icon name="o_check" size="16px" color="grey-4" />
+                  <span>{{ feature }}</span>
+                </li>
+              </ul>
+
+              <q-btn
+                :label="ctaLabel(plan)"
+                :outline="!plan.featured"
+                :color="plan.featured ? 'white' : 'grey-6'"
+                :text-color="plan.featured ? 'black' : 'white'"
+                unelevated
+                class="full-width plan-btn"
+                @click="selectPlan(plan.name)"
+              />
+            </article>
+          </div>
+
+          <div class="status-card">
+            <div>
+              <p>Your Status</p>
+              <h3>Current plan: {{ currentPlan }}</h3>
+            </div>
+
+            <q-btn
+              flat
+              icon="o_arrow_back"
+              label="Return"
+              color="grey-5"
+              class="status-return"
+              @click="goBack"
+            />
+          </div>
         </q-card-section>
       </q-card>
-    </div>
 
-    <div class="row justify-center">
-      <q-card flat class="pricing-note glass-panel q-pa-lg max-w-xl full-width">
-        <div class="row items-center justify-between no-wrap">
-          <div>
-            <div class="text-subtitle2 text-slate-400 uppercase tracking-widest font-bold">Your Status</div>
-            <div class="text-h6 text-weight-bolder text-slate-900">Current plan: {{ authStore.currentPlan }}</div>
-          </div>
-          <q-btn flat color="slate-400" icon="o_arrow_back" label="Return" @click="goBack" class="text-weight-bolder" />
-        </div>
-      </q-card>
+      <div class="bottom-link-wrap" v-if="!authStore.isAuthenticated">
+        <router-link to="/login" class="bottom-link">Back to sign in</router-link>
+      </div>
     </div>
-  </q-page>
+  </transition>
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
 import { useAuthStore } from 'src/stores/auth'
@@ -68,10 +98,15 @@ const router = useRouter()
 const $q = useQuasar()
 const authStore = useAuthStore()
 
+const pillars = [
+  { title: 'Mission-Based', description: 'Sprints of 21, 45, or 90 days.', icon: 'flag' },
+  { title: 'Action-First', description: 'One clear next action per moment.', icon: 'bolt' },
+  { title: 'Shared Focus', description: 'Optional accountability with quiet social pulse.', icon: 'public' }
+]
+
 const plans = [
   {
     name: 'free',
-    label: 'Free',
     price: '$0',
     period: '/mo',
     description: 'Perfect for building the habit loop and starting your journey.',
@@ -80,7 +115,6 @@ const plans = [
   },
   {
     name: 'pro',
-    label: 'Pro',
     price: '$4.99',
     period: '/mo',
     description: 'For power users who need advanced analytics and reminders.',
@@ -90,7 +124,6 @@ const plans = [
   },
   {
     name: 'family',
-    label: 'Family',
     price: '$9.99',
     period: '/mo',
     description: 'Collaborative tracking for teams or households of up to 6.',
@@ -99,6 +132,8 @@ const plans = [
     badge: 'Household Choice'
   }
 ]
+
+const currentPlan = computed(() => String(authStore.currentPlan || 'free').toLowerCase())
 
 onMounted(() => {
   if (authStore.isAuthenticated) {
@@ -112,12 +147,33 @@ async function selectPlan(planName) {
     return
   }
 
-  await authStore.updateAccountPlan(planName)
-  $q.notify({ message: `Plan upgraded to ${planName}`, color: 'primary', icon: 'o_auto_awesome' })
+  if (currentPlan.value === planName) {
+    $q.notify({ message: 'This is already your active plan.', color: 'info', icon: 'o_done' })
+    return
+  }
+
+  try {
+    await authStore.updateAccountPlan(planName)
+    $q.notify({ message: `Plan switched to ${planName}.`, color: 'primary', icon: 'o_verified' })
+  } catch (error) {
+    $q.notify({ message: error.message || 'Could not update plan.', color: 'negative', icon: 'o_error' })
+  }
 }
 
 function ctaLabel(plan) {
-  return authStore.currentPlan === plan.name ? 'Current' : `Upgrade to ${plan.label}`
+  if (currentPlan.value === plan.name) {
+    return 'Current plan'
+  }
+
+  if (!authStore.isAuthenticated && plan.name === 'free') {
+    return 'Start free'
+  }
+
+  if (!authStore.isAuthenticated) {
+    return `Choose ${plan.name}`
+  }
+
+  return `Switch to ${plan.name}`
 }
 
 function goBack() {
@@ -131,79 +187,270 @@ function goBack() {
 </script>
 
 <style scoped lang="scss">
-.pricing-page {
-  min-height: 100vh;
+.pricing-shell {
+  width: 100%;
 }
 
-.bg-mesh {
-  background-color: #f8fafc;
-  background-image: 
-    radial-gradient(at 0% 0%, rgba(79, 70, 229, 0.04) 0px, transparent 50%),
-    radial-gradient(at 100% 0%, rgba(99, 102, 241, 0.04) 0px, transparent 50%);
+.pricing-card {
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(14, 14, 14, 0.94);
+  box-shadow: 0 22px 52px rgba(0, 0, 0, 0.48);
 }
 
-.plan-grid {
+.brand-kicker {
+  margin: 0;
+  color: #8f8f94;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.lead-title {
+  margin: 8px 0 0;
+  color: #fff;
+  font-size: clamp(1.85rem, 5.4vw, 2.4rem);
+  line-height: 0.95;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+}
+
+.lead-copy {
+  margin: 14px 0 0;
+  color: #a8a8ad;
+  line-height: 1.48;
+  font-size: 0.92rem;
+}
+
+.pillar-grid {
+  margin-top: 20px;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 24px;
-  max-width: 1100px;
-  margin-left: auto;
-  margin-right: auto;
+  gap: 10px;
+}
+
+.pillar-card {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: rgba(18, 18, 18, 0.9);
+  padding: 10px 12px;
+
+  strong {
+    display: block;
+    color: #fff;
+    font-size: 0.84rem;
+    font-weight: 700;
+  }
+
+  span {
+    display: block;
+    color: #9f9fa5;
+    font-size: 0.78rem;
+    margin-top: 2px;
+    line-height: 1.32;
+  }
+}
+
+.pricing-head {
+  margin-top: 24px;
+
+  p {
+    margin: 0;
+    color: #8d8d93;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  h2 {
+    margin: 8px 0 0;
+    color: #fff;
+    font-size: clamp(1.35rem, 4vw, 1.95rem);
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    font-weight: 800;
+  }
+
+  span {
+    margin-top: 8px;
+    display: block;
+    color: #9f9fa5;
+    font-size: 0.9rem;
+    line-height: 1.45;
+  }
+}
+
+.plan-stack {
+  margin-top: 18px;
+  display: grid;
+  gap: 12px;
 }
 
 .plan-card {
-  border-radius: 32px;
-  border: 1px solid rgba(255,255,255,0.4);
-  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.04);
-  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  background: rgba(17, 17, 17, 0.92);
+  padding: 14px;
+  transition: border-color 0.2s ease, transform 0.2s ease;
 
   &:hover {
-    transform: translateY(-8px);
-    box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.1);
-    border-color: rgba($primary, 0.2);
+    border-color: rgba(255, 255, 255, 0.24);
+    transform: translateY(-1px);
   }
 
   &.featured {
-    border: 2px solid $primary;
-    box-shadow: 0 20px 40px -12px rgba($primary, 0.15);
+    border-color: rgba(255, 255, 255, 0.4);
+    background: #1b1b1b;
   }
+
+  &.current {
+    border-color: #fff;
+  }
+}
+
+.plan-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.plan-name {
+  margin: 0;
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
 .plan-badge {
-  padding: 4px 12px;
-  background: $primary;
-  color: white;
-  border-radius: 99px;
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
+  font-size: 0.62rem;
+  font-weight: 700;
   letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #181818;
+  background: #fff;
+  border-radius: 999px;
+  padding: 4px 9px;
+  white-space: nowrap;
 }
 
-.min-height-48 {
-  min-height: 48px;
+.plan-price-wrap {
+  margin-top: 8px;
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
 }
 
-.pricing-note {
-  border-radius: 24px;
+.plan-price {
+  color: #fff;
+  font-size: 1.7rem;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.03em;
 }
 
-.glow-btn {
-  box-shadow: 0 10px 15px -3px rgba($primary, 0.2);
-  &:active {
-    transform: scale(0.98);
+.plan-period {
+  color: #a8a8ad;
+  font-size: 0.84rem;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.plan-description {
+  margin: 9px 0 0;
+  color: #b0b0b5;
+  line-height: 1.44;
+  font-size: 0.86rem;
+}
+
+.feature-list {
+  list-style: none;
+  margin: 12px 0;
+  padding: 0;
+  display: grid;
+  gap: 7px;
+}
+
+.feature-item {
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  gap: 8px;
+  align-items: center;
+
+  span {
+    color: #f3f3f3;
+    font-size: 0.84rem;
+    font-weight: 500;
   }
 }
 
-.text-slate-400 { color: #94a3b8; }
-.text-slate-500 { color: #64748b; }
-.text-slate-700 { color: #334155; }
-.text-slate-900 { color: #0f172a; }
+.plan-btn {
+  border-radius: 12px;
+  font-weight: 700;
+}
 
-@media (max-width: 600px) {
-  .plan-grid {
-    grid-template-columns: 1fr;
+.status-card {
+  margin-top: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  background: rgba(18, 18, 18, 0.92);
+  padding: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+
+  p {
+    margin: 0;
+    color: #8f8f95;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  h3 {
+    margin: 6px 0 0;
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    text-transform: lowercase;
+  }
+}
+
+.status-return {
+  border-radius: 10px;
+}
+
+.bottom-link-wrap {
+  text-align: center;
+  margin-top: 14px;
+}
+
+.bottom-link {
+  color: #8f8f95;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+  font-size: 0.68rem;
+  text-decoration: none;
+}
+
+@media (max-width: 520px) {
+  .pricing-card :deep(.q-card__section) {
+    padding: 18px;
+  }
+
+  .status-card {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 </style>

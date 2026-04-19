@@ -1,83 +1,88 @@
 <template>
-  <q-page class="page-container notifications-page">
-    <div class="row items-end q-col-gutter-md q-mb-lg">
-      <div class="col">
-        <div class="text-overline text-primary section-kicker">Notifications</div>
-        <div class="text-h4 text-weight-bold">Helpful nudges, not background noise</div>
-        <div class="text-body2 text-grey-7 q-mt-sm">
-          Control pre-reminders, exact-time prompts, and WhatsApp summaries from one place.
+  <q-page class="mission-notifications-page">
+    <div class="grain-overlay" />
+
+    <div class="notifications-shell">
+      <header class="notifications-top">
+        <div class="brand-wrap">
+          <q-icon name="radio_button_checked" size="18px" />
+          <span>Track.now</span>
         </div>
-      </div>
-      <div class="col-auto">
-        <q-btn label="Request permission" color="primary" unelevated no-caps @click="handlePermission" />
-      </div>
-    </div>
 
-    <div class="summary-grid q-mb-lg">
-      <q-card flat bordered class="summary-card">
-        <q-card-section>
-          <div class="text-caption text-grey-7">Browser permission</div>
-          <div class="text-h6 text-weight-bold q-mt-xs text-capitalize">{{ permissionState }}</div>
-          <div class="text-body2 text-grey-7 q-mt-sm">Needed for local browser notifications and pre-alerts.</div>
-        </q-card-section>
-      </q-card>
+        <div class="title-block">
+          <h1>Notifications</h1>
+          <p>Helpful nudges, never noisy pressure.</p>
+        </div>
 
-      <q-card flat bordered class="summary-card">
-        <q-card-section>
-          <div class="text-caption text-grey-7">Scheduled today</div>
-          <div class="text-h6 text-weight-bold q-mt-xs">{{ reminderPreview.length }}</div>
-          <div class="text-body2 text-grey-7 q-mt-sm">Visible reminders generated from your current today habits.</div>
-        </q-card-section>
-      </q-card>
-    </div>
+        <q-btn no-caps unelevated class="permission-btn" icon="notifications_active" label="Request permission" @click="handlePermission" />
+      </header>
 
-    <div class="row q-col-gutter-lg">
-      <div class="col-12 col-lg-5">
-        <q-card flat bordered class="settings-card q-mb-lg">
-          <q-card-section>
-            <div class="text-subtitle1 text-weight-bold q-mb-md">Behavior</div>
-            <div class="column q-gutter-md">
+      <main class="notifications-main">
+        <section class="summary-grid">
+          <article class="summary-card pro-card">
+            <span>Browser Permission</span>
+            <strong class="text-capitalize">{{ permissionState }}</strong>
+            <small>Needed for local browser reminders and pre-alerts.</small>
+          </article>
+
+          <article class="summary-card pro-card">
+            <span>Scheduled Today</span>
+            <strong>{{ reminderPreview.length }}</strong>
+            <small>Generated from your current habit reminders.</small>
+          </article>
+        </section>
+
+        <section class="board-grid">
+          <article class="settings-card pro-card">
+            <div class="section-head compact">
+              <h2>Behavior</h2>
+            </div>
+
+            <div class="column q-gutter-md settings-list">
               <q-toggle
                 :model-value="preferences.reminderPreview"
                 label="20-minute pre-reminders"
+                color="white"
+                keep-color
                 @update:model-value="preferencesStore.updatePreference('reminderPreview', $event)"
               />
               <q-toggle
                 :model-value="preferences.exactReminders"
                 label="Exact-time action prompts"
+                color="white"
+                keep-color
                 @update:model-value="preferencesStore.updatePreference('exactReminders', $event)"
               />
               <q-toggle
                 :model-value="preferences.whatsappSummary"
                 label="Daily WhatsApp summary"
+                color="white"
+                keep-color
                 @update:model-value="preferencesStore.updatePreference('whatsappSummary', $event)"
               />
               <q-toggle
                 :model-value="preferences.calmMode"
                 label="Calm mode"
+                color="white"
+                keep-color
                 @update:model-value="preferencesStore.updatePreference('calmMode', $event)"
               />
             </div>
-          </q-card-section>
-        </q-card>
 
-        <q-card flat bordered class="settings-card">
-          <q-card-section>
-            <div class="text-subtitle1 text-weight-bold q-mb-md">What calm mode means</div>
-            <div class="text-body2 text-grey-7">
-              Track.now keeps language gentle, avoids alarmist “streak broken” framing, and prefers progress-oriented reminders over pressure-heavy alerts.
+            <div class="calm-note">
+              Track.now keeps language gentle, avoids alarmist streak framing, and prefers progress-oriented reminders over pressure-heavy alerts.
             </div>
-          </q-card-section>
-        </q-card>
-      </div>
+          </article>
 
-      <div class="col-12 col-lg-7">
-        <q-card flat bordered class="settings-card">
-          <q-card-section>
-            <div class="text-subtitle1 text-weight-bold q-mb-md">Today’s reminder preview</div>
-            <div v-if="reminderPreview.length === 0" class="text-body2 text-grey-7">
-              Nothing is scheduled yet. Create a habit with one or more reminder times to preview the alert flow.
+          <article class="settings-card pro-card">
+            <div class="section-head compact">
+              <h2>Today Reminder Preview</h2>
             </div>
+
+            <div v-if="reminderPreview.length === 0" class="empty-copy">
+              Nothing is scheduled yet. Create a habit with reminder times to preview the alert flow.
+            </div>
+
             <div v-else class="column q-gutter-sm">
               <div v-for="item in reminderPreview" :key="item.key" class="reminder-row">
                 <div class="row items-center q-col-gutter-md no-wrap">
@@ -85,19 +90,19 @@
                     <div class="reminder-icon">{{ item.emoji }}</div>
                   </div>
                   <div class="col">
-                    <div class="text-body2 text-weight-bold">{{ item.name }}</div>
-                    <div class="text-caption text-grey-7">{{ item.phaseLabel }}</div>
+                    <div class="text-body2 text-weight-bold text-white">{{ item.name }}</div>
+                    <div class="reminder-meta">{{ item.phaseLabel }}</div>
                   </div>
                   <div class="col-auto text-right">
-                    <div class="text-body2 text-weight-medium">{{ item.timeLabel }}</div>
-                    <div class="text-caption text-grey-6">{{ item.category }}</div>
+                    <div class="text-body2 text-weight-medium text-white">{{ item.timeLabel }}</div>
+                    <div class="reminder-meta">{{ item.category }}</div>
                   </div>
                 </div>
               </div>
             </div>
-          </q-card-section>
-        </q-card>
-      </div>
+          </article>
+        </section>
+      </main>
     </div>
   </q-page>
 </template>
@@ -172,37 +177,178 @@ async function handlePermission() {
 </script>
 
 <style scoped lang="scss">
-.section-kicker {
-  letter-spacing: 0.12em;
+.mission-notifications-page {
+  position: relative;
+  min-height: 100%;
+  background: #000;
+  color: #e5e2e1;
+  padding-bottom: 118px;
+}
+
+.grain-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  opacity: 0.03;
+}
+
+.notifications-shell {
+  position: relative;
+  z-index: 1;
+  max-width: 1060px;
+  margin: 0 auto;
+  padding: clamp(16px, 2vw, 28px);
+}
+
+.notifications-top {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.brand-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+
+.title-block h1 {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(1.3rem, 3vw, 1.8rem);
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+
+.title-block p {
+  margin: 4px 0 0;
+  color: #a0a0a6;
+  font-size: 0.84rem;
+}
+
+.permission-btn {
+  border-radius: 12px;
+  background: #fff;
+  color: #000;
+  font-weight: 700;
+}
+
+.notifications-main {
+  display: grid;
+  gap: 12px;
 }
 
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.summary-card {
+  border-radius: 16px;
+  padding: 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.summary-card span {
+  color: #8f8f95;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.summary-card strong {
+  color: #fff;
+  font-size: 1.2rem;
+  font-weight: 900;
+}
+
+.summary-card small {
+  color: #9d9da4;
+  font-size: 0.77rem;
+  line-height: 1.34;
+}
+
+.board-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.3fr;
   gap: 12px;
 }
 
-.summary-card,
 .settings-card {
-  border-radius: 24px;
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 18px;
+  padding: 14px;
+}
+
+.section-head.compact {
+  margin-bottom: 10px;
+}
+
+.section-head h2 {
+  margin: 0;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.settings-list :deep(.q-toggle__label) {
+  color: #e0e0e4;
+  font-size: 0.86rem;
+}
+
+.calm-note {
+  margin-top: 14px;
+  color: #9b9ba1;
+  font-size: 0.79rem;
+  line-height: 1.45;
+}
+
+.empty-copy {
+  color: #9a9aa0;
+  font-size: 0.83rem;
 }
 
 .reminder-row {
-  padding: 12px;
-  border-radius: 18px;
-  background: #fbfcfd;
-  border: 1px solid rgba(148, 163, 184, 0.12);
+  padding: 11px;
+  border-radius: 14px;
+  background: rgba(20, 20, 20, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .reminder-icon {
-  width: 42px;
-  height: 42px;
-  border-radius: 14px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.3rem;
-  background: rgba(36, 92, 104, 0.08);
+  font-size: 1.25rem;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.reminder-meta {
+  color: #9999a0;
+  font-size: 0.72rem;
+}
+
+@media (max-width: 900px) {
+  .notifications-top {
+    grid-template-columns: 1fr;
+    justify-items: start;
+  }
+
+  .board-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
