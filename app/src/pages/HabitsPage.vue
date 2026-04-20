@@ -3,20 +3,18 @@
     <div class="grain-overlay" />
 
     <div class="habit-shell">
-      <header class="top-row" data-reveal>
-        <div class="brand-wrap">
-          <q-icon name="radio_button_checked" size="18px" />
-          <span>Track.now</span>
-        </div>
-        <q-btn
-          unelevated
-          no-caps
-          icon="add"
-          label="New Mission"
-          to="/add"
-          class="new-mission-btn"
-        />
-      </header>
+      <AppPageHeader reveal>
+        <template #right>
+          <q-btn
+            unelevated
+            no-caps
+            icon="add"
+            label="New Mission"
+            to="/add"
+            class="new-mission-btn"
+          />
+        </template>
+      </AppPageHeader>
 
       <q-inner-loading :showing="loading">
         <q-spinner color="white" size="56px" />
@@ -198,6 +196,7 @@ import { useQuasar } from 'quasar'
 import { useAuthStore } from 'src/stores/auth'
 import { useCompletionsStore } from 'src/stores/completions'
 import { useHabitsStore } from 'src/stores/habits'
+import AppPageHeader from 'src/components/AppPageHeader.vue'
 import {
   calculateMomentum,
   getCategoryMeta,

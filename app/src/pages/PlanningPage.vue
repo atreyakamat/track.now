@@ -3,13 +3,11 @@
     <div class="grain-overlay" />
 
     <div class="planner-shell">
-      <header class="planner-top" data-reveal>
-        <div class="brand-wrap">
-          <q-icon name="radio_button_checked" size="18px" />
-          <h1>Track.now</h1>
-        </div>
-        <div class="profile-chip">{{ avatarInitial }}</div>
-      </header>
+      <AppPageHeader reveal>
+        <template #right>
+          <div class="profile-chip">{{ avatarInitial }}</div>
+        </template>
+      </AppPageHeader>
 
       <q-inner-loading :showing="loading">
         <q-spinner color="white" size="56px" />
@@ -115,6 +113,7 @@ import { useAuthStore } from 'src/stores/auth'
 import { useCompletionsStore } from 'src/stores/completions'
 import { useHabitsStore } from 'src/stores/habits'
 import { useTasksStore } from 'src/stores/tasks'
+import AppPageHeader from 'src/components/AppPageHeader.vue'
 import {
   formatTimeLabel,
   getCategoryMeta,

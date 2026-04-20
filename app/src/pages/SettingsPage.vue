@@ -3,16 +3,14 @@
     <div class="grain-overlay" />
 
     <div class="profile-shell">
-      <header class="profile-top" data-reveal>
-        <div class="brand-wrap">
-          <q-icon name="radio_button_checked" size="18px" />
-          <h1>Track.now</h1>
-        </div>
-        <div class="avatar-mini">
-          <img v-if="profilePhoto" :src="profilePhoto" alt="Profile" />
-          <span v-else>{{ avatarInitial }}</span>
-        </div>
-      </header>
+      <AppPageHeader reveal>
+        <template #right>
+          <div class="avatar-mini">
+            <img v-if="profilePhoto" :src="profilePhoto" alt="Profile" />
+            <span v-else>{{ avatarInitial }}</span>
+          </div>
+        </template>
+      </AppPageHeader>
 
       <q-inner-loading :showing="loading">
         <q-spinner color="white" size="56px" />
@@ -163,6 +161,7 @@ import { useCompletionsStore } from 'src/stores/completions'
 import { useHabitsStore } from 'src/stores/habits'
 import { usePreferencesStore } from 'src/stores/preferences'
 import { useTasksStore } from 'src/stores/tasks'
+import AppPageHeader from 'src/components/AppPageHeader.vue'
 import {
   buildIdentityInsight,
   calculateMomentum,

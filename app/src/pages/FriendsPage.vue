@@ -3,22 +3,19 @@
     <div class="grain-overlay" />
 
     <div class="social-shell">
-      <header class="social-top" data-reveal>
-        <div class="brand-wrap">
-          <q-icon name="radio_button_checked" size="18px" />
-          <h1>Track.now</h1>
-        </div>
-
-        <div class="top-right">
-          <nav class="desktop-tabs">
-            <span>Today</span>
-            <span>Tasks</span>
-            <span class="active">Activity</span>
-            <span>Planner</span>
-          </nav>
-          <div class="avatar-chip">{{ avatarInitial }}</div>
-        </div>
-      </header>
+      <AppPageHeader reveal>
+        <template #right>
+          <div class="top-right">
+            <nav class="desktop-tabs">
+              <span>Today</span>
+              <span>Tasks</span>
+              <span class="active">Activity</span>
+              <span>Planner</span>
+            </nav>
+            <div class="avatar-chip">{{ avatarInitial }}</div>
+          </div>
+        </template>
+      </AppPageHeader>
 
       <q-inner-loading :showing="loading">
         <q-spinner color="white" size="56px" />
@@ -203,6 +200,7 @@ import { whatsappService } from 'src/services/whatsappService'
 import { useAuthStore } from 'src/stores/auth'
 import { useCompletionsStore } from 'src/stores/completions'
 import { useFriendsStore } from 'src/stores/friends'
+import AppPageHeader from 'src/components/AppPageHeader.vue'
 import { getDateKey, shiftDate } from 'src/utils/habitModel'
 import { setupRevealOnScroll } from 'src/utils/revealMotion'
 

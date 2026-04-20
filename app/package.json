@@ -7,6 +7,8 @@
     "dev": "quasar dev",
     "build": "quasar build",
     "build:pwa": "quasar build -m pwa",
+    "test:unit": "vitest run",
+    "test:ui": "vitest",
     "lint": "eslint --ext .js,.vue ./src"
   },
   "dependencies": {

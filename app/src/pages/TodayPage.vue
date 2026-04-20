@@ -3,13 +3,11 @@
     <div class="grain-overlay" />
 
     <div class="action-shell">
-      <header class="action-header" data-reveal>
-        <div class="brand-wrap">
-          <q-icon name="radio_button_checked" size="18px" />
-          <h1>Track.now</h1>
-        </div>
-        <div class="profile-chip">{{ avatarInitial }}</div>
-      </header>
+      <AppPageHeader reveal>
+        <template #right>
+          <div class="profile-chip">{{ avatarInitial }}</div>
+        </template>
+      </AppPageHeader>
 
       <q-inner-loading :showing="loading">
         <q-spinner color="white" size="56px" />
@@ -116,6 +114,7 @@ import { useQuasar } from 'quasar'
 import { useAuthStore } from 'src/stores/auth'
 import { useCompletionsStore } from 'src/stores/completions'
 import { useHabitsStore } from 'src/stores/habits'
+import AppPageHeader from 'src/components/AppPageHeader.vue'
 import {
   buildIdentityInsight,
   formatTimeLabel,

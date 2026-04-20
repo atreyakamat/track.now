@@ -3,17 +3,7 @@
     <div class="grain-overlay" />
 
     <div class="calendar-shell">
-      <header class="calendar-top">
-        <div class="brand-wrap">
-          <q-icon name="radio_button_checked" size="18px" />
-          <span>Track.now</span>
-        </div>
-
-        <div class="calendar-title">
-          <h1>Calendar</h1>
-          <p>A visual memory of your consistency across time.</p>
-        </div>
-      </header>
+      <AppPageHeader title="Calendar" subtitle="A visual memory of your consistency across time." />
 
       <q-inner-loading :showing="loading">
         <q-spinner color="white" size="50px" />
@@ -62,7 +52,7 @@
     </div>
 
     <q-dialog v-model="dayDialog">
-      <q-card class="dialog-card" style="min-width: 320px">
+      <q-card class="dialog-card app-dialog-card" style="min-width: 320px">
         <q-card-section>
           <div class="dialog-title">{{ selectedDay?.label }}</div>
           <div class="dialog-date">{{ selectedDay?.date }}</div>
@@ -81,6 +71,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import HeatmapCalendar from 'src/components/HeatmapCalendar.vue'
+import AppPageHeader from 'src/components/AppPageHeader.vue'
 import { completionService } from 'src/services/completionService'
 import { useCompletionsStore } from 'src/stores/completions'
 import { useHabitsStore } from 'src/stores/habits'

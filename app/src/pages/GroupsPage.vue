@@ -3,22 +3,14 @@
     <div class="grain-overlay" />
 
     <div class="groups-shell">
-      <header class="groups-top">
-        <div class="brand-wrap">
-          <q-icon name="radio_button_checked" size="18px" />
-          <span>Track.now</span>
-        </div>
-
-        <div class="title-block">
-          <h1>Groups</h1>
-          <p>Small communities, shared momentum.</p>
-        </div>
-
-        <div class="actions-wrap">
-          <q-btn no-caps unelevated class="create-btn" icon="group_add" label="Create group" @click="createDialog = true" />
-          <q-btn no-caps outline color="grey-5" class="join-btn" icon="login" label="Join group" @click="joinDialog = true" />
-        </div>
-      </header>
+      <AppPageHeader title="Groups" subtitle="Small communities, shared momentum.">
+        <template #right>
+          <div class="actions-wrap">
+            <q-btn no-caps unelevated class="create-btn" icon="group_add" label="Create group" @click="createDialog = true" />
+            <q-btn no-caps outline color="grey-5" class="join-btn" icon="login" label="Join group" @click="joinDialog = true" />
+          </div>
+        </template>
+      </AppPageHeader>
 
       <q-inner-loading :showing="loading">
         <q-spinner color="white" size="48px" />
@@ -91,6 +83,7 @@ import { useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
 import { whatsappService } from 'src/services/whatsappService'
 import { useGroupsStore } from 'src/stores/groups'
+import AppPageHeader from 'src/components/AppPageHeader.vue'
 
 const router = useRouter()
 const $q = useQuasar()

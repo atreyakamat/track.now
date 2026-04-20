@@ -3,13 +3,11 @@
     <div class="grain-overlay" />
 
     <div class="tasks-shell">
-      <header class="brain-header" data-reveal>
-        <div class="brain-brand">
-          <q-icon name="radio_button_checked" size="18px" />
-          <h1>Track.now</h1>
-        </div>
-        <div class="brain-avatar">{{ avatarInitial }}</div>
-      </header>
+      <AppPageHeader reveal>
+        <template #right>
+          <div class="brain-avatar">{{ avatarInitial }}</div>
+        </template>
+      </AppPageHeader>
 
       <main class="brain-main">
         <section class="quick-capture" data-reveal>
@@ -286,6 +284,7 @@ import {
 } from 'src/constants/taskMeta'
 import { useAuthStore } from 'src/stores/auth'
 import { useTasksStore } from 'src/stores/tasks'
+import AppPageHeader from 'src/components/AppPageHeader.vue'
 import { formatTaskDue, normalizeTask, parseVoiceTask } from 'src/utils/taskModel'
 import { setupRevealOnScroll } from 'src/utils/revealMotion'
 

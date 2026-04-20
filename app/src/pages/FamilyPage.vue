@@ -3,19 +3,11 @@
     <div class="grain-overlay" />
 
     <div class="family-shell">
-      <header class="family-top">
-        <div class="brand-wrap">
-          <q-icon name="radio_button_checked" size="18px" />
-          <span>Track.now</span>
-        </div>
-
-        <div class="title-block">
-          <h1>Family</h1>
-          <p>Supportive routines for the whole home.</p>
-        </div>
-
-        <q-btn no-caps unelevated class="family-space-btn" icon="open_in_new" label="View family space" to="/family/home" />
-      </header>
+      <AppPageHeader title="Family" subtitle="Supportive routines for the whole home.">
+        <template #right>
+          <q-btn no-caps unelevated class="family-space-btn" icon="open_in_new" label="View family space" to="/family/home" />
+        </template>
+      </AppPageHeader>
 
       <main class="family-main">
         <section class="summary-grid">
@@ -64,6 +56,8 @@
 </template>
 
 <script setup>
+import AppPageHeader from 'src/components/AppPageHeader.vue'
+
 const benefits = [
   {
     title: 'Calm visibility',

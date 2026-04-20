@@ -3,16 +3,14 @@
     <div class="grain-overlay" />
 
     <div class="analytics-shell">
-      <header class="analytics-top" data-reveal>
-        <div class="brand-wrap">
-          <q-icon name="radio_button_checked" size="18px" />
-          <h1>Track.now</h1>
-        </div>
-        <div class="top-right">
-          <span class="top-label">Analytics</span>
-          <div class="avatar-chip">{{ avatarInitial }}</div>
-        </div>
-      </header>
+      <AppPageHeader reveal>
+        <template #right>
+          <div class="top-right">
+            <span class="top-label">Analytics</span>
+            <div class="avatar-chip">{{ avatarInitial }}</div>
+          </div>
+        </template>
+      </AppPageHeader>
 
       <q-inner-loading :showing="loading">
         <q-spinner color="white" size="56px" />
@@ -133,6 +131,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useAuthStore } from 'src/stores/auth'
 import { useCompletionsStore } from 'src/stores/completions'
 import { useHabitsStore } from 'src/stores/habits'
+import AppPageHeader from 'src/components/AppPageHeader.vue'
 import {
   calculateMomentum,
   formatTimeLabel,

@@ -3,19 +3,11 @@
     <div class="grain-overlay" />
 
     <div class="notifications-shell">
-      <header class="notifications-top">
-        <div class="brand-wrap">
-          <q-icon name="radio_button_checked" size="18px" />
-          <span>Track.now</span>
-        </div>
-
-        <div class="title-block">
-          <h1>Notifications</h1>
-          <p>Helpful nudges, never noisy pressure.</p>
-        </div>
-
-        <q-btn no-caps unelevated class="permission-btn" icon="notifications_active" label="Request permission" @click="handlePermission" />
-      </header>
+      <AppPageHeader title="Notifications" subtitle="Helpful nudges, never noisy pressure.">
+        <template #right>
+          <q-btn no-caps unelevated class="permission-btn" icon="notifications_active" label="Request permission" @click="handlePermission" />
+        </template>
+      </AppPageHeader>
 
       <main class="notifications-main">
         <section class="summary-grid">
@@ -110,6 +102,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useQuasar } from 'quasar'
+import AppPageHeader from 'src/components/AppPageHeader.vue'
 import { notificationService } from 'src/services/notificationService'
 import { useCompletionsStore } from 'src/stores/completions'
 import { useHabitsStore } from 'src/stores/habits'

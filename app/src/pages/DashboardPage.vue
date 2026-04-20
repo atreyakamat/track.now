@@ -3,13 +3,11 @@
     <div class="grain-overlay" />
 
     <div class="dashboard-shell">
-      <header class="dashboard-top">
-        <div class="brand-wrap">
-          <q-icon name="radio_button_checked" size="18px" />
-          <span>Track.now</span>
-        </div>
-        <q-btn no-caps unelevated class="today-btn" icon="today" label="Open Today" to="/today" />
-      </header>
+      <AppPageHeader>
+        <template #right>
+          <q-btn no-caps unelevated class="today-btn" icon="today" label="Open Today" to="/today" />
+        </template>
+      </AppPageHeader>
 
       <q-inner-loading :showing="loading">
         <q-spinner color="white" size="50px" />
@@ -211,6 +209,7 @@ import { useAuthStore } from 'src/stores/auth'
 import { useCompletionsStore } from 'src/stores/completions'
 import { useHabitsStore } from 'src/stores/habits'
 import { useTasksStore } from 'src/stores/tasks'
+import AppPageHeader from 'src/components/AppPageHeader.vue'
 import { TASK_PRIORITY_META } from 'src/constants/taskMeta'
 import { toDisplayTime } from 'src/utils/taskModel'
 import {
