@@ -1,7 +1,12 @@
 import { StatusBar } from 'expo-status-bar'
-import React, { useMemo, useState } from 'react'
+import * as WebBrowser from 'expo-web-browser'
+import * as Google from 'expo-auth-session/providers/google'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import {
+  ActivityIndicator,
   Alert,
+  Modal,
+  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -10,27 +15,79 @@ import {
   TextInput,
   View
 } from 'react-native'
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  onSnapshot,
+  query,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+  where,
+  type DocumentData,
+  type Firestore,
+  type QueryDocumentSnapshot,
+  type Unsubscribe
+} from 'firebase/firestore'
+import {
+  createUserWithEmailAndPassword,
+  GoogleAuthProvider,
+  onAuthStateChanged,
+  signInWithCredential,
+  signInWithEmailAndPassword,
+  signOut,
+  updateProfile,
+  type Auth,
+  type User
+} from 'firebase/auth'
+import { auth, db, hasFirebaseConfig } from './src/firebase'
+
+WebBrowser.maybeCompleteAuthSession()
 
 type AuthMode = 'signin' | 'signup'
 type TabKey = 'today' | 'tasks' | 'habits' | 'planner' | 'activity'
+type TaskPriority = 'low' | 'medium' | 'high' | 'urgent'
 
 type UserProfile = {
+  uid: string
   name: string
   email: string
+  plan: string
 }
 
 type Task = {
   id: string
   title: string
-  priority: 'High' | 'Medium' | 'Low'
-  done: boolean
+  priority: TaskPriority
+  completed: boolean
+  dueDate: string
+  dueTime: string
+  createdAt: number
 }
 
 type Habit = {
   id: string
   name: string
+  emoji: string
+  durationDays: number
+  time: string
+  reminderTimes: string[]
+  days: string[]
+}
+
+type Completion = {
+  id: string
+  habitId: string
+  date: string
+  sessionId: string | null
+  completed: boolean
+}
+
+type HabitProgressRow = Habit & {
   day: number
-  totalDays: number
   doneToday: boolean
 }
 
@@ -38,6 +95,7 @@ type Friend = {
   id: string
   name: string
   focus: string
+  email: string
 }
 
 const TAB_TITLES: Record<TabKey, string> = {
@@ -56,45 +114,454 @@ const TAB_ITEMS: Array<{ key: TabKey; label: string; icon: string }> = [
   { key: 'activity', label: 'Social', icon: 'S' }
 ]
 
-const INITIAL_TASKS: Task[] = [
-  { id: 't1', title: 'Deep work sprint', priority: 'High', done: false },
-  { id: 't2', title: 'Call with mentor', priority: 'Medium', done: false },
-  { id: 't3', title: 'Read 20 pages', priority: 'Low', done: true }
-]
+const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/
+const DAY_KEY_BY_NATIVE_INDEX = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
 
-const INITIAL_HABITS: Habit[] = [
-  { id: 'h1', name: 'Morning run', day: 14, totalDays: 21, doneToday: true },
-  { id: 'h2', name: 'Focused study', day: 8, totalDays: 21, doneToday: false },
-  { id: 'h3', name: 'No sugar', day: 31, totalDays: 45, doneToday: false }
-]
+function getDateKey(date = new Date()): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
 
-const INITIAL_FRIENDS: Friend[] = [
-  { id: 'f1', name: 'Erik X.', focus: 'Morning Run 80%' },
-  { id: 'f2', name: 'Sarah L.', focus: 'Deep Work 45m' },
-  { id: 'f3', name: 'Marcus K.', focus: 'Fasting 14h' },
-  { id: 'f4', name: 'Jade N.', focus: 'Reading 12p' }
-]
+function toDisplayTime(value: string): string {
+  if (!TIME_PATTERN.test(value || '')) return ''
+
+  const [hours, minutes] = value.split(':').map(Number)
+  const date = new Date()
+  date.setHours(hours, minutes, 0, 0)
+  return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+}
+
+function getTimestampMillis(value: unknown): number {
+  if (!value) return 0
+
+  if (typeof value === 'object' && value !== null && 'seconds' in (value as { seconds?: unknown })) {
+    const cast = value as { seconds?: unknown; nanoseconds?: unknown }
+    const seconds = Number(cast.seconds || 0)
+    const nanos = Number(cast.nanoseconds || 0)
+    return (seconds * 1000) + Math.floor(nanos / 1000000)
+  }
+
+  const parsed = Date.parse(String(value))
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function normalizeTaskPriority(value: unknown): TaskPriority {
+  const normalized = String(value || '').trim().toLowerCase()
+  if (normalized === 'urgent') return 'urgent'
+  if (normalized === 'high') return 'high'
+  if (normalized === 'low') return 'low'
+  return 'medium'
+}
+
+function normalizeTaskFromDoc(snapshot: QueryDocumentSnapshot<DocumentData>): Task {
+  const data = snapshot.data()
+  const title = String(data.title || data.name || 'Untitled task').trim()
+  const dueTime = TIME_PATTERN.test(String(data.dueTime || '')) ? String(data.dueTime) : ''
+
+  return {
+    id: snapshot.id,
+    title: title || 'Untitled task',
+    priority: normalizeTaskPriority(data.priority),
+    completed: Boolean(data.completed),
+    dueDate: String(data.dueDate || ''),
+    dueTime,
+    createdAt: getTimestampMillis(data.createdAt)
+  }
+}
+
+function sortTasks(entries: Task[]): Task[] {
+  return [...entries].sort((a, b) => {
+    const dueDateA = a.dueDate || '9999-12-31'
+    const dueDateB = b.dueDate || '9999-12-31'
+    if (dueDateA !== dueDateB) return dueDateA.localeCompare(dueDateB)
+
+    const dueTimeA = a.dueTime || '23:59'
+    const dueTimeB = b.dueTime || '23:59'
+    if (dueTimeA !== dueTimeB) return dueTimeA.localeCompare(dueTimeB)
+
+    return a.createdAt - b.createdAt
+  })
+}
+
+function normalizeReminderTimes(reminderTimes: unknown, fallbackTime: unknown): string[] {
+  const initial = Array.isArray(reminderTimes) && reminderTimes.length > 0
+    ? reminderTimes
+    : [fallbackTime]
+
+  const valid = [...new Set(initial
+    .map((value) => String(value || '').trim())
+    .filter((value) => TIME_PATTERN.test(value)))]
+    .sort((a, b) => a.localeCompare(b))
+
+  return valid.length > 0 ? valid : ['09:00']
+}
+
+function normalizeHabitFromDoc(snapshot: QueryDocumentSnapshot<DocumentData>): Habit {
+  const data = snapshot.data()
+  const days = Array.isArray(data.days) && data.days.length > 0
+    ? data.days.map((day: unknown) => String(day)).filter(Boolean)
+    : ['mon', 'tue', 'wed', 'thu', 'fri']
+  const reminderTimes = normalizeReminderTimes(data.reminderTimes, data.time)
+
+  return {
+    id: snapshot.id,
+    name: String(data.name || 'Untitled habit').trim() || 'Untitled habit',
+    emoji: String(data.emoji || '✓'),
+    durationDays: Number(data.durationDays) > 0 ? Number(data.durationDays) : 21,
+    time: reminderTimes[0],
+    reminderTimes,
+    days
+  }
+}
+
+function normalizeCompletionFromDoc(snapshot: QueryDocumentSnapshot<DocumentData>): Completion {
+  const data = snapshot.data()
+
+  return {
+    id: snapshot.id,
+    habitId: String(data.habitId || ''),
+    date: String(data.date || ''),
+    sessionId: data.sessionId ? String(data.sessionId) : null,
+    completed: data.completed !== false
+  }
+}
+
+function getHabitSessionIds(habit: Habit): string[] {
+  return normalizeReminderTimes(habit.reminderTimes, habit.time)
+}
+
+function getCompletedSessionIds(sessionIds: string[], completionsForDate: Completion[]): string[] {
+  const explicitSet = new Set(
+    completionsForDate
+      .map((completion) => completion.sessionId)
+      .filter((sessionId): sessionId is string => Boolean(sessionId))
+  )
+
+  const explicitInOrder = sessionIds.filter((sessionId) => explicitSet.has(sessionId))
+  const legacyCount = completionsForDate.filter((completion) => !completion.sessionId).length
+  const targetCompletedCount = Math.min(sessionIds.length, explicitInOrder.length + legacyCount)
+  const completed: string[] = [...explicitInOrder]
+
+  if (completed.length >= targetCompletedCount) {
+    return completed
+  }
+
+  for (const sessionId of sessionIds) {
+    if (completed.includes(sessionId)) continue
+    completed.push(sessionId)
+    if (completed.length >= targetCompletedCount) break
+  }
+
+  return completed
+}
+
+function isHabitScheduledForDate(habit: Habit, date = new Date()): boolean {
+  if (!Array.isArray(habit.days) || habit.days.length === 0) return true
+  const dayKey = DAY_KEY_BY_NATIVE_INDEX[date.getDay()]
+  return habit.days.includes(dayKey)
+}
+
+function isHabitDoneForDate(habit: Habit, completions: Completion[], dateKey: string): boolean {
+  const sessionIds = getHabitSessionIds(habit)
+  const dateCompletions = completions.filter((completion) => {
+    return completion.habitId === habit.id && completion.date === dateKey && completion.completed !== false
+  })
+  const completedSessionIds = getCompletedSessionIds(sessionIds, dateCompletions)
+  return completedSessionIds.length >= sessionIds.length
+}
+
+function getHabitCompletedDays(habitId: string, completions: Completion[]): number {
+  const uniqueDates = new Set(
+    completions
+      .filter((completion) => completion.habitId === habitId && completion.completed !== false)
+      .map((completion) => completion.date)
+  )
+  return uniqueDates.size
+}
+
+function getPriorityLabel(value: TaskPriority): 'Low' | 'Medium' | 'High' | 'Urgent' {
+  if (value === 'urgent') return 'Urgent'
+  if (value === 'high') return 'High'
+  if (value === 'low') return 'Low'
+  return 'Medium'
+}
+
+async function ensureUserDocument(dbClient: Firestore, user: User): Promise<UserProfile> {
+  const userRef = doc(dbClient, 'users', user.uid)
+  const profileSnapshot = await getDoc(userRef)
+
+  if (!profileSnapshot.exists()) {
+    const fallbackName = user.displayName || user.email?.split('@')[0] || 'Track.now User'
+    await setDoc(userRef, {
+      uid: user.uid,
+      email: user.email || '',
+      displayName: fallbackName,
+      plan: 'free',
+      createdAt: serverTimestamp()
+    }, { merge: true })
+
+    return {
+      uid: user.uid,
+      name: fallbackName,
+      email: user.email || '',
+      plan: 'free'
+    }
+  }
+
+  const data = profileSnapshot.data()
+  return {
+    uid: user.uid,
+    name: String(data.displayName || user.displayName || user.email || 'Track.now User'),
+    email: String(data.email || user.email || ''),
+    plan: String(data.plan || 'free')
+  }
+}
 
 export default function App() {
   const [authMode, setAuthMode] = useState<AuthMode>('signin')
   const [nameInput, setNameInput] = useState('')
   const [emailInput, setEmailInput] = useState('')
   const [passwordInput, setPasswordInput] = useState('')
+  const [authBusy, setAuthBusy] = useState(false)
+
+  const [authReady, setAuthReady] = useState(false)
+  const [authUser, setAuthUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
 
   const [activeTab, setActiveTab] = useState<TabKey>('today')
-  const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS)
-  const [habits, setHabits] = useState<Habit[]>(INITIAL_HABITS)
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [habits, setHabits] = useState<Habit[]>([])
+  const [completions, setCompletions] = useState<Completion[]>([])
+  const [friends, setFriends] = useState<Friend[]>([])
+  const [isSyncing, setIsSyncing] = useState(false)
   const [ghostMode, setGhostMode] = useState(false)
 
-  const doneHabits = useMemo(() => habits.filter((habit) => habit.doneToday).length, [habits])
-  const missionPercent = useMemo(() => {
-    if (habits.length === 0) return 0
-    return Math.round((doneHabits / habits.length) * 100)
-  }, [doneHabits, habits.length])
-  const openTasks = useMemo(() => tasks.filter((task) => !task.done).length, [tasks])
+  const [quickAddVisible, setQuickAddVisible] = useState(false)
+  const [quickAddTitle, setQuickAddTitle] = useState('')
+  const [quickAddBusy, setQuickAddBusy] = useState(false)
 
-  function handleAuthSubmit() {
+  const googleConfig = useMemo(() => ({
+    clientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || undefined,
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || undefined,
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || undefined,
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || undefined,
+    selectAccount: true
+  }), [])
+
+  const [googleRequest, , promptGoogleAsync] = Google.useIdTokenAuthRequest(googleConfig)
+
+  const requireBackend = useCallback((): { authClient: Auth; dbClient: Firestore } | null => {
+    if (!hasFirebaseConfig || !auth || !db) {
+      Alert.alert(
+        'Firebase not configured',
+        'Set EXPO_PUBLIC_FIREBASE_* variables in mobile/.env and restart Expo.'
+      )
+      return null
+    }
+
+    return { authClient: auth, dbClient: db }
+  }, [])
+
+  useEffect(() => {
+    if (!auth) {
+      setAuthReady(true)
+      return
+    }
+
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setAuthUser(user)
+
+      if (!user || !db) {
+        setProfile(null)
+        setAuthReady(true)
+        return
+      }
+
+      try {
+        const nextProfile = await ensureUserDocument(db, user)
+        setProfile(nextProfile)
+      } catch (error) {
+        const fallbackName = user.displayName || user.email || 'Track.now User'
+        setProfile({
+          uid: user.uid,
+          name: fallbackName,
+          email: user.email || '',
+          plan: 'free'
+        })
+      } finally {
+        setAuthReady(true)
+      }
+    })
+
+    return unsubscribe
+  }, [])
+
+  useEffect(() => {
+    if (!authUser || !db) {
+      setTasks([])
+      setHabits([])
+      setCompletions([])
+      setFriends([])
+      setIsSyncing(false)
+      return
+    }
+
+    const userId = authUser.uid
+    const dbClient = db
+    let active = true
+    setIsSyncing(true)
+
+    const readyFlags = {
+      tasks: false,
+      habits: false,
+      completions: false,
+      friends: false
+    }
+
+    const markReady = (key: keyof typeof readyFlags) => {
+      if (!active) return
+      if (!readyFlags[key]) {
+        readyFlags[key] = true
+      }
+      if (Object.values(readyFlags).every(Boolean)) {
+        setIsSyncing(false)
+      }
+    }
+
+    const unsubscribers: Unsubscribe[] = []
+
+    const tasksQuery = query(collection(dbClient, 'tasks'), where('userId', '==', userId))
+    unsubscribers.push(onSnapshot(tasksQuery, (snapshot) => {
+      if (!active) return
+      setTasks(sortTasks(snapshot.docs.map((entry) => normalizeTaskFromDoc(entry))))
+      markReady('tasks')
+    }, () => {
+      if (active) setTasks([])
+      markReady('tasks')
+    }))
+
+    const habitsQuery = query(collection(dbClient, 'habits'), where('userId', '==', userId))
+    unsubscribers.push(onSnapshot(habitsQuery, (snapshot) => {
+      if (!active) return
+      setHabits(snapshot.docs.map((entry) => normalizeHabitFromDoc(entry)))
+      markReady('habits')
+    }, () => {
+      if (active) setHabits([])
+      markReady('habits')
+    }))
+
+    const completionsQuery = query(collection(dbClient, 'completions'), where('userId', '==', userId))
+    unsubscribers.push(onSnapshot(completionsQuery, (snapshot) => {
+      if (!active) return
+      setCompletions(snapshot.docs.map((entry) => normalizeCompletionFromDoc(entry)))
+      markReady('completions')
+    }, () => {
+      if (active) setCompletions([])
+      markReady('completions')
+    }))
+
+    const friendshipsQuery = query(
+      collection(dbClient, 'friendships'),
+      where('users', 'array-contains', userId),
+      where('status', '==', 'accepted')
+    )
+
+    unsubscribers.push(onSnapshot(friendshipsQuery, (snapshot) => {
+      void (async () => {
+        try {
+          const friendIds = Array.from(new Set(snapshot.docs.map((entry) => {
+            const users = entry.data().users as string[] | undefined
+            if (!Array.isArray(users)) return null
+            return users.find((uid) => uid !== userId) || null
+          }).filter((uid): uid is string => Boolean(uid))))
+
+          if (friendIds.length === 0) {
+            if (active) setFriends([])
+            return
+          }
+
+          const profileSnapshots = await Promise.all(friendIds.map((friendId) => getDoc(doc(dbClient, 'users', friendId))))
+          if (!active) return
+
+          const nextFriends: Friend[] = profileSnapshots
+            .filter((profileSnapshot) => profileSnapshot.exists())
+            .map((profileSnapshot) => {
+              const data = profileSnapshot.data()
+              const displayName = String(data.displayName || data.email || 'Friend').trim()
+              const plan = String(data.plan || 'free').toUpperCase()
+
+              return {
+                id: profileSnapshot.id,
+                name: displayName,
+                email: String(data.email || ''),
+                focus: `Plan ${plan}`
+              }
+            })
+            .sort((a, b) => a.name.localeCompare(b.name))
+
+          setFriends(nextFriends)
+        } catch {
+          if (active) setFriends([])
+        } finally {
+          markReady('friends')
+        }
+      })()
+    }, () => {
+      if (active) setFriends([])
+      markReady('friends')
+    }))
+
+    return () => {
+      active = false
+      unsubscribers.forEach((unsubscribe) => unsubscribe())
+    }
+  }, [authUser?.uid])
+
+  const todayDateKey = getDateKey()
+
+  const todayCompletions = useMemo(() => {
+    return completions.filter((completion) => completion.date === todayDateKey && completion.completed !== false)
+  }, [completions, todayDateKey])
+
+  const todayHabits = useMemo(() => {
+    return habits.filter((habit) => isHabitScheduledForDate(habit, new Date()))
+  }, [habits])
+
+  const habitsWithProgress = useMemo(() => {
+    return habits.map((habit) => {
+      const completedDays = getHabitCompletedDays(habit.id, completions)
+      const doneToday = isHabitDoneForDate(habit, todayCompletions, todayDateKey)
+
+      return {
+        ...habit,
+        day: Math.max(1, Math.min(completedDays + 1, habit.durationDays)),
+        doneToday
+      }
+    })
+  }, [habits, completions, todayCompletions, todayDateKey])
+
+  const doneHabits = useMemo(() => {
+    return todayHabits.filter((habit) => isHabitDoneForDate(habit, todayCompletions, todayDateKey)).length
+  }, [todayHabits, todayCompletions, todayDateKey])
+
+  const missionPercent = useMemo(() => {
+    if (todayHabits.length === 0) return 0
+    return Math.round((doneHabits / todayHabits.length) * 100)
+  }, [doneHabits, todayHabits.length])
+
+  const openTasks = useMemo(() => tasks.filter((task) => !task.completed).length, [tasks])
+
+  const initials = useMemo(() => {
+    const seed = String(profile?.name || authUser?.displayName || authUser?.email || 'T').trim()
+    return (seed[0] || 'T').toUpperCase()
+  }, [profile?.name, authUser?.displayName, authUser?.email])
+
+  async function handleAuthSubmit() {
+    const services = requireBackend()
+    if (!services) return
+
     const email = emailInput.trim().toLowerCase()
     const password = passwordInput.trim()
     const name = nameInput.trim()
@@ -114,37 +581,198 @@ export default function App() {
       return
     }
 
-    setProfile({
-      name: authMode === 'signup' ? name : 'Track.now User',
-      email
-    })
+    setAuthBusy(true)
+    try {
+      if (authMode === 'signup') {
+        const credential = await createUserWithEmailAndPassword(services.authClient, email, password)
+        const displayName = name || email.split('@')[0] || 'Track.now User'
+
+        await updateProfile(credential.user, { displayName })
+        await setDoc(doc(services.dbClient, 'users', credential.user.uid), {
+          uid: credential.user.uid,
+          email,
+          displayName,
+          plan: 'free',
+          createdAt: serverTimestamp()
+        }, { merge: true })
+      } else {
+        await signInWithEmailAndPassword(services.authClient, email, password)
+      }
+
+      setPasswordInput('')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Authentication failed'
+      Alert.alert('Authentication failed', message)
+    } finally {
+      setAuthBusy(false)
+    }
   }
 
-  function handleSignOut() {
-    setProfile(null)
-    setPasswordInput('')
-    setActiveTab('today')
+  async function handleGoogleLogin() {
+    const services = requireBackend()
+    if (!services) return
+
+    if (!googleRequest) {
+      Alert.alert(
+        'Google sign-in unavailable',
+        'Set EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID / EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID / EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID in mobile/.env.'
+      )
+      return
+    }
+
+    setAuthBusy(true)
+    try {
+      const result = await promptGoogleAsync()
+
+      if (result.type !== 'success') {
+        return
+      }
+
+      const idToken = result.params?.id_token
+      if (!idToken) {
+        throw new Error('Google OAuth did not return an ID token.')
+      }
+
+      const credential = GoogleAuthProvider.credential(idToken)
+      const credentialResult = await signInWithCredential(services.authClient, credential)
+      await ensureUserDocument(services.dbClient, credentialResult.user)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Google sign-in failed'
+      Alert.alert('Google sign-in failed', message)
+    } finally {
+      setAuthBusy(false)
+    }
   }
 
-  function toggleTask(taskId: string) {
-    setTasks((previous) => previous.map((task) => {
-      if (task.id !== taskId) return task
-      return { ...task, done: !task.done }
-    }))
+  async function handleSignOut() {
+    if (!auth) return
+
+    try {
+      await signOut(auth)
+      setActiveTab('today')
+      setQuickAddVisible(false)
+      setQuickAddTitle('')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Sign out failed'
+      Alert.alert('Sign out failed', message)
+    }
   }
 
-  function toggleHabit(habitId: string) {
-    setHabits((previous) => previous.map((habit) => {
-      if (habit.id !== habitId) return habit
-      return { ...habit, doneToday: !habit.doneToday }
-    }))
+  async function toggleTask(taskId: string) {
+    const services = requireBackend()
+    if (!services) return
+
+    const task = tasks.find((entry) => entry.id === taskId)
+    if (!task) return
+
+    try {
+      await updateDoc(doc(services.dbClient, 'tasks', taskId), {
+        completed: !task.completed,
+        updatedAt: serverTimestamp()
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Could not update task.'
+      Alert.alert('Task update failed', message)
+    }
+  }
+
+  async function toggleHabit(habitId: string) {
+    const services = requireBackend()
+    if (!services || !authUser) return
+
+    const habit = habits.find((entry) => entry.id === habitId)
+    if (!habit) return
+
+    const completionsForHabitToday = todayCompletions.filter((entry) => entry.habitId === habitId)
+    const doneToday = isHabitDoneForDate(habit, todayCompletions, todayDateKey)
+
+    try {
+      if (doneToday) {
+        await Promise.all(
+          completionsForHabitToday.map((completion) => deleteDoc(doc(services.dbClient, 'completions', completion.id)))
+        )
+        return
+      }
+
+      const sessionIds = getHabitSessionIds(habit)
+      const completedSessionIds = getCompletedSessionIds(sessionIds, completionsForHabitToday)
+      const missingSessionIds = sessionIds.filter((sessionId) => !completedSessionIds.includes(sessionId))
+
+      const sessionsToCreate = missingSessionIds.length > 0 ? missingSessionIds : [null]
+
+      await Promise.all(
+        sessionsToCreate.map((sessionId) => addDoc(collection(services.dbClient, 'completions'), {
+          habitId,
+          userId: authUser.uid,
+          date: todayDateKey,
+          sessionId,
+          completed: true,
+          completedAt: serverTimestamp()
+        }))
+      )
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Could not update habit.'
+      Alert.alert('Habit update failed', message)
+    }
   }
 
   function handleQuickAdd() {
-    Alert.alert('Quick add', 'Connect this action to your backend create flow.')
+    if (!authUser) return
+    setQuickAddTitle('')
+    setQuickAddVisible(true)
   }
 
-  if (!profile) {
+  async function submitQuickAdd() {
+    const services = requireBackend()
+    if (!services || !authUser) return
+
+    const title = quickAddTitle.trim()
+    if (title.length < 2) {
+      Alert.alert('Task title required', 'Please enter at least 2 characters.')
+      return
+    }
+
+    setQuickAddBusy(true)
+    try {
+      await addDoc(collection(services.dbClient, 'tasks'), {
+        userId: authUser.uid,
+        title,
+        notes: '',
+        category: 'general',
+        priority: 'medium',
+        dueDate: '',
+        dueTime: '',
+        completed: false,
+        source: 'manual',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      })
+
+      setQuickAddVisible(false)
+      setQuickAddTitle('')
+      setActiveTab('tasks')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Could not add task.'
+      Alert.alert('Quick add failed', message)
+    } finally {
+      setQuickAddBusy(false)
+    }
+  }
+
+  if (!authReady) {
+    return (
+      <SafeAreaView style={styles.root}>
+        <StatusBar style="light" />
+        <BackgroundAtmosphere />
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator color="#ffffff" size="large" />
+          <Text style={styles.loadingText}>Connecting to Track.now...</Text>
+        </View>
+      </SafeAreaView>
+    )
+  }
+
+  if (!authUser) {
     return (
       <SafeAreaView style={styles.root}>
         <StatusBar style="light" />
@@ -162,16 +790,24 @@ export default function App() {
               Mission-based tracking with calm accountability and clear daily actions.
             </Text>
 
+            {!hasFirebaseConfig && (
+              <Text style={styles.configWarning}>
+                Firebase config is missing. Add EXPO_PUBLIC_FIREBASE_* values to mobile/.env and restart Expo.
+              </Text>
+            )}
+
             <View style={styles.modeRow}>
               <Pressable
                 style={[styles.modeButton, authMode === 'signin' && styles.modeButtonActive]}
                 onPress={() => setAuthMode('signin')}
+                disabled={authBusy}
               >
                 <Text style={[styles.modeButtonText, authMode === 'signin' && styles.modeButtonTextActive]}>Sign in</Text>
               </Pressable>
               <Pressable
                 style={[styles.modeButton, authMode === 'signup' && styles.modeButtonActive]}
                 onPress={() => setAuthMode('signup')}
+                disabled={authBusy}
               >
                 <Text style={[styles.modeButtonText, authMode === 'signup' && styles.modeButtonTextActive]}>Create account</Text>
               </Pressable>
@@ -184,6 +820,7 @@ export default function App() {
                 placeholder="Full name"
                 placeholderTextColor="#737378"
                 style={styles.input}
+                editable={!authBusy}
               />
             )}
 
@@ -195,6 +832,7 @@ export default function App() {
               placeholder="Email address"
               placeholderTextColor="#737378"
               style={styles.input}
+              editable={!authBusy}
             />
 
             <TextInput
@@ -204,24 +842,33 @@ export default function App() {
               placeholder="Password"
               placeholderTextColor="#737378"
               style={styles.input}
+              editable={!authBusy}
             />
 
-            <Pressable style={styles.primaryButton} onPress={handleAuthSubmit}>
+            <Pressable style={[styles.primaryButton, authBusy && styles.disabledButton]} onPress={handleAuthSubmit} disabled={authBusy}>
               <Text style={styles.primaryButtonText}>
-                {authMode === 'signin' ? 'Sign in' : 'Create account'}
+                {authBusy ? 'Please wait...' : authMode === 'signin' ? 'Sign in' : 'Create account'}
               </Text>
             </Pressable>
 
-            <Pressable style={styles.secondaryButton} onPress={() => Alert.alert('Google auth', 'Connect Firebase Google auth here.') }>
+            <Pressable
+              style={[styles.secondaryButton, (authBusy || !googleRequest) && styles.disabledButton]}
+              onPress={handleGoogleLogin}
+              disabled={authBusy || !googleRequest}
+            >
               <Text style={styles.secondaryButtonText}>Continue with Google</Text>
             </Pressable>
+
+            {Platform.OS !== 'web' && !googleRequest && (
+              <Text style={styles.googleHint}>
+                Google sign-in will activate after OAuth client IDs are set in mobile/.env.
+              </Text>
+            )}
           </View>
         </ScrollView>
       </SafeAreaView>
     )
   }
-
-  const initials = profile.name.trim().charAt(0).toUpperCase() || 'T'
 
   return (
     <SafeAreaView style={styles.root}>
@@ -230,12 +877,19 @@ export default function App() {
 
       <TopBar title={TAB_TITLES[activeTab]} initials={initials} onSignOut={handleSignOut} />
 
+      {isSyncing && (
+        <View style={styles.syncBanner}>
+          <ActivityIndicator color="#fff" size="small" />
+          <Text style={styles.syncBannerText}>Syncing from Firebase...</Text>
+        </View>
+      )}
+
       <ScrollView contentContainerStyle={styles.screenScroll}>
         {activeTab === 'today' && (
           <TodayScreen
             missionPercent={missionPercent}
             doneHabits={doneHabits}
-            totalHabits={habits.length}
+            totalHabits={todayHabits.length}
             openTasks={openTasks}
           />
         )}
@@ -245,19 +899,58 @@ export default function App() {
         )}
 
         {activeTab === 'habits' && (
-          <HabitsScreen habits={habits} onToggleHabit={toggleHabit} />
+          <HabitsScreen habits={habitsWithProgress} onToggleHabit={toggleHabit} />
         )}
 
         {activeTab === 'planner' && (
-          <PlannerScreen tasks={tasks} habits={habits} />
+          <PlannerScreen tasks={tasks} habits={habitsWithProgress} />
         )}
 
         {activeTab === 'activity' && (
-          <ActivityScreen friends={INITIAL_FRIENDS} ghostMode={ghostMode} onToggleGhost={() => setGhostMode((value) => !value)} />
+          <ActivityScreen
+            friends={friends}
+            ghostMode={ghostMode}
+            onToggleGhost={() => setGhostMode((value) => !value)}
+          />
         )}
       </ScrollView>
 
       <BottomNav activeTab={activeTab} onChangeTab={setActiveTab} onQuickAdd={handleQuickAdd} />
+
+      <Modal visible={quickAddVisible} transparent animationType="fade" onRequestClose={() => setQuickAddVisible(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.quickAddCard}>
+            <Text style={styles.quickAddTitle}>Quick Add Task</Text>
+            <TextInput
+              value={quickAddTitle}
+              onChangeText={setQuickAddTitle}
+              placeholder="What needs to be done?"
+              placeholderTextColor="#737378"
+              style={styles.input}
+              editable={!quickAddBusy}
+              autoFocus
+            />
+
+            <View style={styles.quickAddActions}>
+              <Pressable
+                style={[styles.ghostAction, quickAddBusy && styles.disabledButton]}
+                onPress={() => setQuickAddVisible(false)}
+                disabled={quickAddBusy}
+              >
+                <Text style={styles.ghostActionText}>Cancel</Text>
+              </Pressable>
+
+              <Pressable
+                style={[styles.primaryButton, quickAddBusy && styles.disabledButton, styles.quickAddPrimary]}
+                onPress={submitQuickAdd}
+                disabled={quickAddBusy}
+              >
+                <Text style={styles.primaryButtonText}>{quickAddBusy ? 'Saving...' : 'Save Task'}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   )
 }
@@ -345,12 +1038,20 @@ function TasksScreen({ tasks, onToggleTask }: { tasks: Task[]; onToggleTask: (ta
   return (
     <View style={styles.sectionCard}>
       <Text style={styles.sectionTitle}>Task Stack</Text>
+
+      {tasks.length === 0 && (
+        <Text style={styles.emptyHint}>No tasks yet. Use the center + button to add one.</Text>
+      )}
+
       {tasks.map((task) => (
         <Pressable key={task.id} style={styles.rowCard} onPress={() => onToggleTask(task.id)}>
-          <View style={[styles.checkDot, task.done && styles.checkDotActive]} />
+          <View style={[styles.checkDot, task.completed && styles.checkDotActive]} />
           <View style={styles.rowCopy}>
-            <Text style={[styles.rowTitle, task.done && styles.rowTitleDone]}>{task.title}</Text>
-            <Text style={styles.rowMeta}>{task.priority} Priority</Text>
+            <Text style={[styles.rowTitle, task.completed && styles.rowTitleDone]}>{task.title}</Text>
+            <Text style={styles.rowMeta}>
+              {getPriorityLabel(task.priority)} Priority
+              {task.dueDate ? ` - ${task.dueDate}${task.dueTime ? ` ${toDisplayTime(task.dueTime)}` : ''}` : ''}
+            </Text>
           </View>
         </Pressable>
       ))}
@@ -358,17 +1059,22 @@ function TasksScreen({ tasks, onToggleTask }: { tasks: Task[]; onToggleTask: (ta
   )
 }
 
-function HabitsScreen({ habits, onToggleHabit }: { habits: Habit[]; onToggleHabit: (habitId: string) => void }) {
+function HabitsScreen({ habits, onToggleHabit }: { habits: HabitProgressRow[]; onToggleHabit: (habitId: string) => void }) {
   return (
     <View style={styles.sectionCard}>
       <Text style={styles.sectionTitle}>Mission Command</Text>
+
+      {habits.length === 0 && (
+        <Text style={styles.emptyHint}>No habits found in Firestore for this account yet.</Text>
+      )}
+
       {habits.map((habit) => {
-        const progress = Math.max(0, Math.min(Math.round((habit.day / habit.totalDays) * 100), 100))
+        const progress = Math.max(0, Math.min(Math.round((habit.day / habit.durationDays) * 100), 100))
         return (
           <Pressable key={habit.id} style={styles.habitCard} onPress={() => onToggleHabit(habit.id)}>
             <View style={styles.habitHead}>
               <Text style={styles.rowTitle}>{habit.name}</Text>
-              <Text style={styles.rowMeta}>Day {habit.day}/{habit.totalDays}</Text>
+              <Text style={styles.rowMeta}>Day {habit.day}/{habit.durationDays}</Text>
             </View>
             <View style={styles.trackBar}>
               <View style={[styles.trackFill, { width: `${progress}%` }]} />
@@ -381,7 +1087,7 @@ function HabitsScreen({ habits, onToggleHabit }: { habits: Habit[]; onToggleHabi
   )
 }
 
-function PlannerScreen({ tasks, habits }: { tasks: Task[]; habits: Habit[] }) {
+function PlannerScreen({ tasks, habits }: { tasks: Task[]; habits: HabitProgressRow[] }) {
   return (
     <View style={styles.sectionCard}>
       <Text style={styles.sectionTitle}>Planner Horizon</Text>
@@ -417,6 +1123,11 @@ function ActivityScreen({ friends, ghostMode, onToggleGhost }: { friends: Friend
 
       <View style={styles.sectionCard}>
         <Text style={styles.sectionTitle}>Nearby Comrades</Text>
+
+        {friends.length === 0 && (
+          <Text style={styles.emptyHint}>No accepted friendships yet. Add friends from the web app to see them here.</Text>
+        )}
+
         {friends.map((friend) => (
           <View key={friend.id} style={styles.rowCard}>
             <View style={styles.friendAvatar}>
@@ -449,6 +1160,17 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: '#000'
+  },
+  loadingWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10
+  },
+  loadingText: {
+    color: '#d4d4d8',
+    fontSize: 13,
+    fontWeight: '600'
   },
   bgLayer: {
     ...StyleSheet.absoluteFillObject
@@ -513,6 +1235,12 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 18
   },
+  configWarning: {
+    color: '#f2ba70',
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: 10
+  },
   modeRow: {
     flexDirection: 'row',
     marginBottom: 10,
@@ -569,6 +1297,15 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     color: '#e5e5e5',
     fontWeight: '700'
+  },
+  disabledButton: {
+    opacity: 0.6
+  },
+  googleHint: {
+    marginTop: 8,
+    color: '#8f8f95',
+    fontSize: 12,
+    lineHeight: 16
   },
   topBar: {
     paddingHorizontal: 14,
@@ -640,6 +1377,24 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 108,
     gap: 12
+  },
+  syncBanner: {
+    marginTop: 8,
+    marginHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(18,18,18,0.92)',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8
+  },
+  syncBannerText: {
+    color: '#d8d8dd',
+    fontSize: 12,
+    fontWeight: '600'
   },
   heroCard: {
     borderWidth: 1,
@@ -721,6 +1476,12 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 20,
     fontWeight: '800',
+    marginBottom: 10
+  },
+  emptyHint: {
+    color: '#a1a1a6',
+    fontSize: 13,
+    lineHeight: 18,
     marginBottom: 10
   },
   rowCard: {
@@ -908,5 +1669,51 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '800',
     marginTop: -2
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20
+  },
+  quickAddCard: {
+    width: '100%',
+    maxWidth: 480,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: '#111',
+    padding: 16
+  },
+  quickAddTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 10
+  },
+  quickAddActions: {
+    marginTop: 12,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    alignItems: 'center'
+  },
+  ghostAction: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+    paddingHorizontal: 14,
+    paddingVertical: 10
+  },
+  ghostActionText: {
+    color: '#d8d8dc',
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase'
+  },
+  quickAddPrimary: {
+    marginTop: 0,
+    minWidth: 120
   }
 })
