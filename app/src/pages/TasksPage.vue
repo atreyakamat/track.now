@@ -120,7 +120,7 @@
     </div>
 
     <q-dialog v-model="voiceDialog">
-      <q-card class="dialog-card" style="min-width: min(640px, 96vw)">
+      <q-card class="dialog-card app-dialog-card" style="min-width: min(640px, 96vw)">
         <q-card-section class="row items-center">
           <div class="text-h6 text-weight-bold">Voice task capture</div>
           <q-space />
@@ -235,7 +235,7 @@
     </q-dialog>
 
     <q-dialog v-model="editDialog">
-      <q-card class="dialog-card" style="min-width: min(640px, 96vw)">
+      <q-card class="dialog-card app-dialog-card" style="min-width: min(640px, 96vw)">
         <q-card-section class="row items-center">
           <div class="text-h6 text-weight-bold">Edit task</div>
           <q-space />

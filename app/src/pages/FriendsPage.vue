@@ -175,7 +175,7 @@
       </main>
 
       <q-dialog v-model="addDialog">
-        <q-card style="min-width: 320px">
+        <q-card class="app-dialog-card" style="min-width: 320px">
           <q-card-section>
             <div class="text-h6">Add friend</div>
           </q-card-section>

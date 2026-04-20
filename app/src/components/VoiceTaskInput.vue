@@ -15,7 +15,7 @@
     </q-btn>
 
     <q-dialog v-model="showConfirm" position="bottom">
-      <q-card class="q-pa-md confirm-card" style="width: 100%; max-width: 500px; border-radius: 24px 24px 0 0;">
+      <q-card class="q-pa-md confirm-card app-dialog-card" style="width: 100%; max-width: 500px; border-radius: 24px 24px 0 0;">
         <q-card-section>
           <div class="text-h6 text-weight-bold q-mb-md">Voice Task Created</div>
           <div class="text-caption text-grey-7 q-mb-xs">I heard:</div>

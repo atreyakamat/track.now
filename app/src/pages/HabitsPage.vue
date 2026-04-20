@@ -172,7 +172,7 @@
       </main>
 
       <q-dialog v-model="deleteDialog">
-        <q-card style="min-width: 320px">
+        <q-card class="app-dialog-card" style="min-width: 320px">
           <q-card-section>
             <div class="text-h6">Delete habit</div>
             <div class="q-mt-sm">

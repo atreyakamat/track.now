@@ -49,7 +49,7 @@
     </div>
 
     <q-dialog v-model="createDialog">
-      <q-card class="dialog-card" style="min-width: 320px">
+      <q-card class="dialog-card app-dialog-card" style="min-width: 320px">
         <q-card-section><div class="dialog-title">Create group</div></q-card-section>
         <q-card-section class="q-gutter-md">
           <q-input v-model="newGroup.name" dark label="Group name" outlined :rules="[v => !!v || 'Required']" />
@@ -63,7 +63,7 @@
     </q-dialog>
 
     <q-dialog v-model="joinDialog">
-      <q-card class="dialog-card" style="min-width: 320px">
+      <q-card class="dialog-card app-dialog-card" style="min-width: 320px">
         <q-card-section><div class="dialog-title">Join group</div></q-card-section>
         <q-card-section>
           <q-input v-model="joinCode" dark label="Group ID or invite code" outlined />

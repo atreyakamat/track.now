@@ -108,6 +108,36 @@ body.body--dark {
   gap: var(--tn-space-4);
 }
 
+.action-shell > * + *,
+.planner-shell > * + *,
+.tasks-shell > * + *,
+.habit-shell > * + *,
+.analytics-shell > * + *,
+.profile-shell > * + *,
+.social-shell > * + *,
+.dashboard-shell > * + *,
+.calendar-shell > * + *,
+.notifications-shell > * + *,
+.groups-shell > * + *,
+.family-shell > * + * {
+  margin-top: var(--tn-space-4);
+}
+
+.action-main > * + *,
+.planner-main > * + *,
+.brain-main > * + *,
+.mission-main > * + *,
+.analytics-main > * + *,
+.profile-main > * + *,
+.social-main > * + *,
+.dashboard-main > * + *,
+.calendar-main > * + *,
+.notifications-main > * + *,
+.groups-main > * + *,
+.family-main > * + * {
+  margin-top: var(--tn-space-4);
+}
+
 .rhythm-block {
   border-radius: 18px;
   padding: var(--tn-space-4);
@@ -126,7 +156,7 @@ body.body--dark {
   color: #9f9fa5;
 }
 
-.q-dialog .q-card {
+.q-dialog .app-dialog-card {
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(16, 16, 16, 0.98);
@@ -134,11 +164,11 @@ body.body--dark {
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
 }
 
-.q-dialog .q-card__section {
+.q-dialog .app-dialog-card .q-card__section {
   padding: var(--tn-space-4);
 }
 
-.q-dialog .q-card__actions {
+.q-dialog .app-dialog-card .q-card__actions {
   padding: 0 var(--tn-space-4) var(--tn-space-4);
   gap: var(--tn-space-2);
 }
