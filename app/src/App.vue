@@ -5,7 +5,6 @@
 <script setup>
 import { useQuasar } from 'quasar'
 import { onMounted } from 'vue'
-import { usePreferencesStore } from 'src/stores/preferences'
 
 const $q = useQuasar()
 
