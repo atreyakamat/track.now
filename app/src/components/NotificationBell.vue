@@ -4,7 +4,7 @@
   </q-btn>
 
   <q-dialog v-model="showNotifications" position="top">
-    <q-card class="notification-sheet">
+    <q-card class="notification-sheet app-dialog-card">
       <q-card-section class="row items-center">
         <div class="text-h6">Notifications</div>
         <q-space />

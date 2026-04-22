@@ -42,11 +42,17 @@ This gives you immediate Android usage without Play Store packaging.
 Build production bundle:
 
 ```powershell
-npm run build
+npm run build:pwa
 ```
 
 Deploy folder:
-- `app/dist/spa`
+- `app/dist/pwa`
+
+If deploying to Firebase Hosting + Firestore rules from repo root:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/deploy-firebase-production.ps1 -ProjectId <your-production-project-id>
+```
 
 Once deployed over HTTPS, Android install flow becomes stable and shareable.
 

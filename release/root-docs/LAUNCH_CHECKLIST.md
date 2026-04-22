@@ -22,7 +22,7 @@
 
 ## Before publishing
 
-- Build the Quasar app: `npm run build` inside `app`
+- Build the installable PWA app: `npm run build:pwa` inside `app`
 - Load the extension from `extension/` in Chrome
 - Add production URLs to landing and extension links if they differ from `tracknow.app`
 - Optional release pack: `powershell -ExecutionPolicy Bypass -File scripts/prepare-release.ps1`

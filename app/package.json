@@ -6,10 +6,14 @@
   "scripts": {
     "dev": "quasar dev",
     "build": "quasar build",
+    "build:pwa": "quasar build -m pwa",
+    "test:unit": "vitest run",
+    "test:ui": "vitest",
     "lint": "eslint --ext .js,.vue ./src"
   },
   "dependencies": {
     "@quasar/extras": "^1.16.0",
+    "canvas-confetti": "^1.9.4",
     "chrono-node": "^2.9.0",
     "firebase": "^10.7.0",
     "pinia": "^2.1.0",

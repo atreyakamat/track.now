@@ -1,0 +1,7 @@
+{
+  "projects": {
+    "default": "your-production-project-id",
+    "development": "your-development-project-id",
+    "production": "your-production-project-id"
+  }
+}

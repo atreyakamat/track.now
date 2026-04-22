@@ -1,73 +1,67 @@
 <template>
-  <q-page class="page-container calendar-page">
-    <div class="row items-end q-col-gutter-md q-mb-lg">
-      <div class="col">
-        <div class="text-overline text-primary section-kicker">Calendar</div>
-        <div class="text-h4 text-weight-bold">A visual memory of your consistency</div>
-        <div class="text-body2 text-grey-7 q-mt-sm">
-          The heatmap helps users see effort across time without drowning them in analytics.
-        </div>
-      </div>
-    </div>
+  <q-page class="mission-calendar-page">
+    <div class="grain-overlay" />
 
-    <q-inner-loading :showing="loading">
-      <q-spinner color="primary" size="40px" />
-    </q-inner-loading>
+    <div class="calendar-shell">
+      <AppPageHeader title="Calendar" subtitle="A visual memory of your consistency across time." />
 
-    <div v-if="!loading">
-      <div class="summary-grid q-mb-lg">
-        <q-card flat bordered class="summary-card">
-          <q-card-section>
-            <div class="text-caption text-grey-7">Active days</div>
-            <div class="text-h5 text-weight-bold q-mt-xs">{{ stats.activeDays }}</div>
-          </q-card-section>
-        </q-card>
-        <q-card flat bordered class="summary-card">
-          <q-card-section>
-            <div class="text-caption text-grey-7">Total completions</div>
-            <div class="text-h5 text-weight-bold q-mt-xs">{{ stats.totalCompletions }}</div>
-          </q-card-section>
-        </q-card>
-        <q-card flat bordered class="summary-card">
-          <q-card-section>
-            <div class="text-caption text-grey-7">Momentum</div>
-            <div class="text-h5 text-weight-bold q-mt-xs">{{ momentum.percentage }}%</div>
-          </q-card-section>
-        </q-card>
-      </div>
+      <q-inner-loading :showing="loading">
+        <q-spinner color="white" size="50px" />
+      </q-inner-loading>
 
-      <q-card flat bordered class="calendar-card q-mb-lg">
-        <q-card-section>
-          <div class="text-subtitle1 text-weight-bold q-mb-md">Activity heatmap</div>
-          <HeatmapCalendar :completion-data="heatmapData" @day-click="onDayClick" />
-        </q-card-section>
-      </q-card>
+      <main v-if="!loading" class="calendar-main">
+        <section class="summary-grid">
+          <article class="summary-card pro-card">
+            <span>Active Days</span>
+            <strong>{{ stats.activeDays }}</strong>
+          </article>
 
-      <q-card flat bordered class="calendar-card">
-        <q-card-section>
-          <div class="text-subtitle1 text-weight-bold q-mb-md">Last 7 days</div>
-          <div class="week-grid">
-            <div v-for="day in last7Days" :key="day.date" class="week-day">
-              <div class="text-caption text-grey-7">{{ day.label }}</div>
-              <div class="text-h6 text-weight-bold q-mt-xs">{{ day.count }}</div>
-              <div class="text-caption text-grey-6">completions</div>
-            </div>
+          <article class="summary-card pro-card">
+            <span>Total Completions</span>
+            <strong>{{ stats.totalCompletions }}</strong>
+          </article>
+
+          <article class="summary-card pro-card">
+            <span>Momentum</span>
+            <strong>{{ momentum.percentage }}%</strong>
+          </article>
+        </section>
+
+        <section class="calendar-card pro-card">
+          <div class="section-head">
+            <h2>Consistency Heatmap</h2>
+            <p>Click any cell to inspect that day.</p>
           </div>
-        </q-card-section>
-      </q-card>
+          <HeatmapCalendar :completion-data="heatmapData" @day-click="onDayClick" />
+        </section>
+
+        <section class="calendar-card pro-card">
+          <div class="section-head compact">
+            <h2>Last 7 Days</h2>
+          </div>
+
+          <div class="week-grid">
+            <article v-for="day in last7Days" :key="day.date" class="week-day">
+              <span>{{ day.label }}</span>
+              <strong>{{ day.count }}</strong>
+              <small>completions</small>
+            </article>
+          </div>
+        </section>
+      </main>
     </div>
 
     <q-dialog v-model="dayDialog">
-      <q-card style="min-width: 320px">
+      <q-card class="dialog-card app-dialog-card" style="min-width: 320px">
         <q-card-section>
-          <div class="text-subtitle1 text-weight-bold">{{ selectedDay?.label }}</div>
-          <div class="text-caption text-grey-7 q-mb-md">{{ selectedDay?.date }}</div>
-          <div class="text-body2">
+          <div class="dialog-title">{{ selectedDay?.label }}</div>
+          <div class="dialog-date">{{ selectedDay?.date }}</div>
+          <div class="dialog-copy">
             {{ selectedDay?.count || 0 }} habit{{ selectedDay?.count === 1 ? '' : 's' }} completed on this day.
           </div>
         </q-card-section>
         <q-card-actions align="right">
-          <q-btn flat label="Close" v-close-popup />
+          <q-btn flat label="Close" color="grey-5" v-close-popup />
         </q-card-actions>
       </q-card>
     </q-dialog>
@@ -77,6 +71,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import HeatmapCalendar from 'src/components/HeatmapCalendar.vue'
+import AppPageHeader from 'src/components/AppPageHeader.vue'
 import { completionService } from 'src/services/completionService'
 import { useCompletionsStore } from 'src/stores/completions'
 import { useHabitsStore } from 'src/stores/habits'
@@ -131,33 +126,193 @@ function onDayClick(day) {
 </script>
 
 <style scoped lang="scss">
-.section-kicker {
-  letter-spacing: 0.12em;
+.mission-calendar-page {
+  position: relative;
+  min-height: 100%;
+  background: #000;
+  color: #e5e2e1;
+  padding-bottom: 118px;
+}
+
+.grain-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  opacity: 0.03;
+}
+
+.calendar-shell {
+  position: relative;
+  z-index: 1;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: clamp(16px, 2vw, 28px);
+}
+
+.calendar-top {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.brand-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+
+.calendar-title h1 {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(1.35rem, 3.3vw, 1.9rem);
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+
+.calendar-title p {
+  margin: 6px 0 0;
+  color: #a0a0a6;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.calendar-main {
+  display: grid;
+  gap: 12px;
 }
 
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
 }
 
-.summary-card,
+.summary-card {
+  border-radius: 16px;
+  padding: 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.summary-card span {
+  color: #8f8f95;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+}
+
+.summary-card strong {
+  color: #fff;
+  font-size: 1.28rem;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+
 .calendar-card {
-  border-radius: 24px;
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 18px;
+  padding: 14px;
+}
+
+.section-head {
+  margin-bottom: 12px;
+}
+
+.section-head.compact {
+  margin-bottom: 10px;
+}
+
+.section-head h2 {
+  margin: 0;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.section-head p {
+  margin: 4px 0 0;
+  color: #9999a0;
+  font-size: 0.8rem;
 }
 
 .week-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 12px;
+  gap: 8px;
 }
 
 .week-day {
-  padding: 14px;
-  border-radius: 18px;
-  background: #fbfcfd;
-  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(19, 19, 19, 0.92);
+  padding: 10px;
   text-align: center;
+}
+
+.week-day span {
+  display: block;
+  color: #8f8f95;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.week-day strong {
+  display: block;
+  margin-top: 5px;
+  color: #fff;
+  font-size: 1.1rem;
+  font-weight: 900;
+}
+
+.week-day small {
+  display: block;
+  margin-top: 2px;
+  color: #9f9fa5;
+  font-size: 0.68rem;
+}
+
+.dialog-card {
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #121212;
+  color: #fff;
+}
+
+.dialog-title {
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.dialog-date {
+  margin-top: 2px;
+  color: #9d9da3;
+  font-size: 0.76rem;
+}
+
+.dialog-copy {
+  margin-top: 12px;
+  color: #e4e4e8;
+  font-size: 0.86rem;
+}
+
+@media (max-width: 760px) {
+  .week-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 460px) {
+  .week-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 </style>

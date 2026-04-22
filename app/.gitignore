@@ -2,4 +2,9 @@ node_modules
 dist
 .quasar
 .DS_Store
+.env
+.env.*
+!.env.example
+!.env.development.example
+!.env.production.example
 *.local

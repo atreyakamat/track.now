@@ -1,73 +1,106 @@
 <template>
-  <q-card flat class="auth-card">
-    <q-card-section>
-      <div class="text-h6 text-weight-bold q-mb-xs">Create your account</div>
-      <div class="text-body2 text-grey-7 q-mb-lg">Start with a simple habit and let the system grow around it.</div>
-      <q-banner v-if="demoMode" dense rounded class="q-mb-md bg-blue-1 text-blue-9">
-        Demo local mode is active. This account is stored only on this device.
-      </q-banner>
+  <transition name="fade" appear>
+    <div class="full-width">
+      <q-card flat class="auth-form-card">
+        <q-card-section class="q-pa-xl">
+          <div class="form-head">
+            <p>Track.now</p>
+            <h2>Create account</h2>
+            <span>Start your first mission and build consistent momentum.</span>
+          </div>
 
-      <q-form @submit="handleSignup" class="q-gutter-md">
-        <q-input
-          v-model="displayName"
-          label="Your name"
-          outlined
-          :rules="[v => !!v || 'Name is required']"
-        >
-          <template #prepend><q-icon name="person" /></template>
-        </q-input>
+          <q-banner v-if="demoMode" dense rounded class="demo-banner q-mb-lg">
+            <template #avatar>
+              <q-icon name="info" color="white" />
+            </template>
+            Demo mode is active.
+          </q-banner>
 
-        <q-input
-          v-model="email"
-          type="email"
-          label="Email"
-          outlined
-          :rules="[v => !!v || 'Email is required', v => /.+@.+/.test(v) || 'Invalid email']"
-        >
-          <template #prepend><q-icon name="email" /></template>
-        </q-input>
+          <q-form @submit="handleSignup" class="q-gutter-y-md">
+            <q-input
+              v-model="displayName"
+              label="Full name"
+              outlined
+              dark
+              class="auth-input"
+              :rules="[v => !!v || 'Required']"
+            >
+              <template #prepend><q-icon name="person" color="grey-5" /></template>
+            </q-input>
 
-        <q-input
-          v-model="password"
-          :type="showPassword ? 'text' : 'password'"
-          label="Password"
-          outlined
-          :rules="[v => !!v || 'Password is required', v => v.length >= 6 || 'Min 6 characters']"
-        >
-          <template #prepend><q-icon name="lock" /></template>
-          <template #append>
-            <q-icon :name="showPassword ? 'visibility_off' : 'visibility'" class="cursor-pointer" @click="showPassword = !showPassword" />
-          </template>
-        </q-input>
+            <q-input
+              v-model="email"
+              type="email"
+              label="Email address"
+              outlined
+              dark
+              class="auth-input"
+              :rules="[v => !!v || 'Required', v => /.+@.+/.test(v) || 'Invalid email']"
+            >
+              <template #prepend><q-icon name="mail" color="grey-5" /></template>
+            </q-input>
 
-        <q-btn
-          type="submit"
-          label="Create account"
-          color="primary"
-          unelevated
-          class="full-width"
-          size="lg"
-          :loading="loading"
-        />
+            <q-input
+              v-model="password"
+              :type="showPassword ? 'text' : 'password'"
+              label="Password"
+              outlined
+              dark
+              class="auth-input"
+              :rules="[v => !!v || 'Required', v => v.length >= 6 || 'Min 6 characters']"
+            >
+              <template #prepend><q-icon name="lock" color="grey-5" /></template>
+              <template #append>
+                <q-icon
+                  :name="showPassword ? 'visibility_off' : 'visibility'"
+                  class="cursor-pointer"
+                  color="grey-5"
+                  @click="showPassword = !showPassword"
+                />
+              </template>
+            </q-input>
 
-        <q-btn
-          outline
-          color="grey-8"
-          label="Continue with Google"
-          icon="img:https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg"
-          class="full-width"
-          size="lg"
-          :loading="loading"
-          @click="handleGoogleSignup"
-        />
-      </q-form>
+            <q-btn
+              type="submit"
+              label="Create account"
+              unelevated
+              class="full-width primary-btn q-py-md"
+              size="lg"
+              :loading="loading"
+            />
 
-      <div class="text-center q-mt-lg">
-        <span class="text-grey-7">Already have an account? </span>
-        <router-link to="/login" class="text-primary text-weight-bold">Sign in</router-link>
-      </div>
-    </q-card-section>
-  </q-card>
+            <div class="divider-row">
+              <q-separator dark class="col" />
+              <span>OR</span>
+              <q-separator dark class="col" />
+            </div>
+
+            <q-btn
+              outline
+              label="Sign up with Google"
+              icon="img:https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg"
+              class="full-width google-btn q-py-md"
+              size="lg"
+              :loading="loading"
+              @click="handleGoogleSignup"
+            />
+          </q-form>
+
+          <div class="form-footer">
+            <span>Already have an account?</span>
+            <router-link to="/login">Sign in</router-link>
+          </div>
+        </q-card-section>
+      </q-card>
+
+      <p class="terms-copy">
+        By signing up, you agree to our
+        <a href="#">Terms</a>
+        and
+        <a href="#">Privacy Policy</a>.
+      </p>
+    </div>
+  </transition>
 </template>
 
 <script setup>
@@ -113,9 +146,102 @@ async function handleGoogleSignup() {
 }
 </script>
 
-<style scoped>
-.auth-card {
-  border-radius: 22px;
+<style scoped lang="scss">
+.auth-form-card {
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(14, 14, 14, 0.92);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+}
+
+.form-head {
+  margin-bottom: 16px;
+
+  p {
+    margin: 0;
+    color: #8c8c92;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-weight: 700;
+  }
+
+  h2 {
+    margin: 6px 0 2px;
+    color: #fff;
+    font-size: 1.7rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+  }
+
+  span {
+    color: #a2a2a7;
+    font-size: 0.92rem;
+  }
+}
+
+.demo-banner {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.auth-input :deep(.q-field__control) {
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.primary-btn {
+  border-radius: 14px;
+  background: #fff;
+  color: #000;
+  font-weight: 800;
+}
+
+.divider-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 10px 0;
+
+  span {
+    color: #8b8b90;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+  }
+}
+
+.google-btn {
+  border-radius: 14px;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  color: #e5e5e5;
+}
+
+.form-footer {
+  margin-top: 20px;
+  text-align: center;
+  color: #9f9fa4;
+  font-size: 0.88rem;
+
+  a {
+    color: #fff;
+    text-decoration: none;
+    font-weight: 700;
+    margin-left: 6px;
+  }
+}
+
+.terms-copy {
+  margin-top: 14px;
+  text-align: center;
+  color: #8f8f95;
+  font-size: 0.72rem;
+
+  a {
+    color: #e6e6e6;
+    text-decoration: none;
+    margin: 0 2px;
+  }
 }
 </style>
-

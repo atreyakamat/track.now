@@ -33,25 +33,29 @@ Use this if you want to start using Track.now immediately.
 
 If Firebase keys are not configured, app automatically runs in local demo mode and stores data in browser local storage.
 
-## Firebase Mode (Optional)
+## Firebase Mode With Env Parity
 
-Set these env vars in `app/.env`:
-- `VITE_FIREBASE_API_KEY`
-- `VITE_FIREBASE_AUTH_DOMAIN`
-- `VITE_FIREBASE_PROJECT_ID`
-- `VITE_FIREBASE_STORAGE_BUCKET`
-- `VITE_FIREBASE_MESSAGING_SENDER_ID`
-- `VITE_FIREBASE_APP_ID`
+Use separate Firebase projects for development and production.
 
-Then run `npm run dev` again.
+1. Copy templates in `app/`:
+   - `.env.development.example` -> `.env.development`
+   - `.env.production.example` -> `.env.production`
+2. Fill in real `VITE_FIREBASE_*` values for each project.
+3. Keep `VITE_USE_DEMO_MODE=false` in both files when using Firebase.
+4. Keep `VITE_REQUIRE_FIREBASE_IN_PROD=true` to fail fast if production keys are missing.
+
+Then run `npm run dev` in `app/`.
 
 ## Build
 
 Inside `app/`:
 - `npm run lint`
 - `npm run build`
+- `npm run build:pwa`
 
-Output is generated in `app/dist/spa`.
+Outputs are generated in:
+- `app/dist/spa` for web SPA builds
+- `app/dist/pwa` for installable offline PWA builds
 
 ## Release Bundle
 
@@ -65,6 +69,22 @@ This creates `release/` with:
 - Landing page
 - Extension
 - Key docs
+
+## Production Deployment (Option C)
+
+1. Add Firebase CLI config in repo root:
+   - `.firebaserc.example` -> `.firebaserc`
+   - Set your `development` and `production` project IDs.
+2. Authenticate once:
+   - `firebase login`
+3. Deploy PWA hosting + Firestore rules:
+   - `powershell -ExecutionPolicy Bypass -File scripts/deploy-firebase-production.ps1 -ProjectId <your-production-project-id>`
+
+If `firebase` is not installed globally, the deploy script automatically falls back to `npx firebase-tools`.
+
+Useful variants:
+- Rules only: `powershell -ExecutionPolicy Bypass -File scripts/deploy-firebase-production.ps1 -RulesOnly -ProjectId <your-production-project-id>`
+- Hosting only: `powershell -ExecutionPolicy Bypass -File scripts/deploy-firebase-production.ps1 -HostingOnly -ProjectId <your-production-project-id>`
 
 ## Android Use
 

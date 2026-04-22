@@ -50,8 +50,11 @@ Then run `npm run dev` again.
 Inside `app/`:
 - `npm run lint`
 - `npm run build`
+- `npm run build:pwa`
 
-Output is generated in `app/dist/spa`.
+Outputs are generated in:
+- `app/dist/spa` for web SPA builds
+- `app/dist/pwa` for installable offline PWA builds
 
 ## Release Bundle
 
