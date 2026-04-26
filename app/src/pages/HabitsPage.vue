@@ -9,7 +9,7 @@
             unelevated
             no-caps
             icon="add"
-            label="New Mission"
+            label="Mission"
             to="/add"
             class="new-mission-btn"
           />

@@ -272,10 +272,9 @@ async function handleSubmit() {
 }
 
 .mission-preview {
-  border: 1px solid rgba(76, 95, 115, 0.12);
-  background:
-    radial-gradient(circle at top left, var(--category-soft), transparent 55%),
-    #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(25, 25, 25, 0.6);
+  backdrop-filter: blur(10px);
   border-radius: 24px;
 }
 
@@ -287,16 +286,19 @@ async function handleSubmit() {
   align-items: center;
   justify-content: center;
   font-size: 2rem;
-  background: var(--category-soft);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .preview-chip {
-  background: rgba(76, 95, 115, 0.08);
-  color: #334155;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
 }
 
 .setup-card {
   border-radius: 20px;
+  background: rgba(18, 18, 18, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #fff;
 }
 
 .choice-grid {
@@ -309,22 +311,25 @@ async function handleSubmit() {
   width: 100%;
   padding: 14px;
   border-radius: 18px;
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  background: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(30, 30, 30, 0.4);
+  color: #fff;
   text-align: left;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  transition: all 0.2s ease;
+  cursor: pointer;
 }
 
 .choice-card.active {
-  border-color: var(--choice-accent, #245c68);
-  background: var(--choice-soft, #eef5f7);
-  box-shadow: 0 14px 28px rgba(36, 92, 104, 0.08);
+  border-color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
 }
 
 .choice-card:hover {
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.05);
 }
 </style>

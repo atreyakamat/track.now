@@ -3,11 +3,7 @@
     <div class="grain-overlay" />
 
     <div class="action-shell">
-      <AppPageHeader reveal>
-        <template #right>
-          <div class="profile-chip">{{ avatarInitial }}</div>
-        </template>
-      </AppPageHeader>
+      <AppPageHeader reveal />
 
       <q-inner-loading :showing="loading">
         <q-spinner color="white" size="56px" />
@@ -131,11 +127,6 @@ const completionsStore = useCompletionsStore()
 
 const loading = ref(true)
 let cleanupReveal = null
-
-const avatarInitial = computed(() => {
-  const seed = String(authStore.displayName || authStore.user?.email || 'T').trim()
-  return (seed[0] || 'T').toUpperCase()
-})
 
 const todayHabits = computed(() => habitsStore.todayHabits)
 const isHabitDoneToday = (habit) => isHabitCompleteOnDate(habit, completionsStore.completions)
@@ -345,18 +336,6 @@ function fireCelebration() {
     text-transform: uppercase;
     letter-spacing: -0.05em;
   }
-}
-
-.profile-chip {
-  width: 36px;
-  height: 36px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  display: grid;
-  place-items: center;
-  background: #2a2a2a;
-  font-size: 0.78rem;
-  font-weight: 700;
 }
 
 .action-main {

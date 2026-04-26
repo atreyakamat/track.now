@@ -1,10 +1,5 @@
 <template>
   <header class="app-page-header" :data-reveal="reveal ? '' : null">
-    <div class="app-page-header__brand">
-      <q-icon name="radio_button_checked" size="18px" />
-      <span>Track.now</span>
-    </div>
-
     <div class="app-page-header__content" v-if="title || subtitle || kicker || $slots.default">
       <p v-if="kicker" class="app-page-header__kicker">{{ kicker }}</p>
       <h1 v-if="title" class="app-page-header__title">{{ title }}</h1>
@@ -48,17 +43,6 @@ defineProps({
   align-items: center;
   gap: var(--tn-space-3, 12px);
   margin-bottom: var(--tn-space-4, 16px);
-}
-
-.app-page-header__brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: #fff;
-  font-size: 1rem;
-  font-weight: 900;
-  letter-spacing: -0.03em;
-  white-space: nowrap;
 }
 
 .app-page-header__content {

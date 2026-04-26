@@ -5,7 +5,7 @@
     <div class="dashboard-shell">
       <AppPageHeader>
         <template #right>
-          <q-btn no-caps unelevated class="today-btn" icon="today" label="Open Today" to="/today" />
+          <q-btn no-caps unelevated class="today-btn" icon="today" label="Focus" to="/today" />
         </template>
       </AppPageHeader>
 
