@@ -158,7 +158,6 @@ import {
   getCompletionDatesForHabit,
   getDateFromKey,
   getDifficultyMeta,
-  getDurationMeta,
   getMissionProgress,
   getReminderListLabel,
   getRelativeDayLabel
@@ -179,7 +178,6 @@ let cleanupReveal = null
 const habit = computed(() => habitsStore.habits.find((item) => item.id === route.params.id))
 const categoryMeta = computed(() => getCategoryMeta(habit.value?.category))
 const difficultyMeta = computed(() => getDifficultyMeta(habit.value?.difficulty))
-const durationMeta = computed(() => getDurationMeta(habit.value?.durationDays))
 const missionProgress = computed(() => habit.value ? getMissionProgress(habit.value, completionsStore.completions) : {
   progress: 0,
   completedSessions: 0,
