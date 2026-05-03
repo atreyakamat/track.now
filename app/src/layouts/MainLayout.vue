@@ -256,6 +256,7 @@ async function handleLogout() {
 </script>
 
 <style scoped lang="scss">
+/* --- Header Styles --- */
 .main-header {
   background: transparent !important;
   padding: 12px 16px 0;
@@ -267,15 +268,15 @@ async function handleLogout() {
   max-width: 1120px;
   margin: 0 auto;
   height: 60px;
-  background: rgba(10, 10, 10, 0.75);
+  background: rgba(10, 10, 10, 0.85);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 22px;
   display: flex;
   align-items: center;
   padding: 0 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 }
 
 .brand-link {
@@ -286,11 +287,6 @@ async function handleLogout() {
   gap: 10px;
   cursor: pointer;
   padding: 0;
-  transition: opacity 0.2s ease;
-
-  &:hover {
-    opacity: 0.8;
-  }
 }
 
 .brand-dot {
@@ -298,6 +294,7 @@ async function handleLogout() {
   height: 10px;
   border-radius: 50%;
   background: #fff;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
 }
 
 .brand-name {
@@ -311,12 +308,12 @@ async function handleLogout() {
 .header-divider {
   width: 1px;
   height: 20px;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.15);
   margin: 0 16px;
 }
 
 .header-page-title {
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.6);
   font-size: 0.78rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -330,72 +327,52 @@ async function handleLogout() {
   gap: 8px;
 }
 
-.header-btn {
-  color: rgba(255, 255, 255, 0.7);
-  transition: color 0.2s ease;
-
-  &:hover {
-    color: #fff;
-  }
-}
-
-.profile-trigger {
-  border: 0;
-  background: transparent;
-  padding: 0;
-  cursor: pointer;
-  margin-left: 4px;
-}
-
 .avatar-circle {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: #1d1d1d;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #222;
+  border: 1px solid rgba(255, 255, 255, 0.2);
   color: #fff;
   font-size: 0.75rem;
   font-weight: 800;
   display: grid;
   place-items: center;
-  transition: transform 0.2s ease, border-color 0.2s ease;
-
-  &:hover {
-    transform: scale(1.05);
-    border-color: rgba(255, 255, 255, 0.3);
-  }
 }
 
-.main-page-shell {
-  padding-bottom: 110px;
-}
-
+/* --- Navigation Bar - BRUTE FORCE MOBILE FIX --- */
 .floating-bottom-nav {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 2000;
-  padding: 0 16px calc(env(safe-area-inset-bottom) + 16px);
+  z-index: 9999; /* Max priority */
   pointer-events: none;
+  display: flex;
+  justify-content: center;
 }
 
 .nav-pulse-container {
   pointer-events: auto;
-  max-width: 580px;
-  margin: 0 auto;
-  background: rgba(10, 10, 10, 0.82);
-  backdrop-filter: blur(24px) saturate(200%);
-  -webkit-backdrop-filter: blur(24px) saturate(200%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 32px;
-  height: 72px;
+  width: 100%;
+  max-width: 600px;
+  height: 84px; /* Taller for better hit targets */
+  background: #000; /* Solid black for perfect mobile visibility */
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
   display: flex;
   align-items: center;
-  justify-content: space-around;
-  padding: 0 12px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
-  position: relative;
+  justify-content: space-evenly;
+  padding: 0 10px calc(env(safe-area-inset-bottom, 0px) / 2);
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.8);
+  
+  /* On larger mobile/tablet, make it a floating pill again but with solid bg */
+  @media (min-width: 641px) {
+    margin: 0 20px 20px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 40px;
+    height: 76px;
+    padding-bottom: 0;
+  }
 }
 
 .nav-pulse-item {
@@ -405,109 +382,74 @@ async function handleLogout() {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  color: rgba(255, 255, 255, 0.4);
+  gap: 4px;
+  color: #666; /* High contrast inactive */
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   min-width: 64px;
-  position: relative;
-  padding: 4px 0;
+  transition: all 0.2s ease;
+  padding: 8px 0;
 
   &.active {
     color: #fff;
-    transform: translateY(-2px);
+    .item-icon-wrap {
+      transform: scale(1.1);
+    }
   }
-
-  &:active {
-    transform: scale(0.9);
-  }
-}
-
-.item-icon-wrap {
-  transition: transform 0.3s ease;
-}
-
-.nav-pulse-item.active .item-icon-wrap {
-  transform: scale(1.1);
 }
 
 .item-label {
-  font-size: 0.64rem;
-  font-weight: 700;
+  font-size: 0.7rem;
+  font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
-.active-indicator {
-  position: absolute;
-  bottom: -4px;
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 0 10px #fff;
-}
-
 .nav-pulse-center {
-  margin: 0 12px;
+  position: relative;
+  z-index: 10;
+  margin-top: -30px; /* Overhang effect */
 }
 
 .pulse-fab {
   background: #fff !important;
   color: #000 !important;
-  width: 52px;
-  height: 52px;
-  font-size: 20px;
-  box-shadow: 0 8px 24px rgba(255, 255, 255, 0.25);
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-
-  &:hover {
-    transform: scale(1.1) rotate(90deg);
-  }
-
-  &:active {
-    transform: scale(0.9);
-  }
+  width: 60px;
+  height: 60px;
+  font-size: 24px;
+  border: 4px solid #000;
+  box-shadow: 0 10px 25px rgba(255, 255, 255, 0.3);
 }
 
-.menu-surface :deep(.q-list) {
-  background: #0f0f0f;
-  color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
+.main-page-shell {
+  padding-bottom: 120px; /* Ensure content doesn't get hidden */
 }
 
 /* Transitions */
 .fade-slide-enter-active,
 .fade-slide-leave-active {
-  transition: all 0.3s ease;
+  transition: all 0.25s ease;
 }
 
 .fade-slide-enter-from {
   opacity: 0;
-  transform: translateY(10px);
+  transform: translateY(8px);
 }
 
 .fade-slide-leave-to {
   opacity: 0;
-  transform: translateY(-10px);
+  transform: translateY(-8px);
 }
 
-@media (max-width: 600px) {
-  .header-page-title, .header-divider {
-    display: none;
-  }
-
-  .item-label {
-    display: none;
-  }
-
+@media (max-width: 480px) {
   .nav-pulse-item {
-    min-width: 48px;
+    min-width: 50px;
+    .item-label {
+      font-size: 0.6rem;
+    }
   }
-
-  .nav-pulse-container {
-    height: 64px;
+  .pulse-fab {
+    width: 54px;
+    height: 54px;
   }
 }
 </style>
