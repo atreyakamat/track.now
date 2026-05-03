@@ -32,9 +32,31 @@
             </div>
           </div>
           
-          <div class="q-mb-md">
-            <div class="text-caption text-grey-7 q-mb-xs">Category</div>
-            <q-chip color="primary" text-color="white" icon="label">{{ parsedData.category }}</q-chip>
+          <div class="row q-col-gutter-sm q-mb-md">
+            <div class="col-6">
+              <q-select
+                v-model="parsedData.priority"
+                :options="['low', 'medium', 'high']"
+                label="Priority"
+                outlined
+                dense
+              >
+                <template v-slot:option="scope">
+                  <q-item v-bind="scope.itemProps">
+                    <q-item-section side>
+                      <q-icon name="flag" :color="getPriorityColor(scope.opt)" />
+                    </q-item-section>
+                    <q-item-section>
+                      <q-item-label>{{ scope.opt }}</q-item-label>
+                    </q-item-section>
+                  </q-item>
+                </template>
+              </q-select>
+            </div>
+            <div class="col-6">
+              <div class="text-caption text-grey-7 q-mb-xs">Category</div>
+              <q-chip color="primary" text-color="white" icon="label" outline>{{ parsedData.category }}</q-chip>
+            </div>
           </div>
           
         </q-card-section>
@@ -106,10 +128,29 @@ function toggleRecording() {
   }
 }
 
+function speakFeedback(text) {
+  if ('speechSynthesis' in window) {
+    const utterance = new SpeechSynthesisUtterance(text)
+    utterance.rate = 1.1
+    utterance.pitch = 1
+    window.speechSynthesis.speak(utterance)
+  }
+}
+
 function processSpeech(text) {
   const result = parseNaturalLanguageTask(text)
   parsedData.value = result
   showConfirm.value = true
+  
+  // Natural voice feedback
+  const dateStr = result.date ? ` for ${result.date}` : ''
+  speakFeedback(`I heard ${result.name}${dateStr}. Is that correct?`)
+}
+
+function getPriorityColor(p) {
+  if (p === 'high') return 'negative'
+  if (p === 'medium') return 'warning'
+  return 'grey-7'
 }
 
 async function saveTask() {
@@ -119,10 +160,12 @@ async function saveTask() {
       name: parsedData.value.name,
       date: parsedData.value.date || null,
       time: parsedData.value.time || null,
-      category: parsedData.value.category || 'custom'
+      category: parsedData.value.category || 'custom',
+      priority: parsedData.value.priority || 'medium'
     })
     $q.notify({ message: 'Task saved successfully!', color: 'positive', icon: 'check_circle' })
     showConfirm.value = false
+    speakFeedback('Task saved.')
   } catch (err) {
     $q.notify({ message: 'Failed to save task: ' + err.message, color: 'negative' })
   } finally {

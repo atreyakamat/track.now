@@ -13,6 +13,8 @@ import {
 } from 'firebase/firestore'
 import { db, isDemoMode } from 'src/boot/firebase'
 import { useAuthStore } from 'src/stores/auth'
+import { usePreferencesStore } from 'src/stores/preferences'
+import { calendarService } from 'src/services/calendarService'
 import { createDemoId, getDemoCollection, setDemoCollection } from 'src/utils/demoMode'
 import { compareTasks, normalizeTask } from 'src/utils/taskModel'
 import { getDateKey } from 'src/utils/habitModel'
@@ -55,6 +57,7 @@ export const useTasksStore = defineStore('tasks', () => {
   let unsubscribe = null
 
   const authStore = useAuthStore()
+  const preferencesStore = usePreferencesStore()
 
   const openTasks = computed(() => tasks.value.filter((task) => !task.completed))
   const completedTasks = computed(() => tasks.value.filter((task) => task.completed))
@@ -117,6 +120,17 @@ export const useTasksStore = defineStore('tasks', () => {
       }
       saveDemoTask(task)
       tasks.value = getDemoTasksByUser(authStore.userId)
+
+      // Google Calendar Sync in Demo Mode
+      if (preferencesStore.preferences.googleCalendarEnabled && (payload.dueDate || payload.dueTime)) {
+        calendarService.createEvent({
+          name: payload.title,
+          date: payload.dueDate,
+          time: payload.dueTime,
+          emoji: '📝'
+        }).catch(err => console.error('Failed to sync to Google Calendar in demo mode', err))
+      }
+
       return task
     }
 
@@ -125,7 +139,23 @@ export const useTasksStore = defineStore('tasks', () => {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     })
-    return { id: docRef.id, ...payload }
+    const newTask = { id: docRef.id, ...payload }
+
+    // Google Calendar Sync
+    if (preferencesStore.preferences.googleCalendarEnabled && (payload.dueDate || payload.dueTime)) {
+      try {
+        await calendarService.createEvent({
+          name: payload.title,
+          date: payload.dueDate,
+          time: payload.dueTime,
+          emoji: '📝'
+        })
+      } catch (err) {
+        console.error('Failed to sync to Google Calendar', err)
+      }
+    }
+
+    return newTask
   }
 
   async function updateTask(id, updates) {

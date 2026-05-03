@@ -1,4 +1,5 @@
 import { formatTimeLabel, normalizeReminderTimes } from 'src/utils/habitModel'
+import { usePreferencesStore } from 'src/stores/preferences'
 
 // Stores pending alarm metadata so the service worker can fire notifications
 // even when the page is not in focus. Keys are habit IDs.
@@ -139,6 +140,43 @@ export const notificationService = {
       icon: '/icons/favicon-128x128.png',
       tag: `habit-${habit.id}-${reminderTime || habit.time || 'default'}-${phase}`
     })
+
+    this.sendWebhookMessage(title, body)
+  },
+
+  async sendWebhookMessage(title, body) {
+    const preferencesStore = usePreferencesStore()
+    const { telegramWebhook, discordWebhook } = preferencesStore.preferences
+
+    if (telegramWebhook) {
+      try {
+        await fetch(telegramWebhook, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: `*${title}*\n${body}`, parse_mode: 'Markdown' })
+        })
+      } catch (err) {
+        console.error('Telegram webhook failed', err)
+      }
+    }
+
+    if (discordWebhook) {
+      try {
+        await fetch(discordWebhook, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            embeds: [{
+              title: title,
+              description: body,
+              color: 0x00ff00
+            }]
+          })
+        })
+      } catch (err) {
+        console.error('Discord webhook failed', err)
+      }
+    }
   },
 
   cancelHabitReminder(habitId) {

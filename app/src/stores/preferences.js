@@ -8,6 +8,9 @@ const defaultPreferences = {
   reminderPreview: true,
   exactReminders: true,
   whatsappSummary: false,
+  googleCalendarEnabled: false,
+  telegramWebhook: '',
+  discordWebhook: '',
   calmMode: true,
   reduceMotion: false,
   themePreference: 'system'

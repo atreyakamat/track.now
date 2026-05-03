@@ -120,6 +120,42 @@
               </button>
             </div>
 
+            <div class="system-row border-row">
+              <div class="system-left">
+                <q-icon name="today" color="grey-5" />
+                <div>
+                  <strong>Calendar Sync</strong>
+                  <small>{{ googleCalendarEnabled ? 'Syncing tasks to Google Calendar' : 'Local tracking only' }}</small>
+                </div>
+              </div>
+              <button type="button" class="switch" :class="{ active: googleCalendarEnabled }" @click="toggleGoogleCalendar">
+                <span class="switch-thumb" />
+              </button>
+            </div>
+
+            <div class="q-pa-md bg-transparent">
+              <div class="text-caption text-grey-7 q-mb-xs">Telegram Webhook URL</div>
+              <q-input
+                v-model="telegramWebhook"
+                dark
+                outlined
+                dense
+                placeholder="https://api.telegram.org/bot.../sendMessage"
+                class="q-mb-md"
+                @update:model-value="val => preferencesStore.updatePreference('telegramWebhook', val)"
+              />
+              
+              <div class="text-caption text-grey-7 q-mb-xs">Discord Webhook URL</div>
+              <q-input
+                v-model="discordWebhook"
+                dark
+                outlined
+                dense
+                placeholder="https://discord.com/api/webhooks/..."
+                @update:model-value="val => preferencesStore.updatePreference('discordWebhook', val)"
+              />
+            </div>
+
             <button type="button" class="system-row action-row" @click="exportMissionIntelligence">
               <div class="system-left">
                 <q-icon name="sim_card_download" color="grey-5" />
@@ -248,6 +284,13 @@ const pushProtocolEnabled = computed(() => {
   return Boolean(preferences.value.reminderPreview && preferences.value.exactReminders)
 })
 
+const googleCalendarEnabled = computed(() => {
+  return Boolean(preferences.value.googleCalendarEnabled)
+})
+
+const telegramWebhook = ref(preferences.value.telegramWebhook || '')
+const discordWebhook = ref(preferences.value.discordWebhook || '')
+
 onMounted(async () => {
   await Promise.all([
     authStore.loadProfile(),
@@ -278,6 +321,19 @@ function togglePushProtocol() {
   const nextValue = !pushProtocolEnabled.value
   preferencesStore.updatePreference('reminderPreview', nextValue)
   preferencesStore.updatePreference('exactReminders', nextValue)
+}
+
+function toggleGoogleCalendar() {
+  const nextValue = !googleCalendarEnabled.value
+  preferencesStore.updatePreference('googleCalendarEnabled', nextValue)
+  
+  if (nextValue) {
+    $q.notify({
+      message: 'Google Calendar sync enabled. New tasks will be added to your calendar.',
+      color: 'positive',
+      icon: 'today'
+    })
+  }
 }
 
 function applyTheme(value) {
