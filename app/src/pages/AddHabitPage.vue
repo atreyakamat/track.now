@@ -46,7 +46,7 @@
     </q-card>
 
     <q-form @submit="handleSubmit" class="q-gutter-lg">
-      <q-card flat bordered class="setup-card">
+      <q-card flat bordered class="setup-card glass-card">
         <q-card-section>
           <div class="text-subtitle1 text-weight-bold q-mb-md">What are you building?</div>
           <q-input
@@ -56,13 +56,33 @@
             placeholder="e.g. Read 10 pages"
             :rules="[v => !!v?.trim() || 'Name is required']"
             autofocus
-            class="q-mb-lg"
+            class="q-mb-md"
+            dark
+            color="white"
           />
           <EmojiPicker v-model="form.emoji" />
         </q-card-section>
       </q-card>
 
-      <q-card flat bordered class="setup-card">
+      <q-card flat bordered class="setup-card glass-card">
+        <q-card-section>
+          <div class="text-subtitle1 text-weight-bold q-mb-xs">The Micro-Dose (Optional)</div>
+          <div class="text-body2 text-grey-6 q-mb-md">
+            What is the absolute minimum you can do on your worst days to keep the habit alive?
+          </div>
+          <q-input
+            v-model="form.microDose"
+            label="Micro-Dose version"
+            outlined
+            placeholder="e.g. Read 1 paragraph"
+            class="q-mb-sm"
+            dark
+            color="white"
+          />
+        </q-card-section>
+      </q-card>
+
+      <q-card flat bordered class="setup-card glass-card">
         <q-card-section>
           <div class="text-subtitle1 text-weight-bold q-mb-md">When should it happen?</div>
           <DaySelector v-model="form.days" class="q-mb-lg" />
@@ -70,7 +90,7 @@
         </q-card-section>
       </q-card>
 
-      <q-card flat bordered class="setup-card">
+      <q-card flat bordered class="setup-card glass-card">
         <q-card-section>
           <div class="text-subtitle1 text-weight-bold q-mb-sm">Choose a life area</div>
           <div class="text-body2 text-grey-7 q-mb-md">

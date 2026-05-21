@@ -1,7 +1,7 @@
 <template>
-  <div>
-    <div class="text-subtitle2 q-mb-sm">Repeat on</div>
-    <div class="row q-gutter-xs">
+  <div class="day-selector-wrap">
+    <div class="text-caption text-weight-bold text-uppercase q-mb-sm text-grey-6 letter-spacing-05">Schedule</div>
+    <div class="day-pill-container glass-card q-pa-xs">
       <button
         v-for="day in days"
         :key="day.value"
@@ -10,7 +10,7 @@
         type="button"
         @click="toggleDay(day.value)"
       >
-        {{ day.label }}
+        {{ day.label.substring(0, 1) }}
       </button>
     </div>
   </div>
@@ -37,3 +37,43 @@ function toggleDay(day) {
   emit('update:modelValue', current)
 }
 </script>
+
+<style scoped lang="scss">
+.letter-spacing-05 {
+  letter-spacing: 0.05em;
+}
+
+.day-pill-container {
+  display: flex;
+  justify-content: space-between;
+  border-radius: 999px;
+  background: rgba(20, 20, 20, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.day-pill {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: #71717a;
+  font-weight: 700;
+  font-size: 0.95rem;
+  padding: 12px 0;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  text-transform: uppercase;
+
+  &:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  &.active {
+    background: #fff;
+    color: #000;
+    box-shadow: 0 4px 14px rgba(255, 255, 255, 0.2);
+    transform: scale(1.05);
+  }
+}
+</style>

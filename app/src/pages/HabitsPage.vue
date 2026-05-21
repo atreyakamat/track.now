@@ -155,6 +155,39 @@
           </transition-group>
         </section>
 
+        <section class="target-stack" v-if="habitsStore.graduatedHabits.length > 0" data-reveal>
+          <div class="target-head" style="margin-top: 24px;">
+            <h2>Identity Archive</h2>
+            <span>Graduated Missions</span>
+          </div>
+
+          <transition-group name="stack" tag="div" class="stack-list">
+            <article
+              v-for="habit in habitsStore.graduatedHabits"
+              :key="habit.id"
+              class="habit-card glass-card complete"
+            >
+              <div class="habit-inner">
+                <div class="habit-top" style="margin-bottom: 0;">
+                  <div class="habit-title-wrap">
+                    <span class="identity-chip" style="background: rgba(255,255,255,0.1)">GRADUATED</span>
+                    <h3 class="text-grey-5 row items-center no-wrap">
+                      <span class="emoji-font q-mr-sm">{{ habit.emoji }}</span>
+                      <span class="ellipsis">{{ habit.name }}</span>
+                    </h3>
+                  </div>
+                  <div class="habit-controls">
+                    <div class="status-col">
+                      <p>Status</p>
+                      <strong class="text-positive">AUTOPILOT</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </article>
+          </transition-group>
+        </section>
+
         <section class="standard-section" data-reveal>
           <div class="visual-panel glass-card">
             <div class="visual-ring" />

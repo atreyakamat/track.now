@@ -99,12 +99,50 @@
 
               <div class="habit-trailing">
                 <span v-if="isFocusPendingHabit(habit)" class="alert-dot" />
-                <q-btn flat round dense icon="more_vert" class="more-btn" @click.stop />
+                <q-btn flat round dense icon="more_vert" class="more-btn" @click.stop>
+                  <q-menu class="glass-card">
+                    <q-list style="min-width: 150px">
+                      <q-item v-if="habit.microDose && !isHabitDoneToday(habit)" clickable v-close-popup @click="handleMicroDose(habit)">
+                        <q-item-section avatar><q-icon name="compress" /></q-item-section>
+                        <q-item-section>Micro-Dose</q-item-section>
+                      </q-item>
+                      <q-item v-if="!isHabitDoneToday(habit)" clickable v-close-popup @click="promptGrace(habit)">
+                        <q-item-section avatar><q-icon name="pause_circle_outline" /></q-item-section>
+                        <q-item-section>Use Grace Day</q-item-section>
+                      </q-item>
+                    </q-list>
+                  </q-menu>
+                </q-btn>
               </div>
             </article>
           </transition-group>
         </section>
       </main>
+
+      <q-dialog v-model="frictionDialog">
+        <q-card class="app-dialog-card glass-card" style="min-width: 340px">
+          <q-card-section>
+            <div class="text-h6">Friction Forensics</div>
+            <div class="q-mt-sm text-grey-5">
+              You are using a Grace Day for <strong>{{ activeFrictionHabit?.name }}</strong>. Why did you need to pause today?
+            </div>
+            <div class="column q-gutter-sm q-mt-md">
+              <q-btn
+                v-for="reason in ['Time (Too busy)', 'Energy (Too tired)', 'Environment (Not at home)', 'People (Social conflict)', 'Equipment (Missing gear)']"
+                :key="reason"
+                outline
+                no-caps
+                :label="reason"
+                class="full-width text-left justify-start q-px-md"
+                @click="submitGrace(reason)"
+              />
+            </div>
+          </q-card-section>
+          <q-card-actions align="right">
+            <q-btn flat label="Cancel" v-close-popup />
+          </q-card-actions>
+        </q-card>
+      </q-dialog>
     </div>
   </q-page>
 </template>
@@ -130,6 +168,8 @@ const habitsStore = useHabitsStore()
 const completionsStore = useCompletionsStore()
 
 const loading = ref(true)
+const frictionDialog = ref(false)
+const activeFrictionHabit = ref(null)
 let cleanupReveal = null
 
 const todayHabits = computed(() => habitsStore.todayHabits)
@@ -282,6 +322,45 @@ async function handleUncompleteHabit(habit) {
   await completionsStore.unmarkComplete(habit.id, lastSessionId)
 
   $q.notify({ color: 'info', message: 'Last completion undone' })
+}
+
+async function handleMicroDose(habit) {
+  const sessionProgress = getHabitSessionProgressForDate(habit, completionsStore.completions)
+  const targetSessionId = sessionProgress.nextSessionId
+  if (!targetSessionId) return
+
+  await completionsStore.markMicro(habit.id, targetSessionId)
+
+  $q.notify({
+    color: 'positive',
+    message: `Micro-Dose: ${habit.microDose} completed`,
+    icon: 'compress'
+  })
+}
+
+function promptGrace(habit) {
+  activeFrictionHabit.value = habit
+  frictionDialog.value = true
+}
+
+async function submitGrace(reason) {
+  if (!activeFrictionHabit.value) return
+  const habit = activeFrictionHabit.value
+  
+  const sessionProgress = getHabitSessionProgressForDate(habit, completionsStore.completions)
+  const targetSessionId = sessionProgress.nextSessionId
+  
+  if (targetSessionId) {
+    await completionsStore.markGrace(habit.id, targetSessionId, reason)
+    $q.notify({
+      color: 'info',
+      message: 'Grace Day applied. Momentum protected.',
+      icon: 'pause_circle_filled'
+    })
+  }
+  
+  frictionDialog.value = false
+  activeFrictionHabit.value = null
 }
 
 function fireCelebration() {
@@ -688,4 +767,3 @@ function fireCelebration() {
   }
 }
 </style>
-

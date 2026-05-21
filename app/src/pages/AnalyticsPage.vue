@@ -83,6 +83,26 @@
           </div>
         </section>
 
+        <section class="friction-card glass-card q-mb-xl q-pa-lg" data-reveal v-if="frictionReasons.length > 0">
+          <div class="friction-head q-mb-md">
+            <h3 class="text-h6 text-weight-bolder text-uppercase" style="letter-spacing: -0.02em;">Friction Forensics</h3>
+            <p class="text-grey-5 text-body2">Your primary barriers to momentum based on Grace Days.</p>
+          </div>
+          <div class="friction-bars column q-gutter-sm">
+             <div v-for="item in frictionReasons" :key="item.reason" class="friction-row row items-center no-wrap">
+                <span class="friction-label col-4 text-body2 text-weight-bold">{{ item.reason }}</span>
+                <div class="friction-track col relative-position" style="height: 8px; background: rgba(255,255,255,0.05); border-radius: 999px; overflow: hidden;">
+                   <div class="friction-fill absolute-left" :style="{ width: Math.max(2, (item.count / frictionReasons[0].count) * 100) + '%', background: '#fff', height: '100%', borderRadius: '999px' }" />
+                </div>
+                <span class="friction-count q-ml-md text-caption text-grey-5">{{ item.count }}</span>
+             </div>
+          </div>
+          <div class="friction-insight q-mt-lg q-pa-md text-body2" style="background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+            <strong class="text-white">Insight:</strong> 
+            {{ frictionReasons[0].reason.split(' ')[0] }} is your biggest roadblock. Consider a Micro-Dose or an environment change to bypass it.
+          </div>
+        </section>
+
         <section class="heatmap-card" data-reveal>
           <div class="heatmap-head">
             <div>
@@ -166,6 +186,19 @@ const completionCountByDate = computed(() => {
     map[completion.date] = (map[completion.date] || 0) + 1
   })
   return map
+})
+
+const frictionReasons = computed(() => {
+  const map = {}
+  completionsStore.completions.forEach((completion) => {
+    if (completion.completed === 'grace' && completion.frictionReason) {
+      const reason = completion.frictionReason.split(' ')[0]
+      map[reason] = (map[reason] || 0) + 1
+    }
+  })
+  return Object.entries(map)
+    .map(([reason, count]) => ({ reason, count }))
+    .sort((a, b) => b.count - a.count)
 })
 
 const last90DateKeys = computed(() => {

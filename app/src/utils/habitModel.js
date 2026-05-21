@@ -117,7 +117,9 @@ export function normalizeHabit(habit = {}) {
       ? Number(habit.graceLimit)
       : getGraceLimit(durationDays),
     reminderTimes,
-    time: reminderTimes[0]
+    time: reminderTimes[0],
+    microDose: habit.microDose || '',
+    status: habit.status || 'active'
   }
 }
 

@@ -45,8 +45,16 @@ export const useHabitsStore = defineStore('habits', () => {
 
   const authStore = useAuthStore()
 
+  const activeHabits = computed(() => {
+    return habits.value.filter(h => h.status !== 'graduated')
+  })
+
+  const graduatedHabits = computed(() => {
+    return habits.value.filter(h => h.status === 'graduated')
+  })
+
   const todayHabits = computed(() => {
-    return habits.value
+    return activeHabits.value
       .filter((habit) => isHabitScheduledForDate(habit))
       .sort((a, b) => (a.time || '').localeCompare(b.time || ''))
   })
@@ -137,6 +145,10 @@ export const useHabitsStore = defineStore('habits', () => {
     await deleteDoc(doc(db, 'habits', id))
   }
 
+  async function graduateHabit(id) {
+    await updateHabit(id, { status: 'graduated', graduatedAt: new Date().toISOString() })
+  }
+
   async function incrementStreak(id) {
     const habit = habits.value.find((entry) => entry.id === id)
     if (!habit) return
@@ -156,7 +168,9 @@ export const useHabitsStore = defineStore('habits', () => {
   }
 
   return {
-    habits,
+    habits: activeHabits,
+    allHabits: habits,
+    graduatedHabits,
     loading,
     todayHabits,
     subscribe,
@@ -164,6 +178,7 @@ export const useHabitsStore = defineStore('habits', () => {
     addHabit,
     updateHabit,
     deleteHabit,
+    graduateHabit,
     incrementStreak
   }
 })

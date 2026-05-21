@@ -69,6 +69,19 @@
                 ? 'This mission has reached its finish line. You can now archive it or start a new cycle.'
                 : `${missionProgress.remainingSessions} days remain in this arc.` }}
             </p>
+            
+            <div v-if="missionProgress.missionDone && habit.status !== 'graduated'" class="q-mt-md">
+               <q-btn
+                 unelevated
+                 no-caps
+                 color="white"
+                 text-color="black"
+                 icon="school"
+                 label="Graduate to Autopilot"
+                 @click="handleGraduate"
+                 class="full-width text-weight-bold"
+               />
+            </div>
           </div>
         </section>
 
@@ -248,6 +261,17 @@ async function handleDelete() {
   } finally {
     deleting.value = false
     deleteDialog.value = false
+  }
+}
+
+async function handleGraduate() {
+  if (!habit.value) return
+  try {
+    await habitsStore.graduateHabit(habit.value.id)
+    $q.notify({ message: 'Mission graduated to Autopilot!', color: 'positive', icon: 'school' })
+    router.push('/habits')
+  } catch (err) {
+    $q.notify({ message: 'Failed to graduate mission', color: 'negative' })
   }
 }
 </script>

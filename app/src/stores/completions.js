@@ -70,7 +70,7 @@ export const useCompletionsStore = defineStore('completions', () => {
     await fetchCompletions(today, today)
   }
 
-  async function markGrace(habitId, sessionId = null) {
+  async function markGrace(habitId, sessionId = null, frictionReason = '') {
     const today = getDateKey()
     const existing = completions.value.find((completion) => {
       return completion.habitId === habitId &&
@@ -85,7 +85,51 @@ export const useCompletionsStore = defineStore('completions', () => {
       userId: authStore.userId,
       date: today,
       sessionId: sessionId || null,
-      completed: 'grace'
+      completed: 'grace',
+      frictionReason
+    }
+
+    if (isDemoMode) {
+      const entry = {
+        id: createDemoId('completion'),
+        ...completionPayload,
+        completedAt: new Date().toISOString()
+      }
+      const stored = getDemoCollection('completions')
+      setDemoCollection('completions', [...stored, entry])
+      completions.value = [...completions.value, entry].sort(sortCompletionsDesc)
+      return entry
+    }
+
+    const docRef = await addDoc(collection(db, 'completions'), {
+      ...completionPayload,
+      completedAt: serverTimestamp()
+    })
+    const entry = {
+      id: docRef.id,
+      ...completionPayload,
+      completedAt: new Date().toISOString()
+    }
+    completions.value = [...completions.value, entry].sort(sortCompletionsDesc)
+    return entry
+  }
+
+  async function markMicro(habitId, sessionId = null) {
+    const today = getDateKey()
+    const existing = completions.value.find((completion) => {
+      return completion.habitId === habitId &&
+        completion.date === today &&
+        matchesSessionId(completion, sessionId)
+    })
+
+    if (existing) return existing
+
+    const completionPayload = {
+      habitId,
+      userId: authStore.userId,
+      date: today,
+      sessionId: sessionId || null,
+      completed: 'micro'
     }
 
     if (isDemoMode) {
@@ -203,6 +247,7 @@ export const useCompletionsStore = defineStore('completions', () => {
     fetchCompletions,
     fetchLast90Days,
     markComplete,
+    markMicro,
     markGrace,
     unmarkComplete,
     getTodayCompletionsForHabit
