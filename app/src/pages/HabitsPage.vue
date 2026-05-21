@@ -29,7 +29,7 @@
         </section>
 
         <section class="summary-grid" data-reveal>
-          <article class="summary-card pro-card">
+          <article class="summary-card glass-card">
             <span class="summary-kicker">Active Missions</span>
             <div class="summary-value">
               <span>{{ paddedCount(activeMissionCount) }}</span>
@@ -37,7 +37,7 @@
             </div>
           </article>
 
-          <article class="summary-card pro-card">
+          <article class="summary-card glass-card">
             <span class="summary-kicker">Completed Missions</span>
             <div class="summary-value">
               <span>{{ paddedCount(completedMissionCount) }}</span>
@@ -45,7 +45,7 @@
             </div>
           </article>
 
-          <article class="summary-card pro-card">
+          <article class="summary-card glass-card">
             <div class="summary-head">
               <span class="summary-kicker">Momentum</span>
               <span v-if="closingSoonCount > 0" class="pulse-dot" />
@@ -63,7 +63,7 @@
             <span>Sorted by Priority</span>
           </div>
 
-          <div v-if="missionHabits.length === 0" class="empty-state pro-card">
+          <div v-if="missionHabits.length === 0" class="empty-state glass-card">
             <h3>No missions yet</h3>
             <p>Create your first mission habit to start the command board.</p>
             <q-btn
@@ -80,7 +80,7 @@
             <article
               v-for="habit in missionHabits"
               :key="habit.id"
-              class="habit-card pro-card"
+              class="habit-card glass-card"
               :class="{ complete: habit.missionProgress.missionDone, paused: habit.pausedToday }"
               @click="openHabit(habit.id)"
             >
@@ -156,7 +156,7 @@
         </section>
 
         <section class="standard-section" data-reveal>
-          <div class="visual-panel pro-card">
+          <div class="visual-panel glass-card">
             <div class="visual-ring" />
             <div class="visual-grid" />
           </div>

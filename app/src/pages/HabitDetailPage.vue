@@ -39,7 +39,7 @@
       <main v-else-if="habit" class="detail-main">
         <section class="mission-briefing" data-reveal>
           <div class="briefing-head">
-            <div class="briefing-emoji">{{ habit.emoji }}</div>
+            <div class="briefing-emoji emoji-font">{{ habit.emoji }}</div>
             <div class="briefing-title">
               <span class="protocol-tag" :style="{ color: categoryMeta.accent }">
                 PROTOCOL: {{ categoryMeta.label }}
@@ -48,7 +48,7 @@
             </div>
           </div>
 
-          <div class="arc-container pro-card">
+          <div class="arc-container glass-card">
             <div class="arc-header">
               <div class="arc-title">
                 <span class="kicker">Mission Arc</span>
@@ -73,19 +73,19 @@
         </section>
 
         <section class="protocol-grid" data-reveal>
-          <div class="protocol-card pro-card">
+          <div class="protocol-card glass-card">
             <span class="kicker">Schedule</span>
             <div class="protocol-value">{{ dayLabel }}</div>
           </div>
-          <div class="protocol-card pro-card">
+          <div class="protocol-card glass-card">
             <span class="kicker">Pace</span>
             <div class="protocol-value">{{ reminderListLabel }}</div>
           </div>
-          <div class="protocol-card pro-card">
+          <div class="protocol-card glass-card">
             <span class="kicker">Identity</span>
             <div class="protocol-value">{{ categoryMeta.identity }}</div>
           </div>
-          <div class="protocol-card pro-card">
+          <div class="protocol-card glass-card">
             <span class="kicker">Effort</span>
             <div class="protocol-value">{{ difficultyMeta.label }}</div>
           </div>
@@ -97,12 +97,12 @@
             <span class="kicker">Last 8 Sessions</span>
           </div>
 
-          <div v-if="activityFeed.length === 0" class="empty-state pro-card">
+          <div v-if="activityFeed.length === 0" class="empty-state glass-card">
             No history yet. The first completed session will initiate the log.
           </div>
 
           <div v-else class="activity-stack">
-            <article v-for="item in activityFeed" :key="item.date" class="activity-row pro-card">
+            <article v-for="item in activityFeed" :key="item.date" class="activity-row glass-card">
               <div class="activity-dot" :style="{ backgroundColor: categoryMeta.accent }" />
               <div class="activity-copy">
                 <div class="activity-main-label">{{ item.label }}</div>

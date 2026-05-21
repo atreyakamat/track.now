@@ -14,7 +14,7 @@
       </q-inner-loading>
 
       <main v-if="!loading" class="dashboard-main">
-        <section class="hero-card pro-card">
+        <section class="hero-card glass-card">
           <div class="hero-copy">
             <p class="hero-kicker">Dashboard</p>
             <h1>{{ identityInsight ? identityInsight.meta.identity : 'Your next identity is waiting' }}</h1>
@@ -44,31 +44,31 @@
         </section>
 
         <section class="summary-grid">
-          <article class="summary-card pro-card">
+          <article class="summary-card glass-card">
             <span>Momentum</span>
             <strong>{{ momentum.percentage }}%</strong>
             <small>{{ momentum.completedCount }}/{{ momentum.scheduledCount }} sessions in 7 days</small>
           </article>
 
-          <article class="summary-card pro-card">
+          <article class="summary-card glass-card">
             <span>Today Complete</span>
             <strong>{{ completedToday }}/{{ todayHabits.length }}</strong>
             <small>Clear measure of what is left right now</small>
           </article>
 
-          <article class="summary-card pro-card">
+          <article class="summary-card glass-card">
             <span>Active Missions</span>
             <strong>{{ habits.length }}</strong>
             <small>Finite missions with explicit finish lines</small>
           </article>
 
-          <article class="summary-card pro-card">
+          <article class="summary-card glass-card">
             <span>Finishing Soon</span>
             <strong>{{ nearFinish.length }}</strong>
             <small>Missions with fewer than seven days left</small>
           </article>
 
-          <article class="summary-card pro-card">
+          <article class="summary-card glass-card">
             <span>Open Tasks</span>
             <strong>{{ openTasksCount }}</strong>
             <small>{{ todayTasksCount }} due today in task manager</small>
@@ -77,7 +77,7 @@
 
         <section class="board-grid">
           <div class="left-column">
-            <article class="content-card pro-card">
+            <article class="content-card glass-card">
               <div class="section-head">
                 <div>
                   <h2>Today Focus</h2>
@@ -98,7 +98,7 @@
                   class="focus-row"
                   @click="router.push(`/habit/${item.id}`)"
                 >
-                  <div class="focus-emoji" :style="{ background: item.categoryMeta.soft, color: item.categoryMeta.accent }">
+                  <div class="focus-emoji emoji-font" :style="{ background: item.categoryMeta.soft, color: item.categoryMeta.accent }">
                     {{ item.emoji }}
                   </div>
                   <div class="col text-left">
@@ -113,7 +113,7 @@
               </div>
             </article>
 
-            <article class="content-card pro-card">
+            <article class="content-card glass-card">
               <div class="section-head compact">
                 <h2>Category Pulse</h2>
               </div>
@@ -142,7 +142,7 @@
           </div>
 
           <div class="right-column">
-            <article class="content-card pro-card">
+            <article class="content-card glass-card">
               <div class="section-head">
                 <div>
                   <h2>Today Task Queue</h2>
@@ -156,7 +156,7 @@
               </div>
 
               <div v-else class="column q-gutter-sm">
-                <div v-for="task in todayTaskPreview" :key="task.id" class="tile-row">
+                <div v-for="task in todayTaskPreview" :key="task.id" class="tile-row glass-card">
                   <div class="row items-center">
                     <div class="col">
                       <div class="text-body2 text-weight-bold text-white">{{ task.title }}</div>
@@ -172,7 +172,7 @@
               </div>
             </article>
 
-            <article class="content-card pro-card">
+            <article class="content-card glass-card">
               <div class="section-head compact">
                 <h2>Closing Soon</h2>
               </div>
@@ -182,9 +182,9 @@
               </div>
 
               <div v-else class="column q-gutter-md">
-                <div v-for="habit in nearFinish" :key="habit.id" class="tile-row">
+                <div v-for="habit in nearFinish" :key="habit.id" class="tile-row glass-card">
                   <div class="row items-center q-mb-sm">
-                    <div class="text-h6 q-mr-sm">{{ habit.emoji }}</div>
+                    <div class="text-h6 q-mr-sm emoji-font">{{ habit.emoji }}</div>
                     <div class="col">
                       <div class="text-body2 text-weight-bold text-white">{{ habit.name }}</div>
                       <div class="tile-meta">{{ habit.remainingSessions }} days left</div>
@@ -195,7 +195,7 @@
               </div>
             </article>
 
-            <article class="content-card pro-card">
+            <article class="content-card glass-card">
               <div class="section-head compact">
                 <h2>Accountability</h2>
               </div>

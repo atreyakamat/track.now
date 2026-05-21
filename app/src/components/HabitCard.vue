@@ -1,10 +1,10 @@
 <template>
-  <q-card class="habit-card q-mb-md" :class="{ 'completed-card': isCompleted }" flat bordered v-ripple>
+  <q-card class="habit-card q-mb-md glass-card" :class="{ 'completed-card': isCompleted }" flat v-ripple>
     <q-card-section class="habit-card-section">
       <div class="row items-start no-wrap q-col-gutter-md">
         <div class="col-auto">
           <div
-            class="habit-emoji"
+            class="habit-emoji emoji-font"
             :style="{ background: categoryMeta.soft, color: categoryMeta.accent }"
           >
             {{ habit.emoji || '✅' }}

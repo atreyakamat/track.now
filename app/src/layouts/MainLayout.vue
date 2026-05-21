@@ -22,7 +22,7 @@
           </button>
 
           <q-btn flat round dense class="header-btn" icon="more_horiz">
-            <q-menu class="menu-surface" transition-show="scale" transition-hide="scale">
+            <q-menu class="menu-surface glass-card" transition-show="scale" transition-hide="scale">
               <q-list style="min-width: 220px">
                 <q-item clickable v-close-popup @click="$router.push('/dashboard')">
                   <q-item-section avatar><q-icon name="dashboard" /></q-item-section>

@@ -1,7 +1,7 @@
 <template>
   <q-page class="page-container">
     <div class="text-center q-py-xl">
-      <div class="onboarding-emoji q-mb-lg">{{ steps[step].emoji }}</div>
+      <div class="onboarding-emoji q-mb-lg emoji-font">{{ steps[step].emoji }}</div>
       <div class="text-h5 text-weight-bold q-mb-sm">{{ steps[step].title }}</div>
       <div class="text-body1 text-grey q-mb-xl">{{ steps[step].description }}</div>
 
@@ -22,7 +22,7 @@
       </div>
 
       <div v-if="step === 2">
-        <div class="success-animation q-mb-xl">🎉</div>
+        <div class="success-animation q-mb-xl emoji-font">🎉</div>
         <div class="text-body1 text-grey">You're all set! Start tracking your habits today.</div>
       </div>
 

@@ -33,13 +33,16 @@
         </section>
 
         <section class="next-mission" data-reveal>
-          <div class="next-mission-card pro-card" v-if="focusHabit">
+          <div class="next-mission-card glass-card" v-if="focusHabit">
             <div class="card-watermark">
               <q-icon name="rocket_launch" size="96px" />
             </div>
             <div class="next-content">
               <span class="kicker">Do this one now</span>
-              <h3>{{ focusHabit.name }}</h3>
+              <h3 class="row items-center no-wrap">
+                <span class="emoji-font q-mr-sm">{{ focusHabit.emoji }}</span>
+                <span class="ellipsis">{{ focusHabit.name }}</span>
+              </h3>
               <p>{{ focusMissionDescription }}</p>
               <button class="start-btn" type="button" @click="handleCompleteHabit(focusHabit)">
                 Start Mission
@@ -48,7 +51,7 @@
             </div>
           </div>
 
-          <div v-else class="next-mission-card pro-card empty">
+          <div v-else class="next-mission-card glass-card empty">
             <div class="next-content">
               <span class="kicker">Action Hub</span>
               <h3>No missions scheduled for today</h3>
@@ -72,7 +75,7 @@
             <article
               v-for="habit in todayHabits"
               :key="habit.id"
-              class="habit-row pro-card"
+              class="habit-row glass-card"
               :class="{ complete: isHabitDoneToday(habit) }"
             >
               <button
@@ -87,7 +90,10 @@
               </button>
 
               <div class="habit-copy">
-                <h5>{{ habit.name }}</h5>
+                <h5 class="row items-center no-wrap">
+                  <span class="emoji-font q-mr-xs">{{ habit.emoji }}</span>
+                  <span class="ellipsis">{{ habit.name }}</span>
+                </h5>
                 <p>{{ habitLine(habit) }}</p>
               </div>
 
