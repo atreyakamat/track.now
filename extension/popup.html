@@ -235,14 +235,31 @@
   </style>
 </head>
 <body>
-  <div class="wrap">
+  <div id="auth-section" class="wrap" hidden>
+    <section class="panel block">
+      <div class="block-head">
+        <h2>Login to Track.now</h2>
+      </div>
+      <form id="login-form" class="list">
+        <input type="email" id="login-email" placeholder="Email" required style="padding: 10px; border-radius: 8px; border: 1px solid var(--border);">
+        <input type="password" id="login-password" placeholder="Password" required style="padding: 10px; border-radius: 8px; border: 1px solid var(--border);">
+        <button type="submit" class="cta">Login</button>
+      </form>
+      <div id="auth-error" class="muted" style="color: #d32f2f; margin-top: 10px; font-size: 0.8rem;"></div>
+    </section>
+  </div>
+
+  <div id="main-content" class="wrap">
     <section class="panel hero">
       <div class="brand">
         <div class="brand-lock">
           <span class="brand-mark"></span>
           <span>Track.now</span>
         </div>
-        <a class="open-link" href="https://tracknow.app" target="_blank" rel="noreferrer">Open app</a>
+        <div style="display: flex; gap: 8px;">
+          <button id="logout-btn" class="ghost" style="padding: 6px 10px; font-size: 0.75rem;">Logout</button>
+          <a class="open-link" href="https://tracknow.app" target="_blank" rel="noreferrer">Open app</a>
+        </div>
       </div>
 
       <div class="hero-row">

@@ -173,6 +173,52 @@ export const useCompletionsStore = defineStore('completions', () => {
     fetchCompletions,
     fetchLast90Days,
     markComplete,
+    markGrace,
+    unmarkComplete,
+    getTodayCompletionsForHabit
+  }
+})
+        return matchesSessionId(completion, sessionId)
+      })
+      .sort(sortCompletionsDesc)
+
+    const existing = candidates[0]
+    if (!existing) return
+
+    if (isDemoMode) {
+      const stored = getDemoCollection('completions')
+      setDemoCollection('completions', stored.filter((completion) => completion.id !== existing.id))
+      completions.value = completions.value.filter((completion) => completion.id !== existing.id)
+      return
+    }
+
+    await deleteDoc(doc(db, 'completions', existing.id))
+    completions.value = completions.value.filter((completion) => completion.id !== existing.id)
+  }
+
+  async function fetchLast90Days() {
+    const end = new Date()
+    const start = shiftDate(end, -90)
+    await fetchCompletions(
+      getDateKey(start),
+      getDateKey(end)
+    )
+  }
+
+  function getTodayCompletionsForHabit(habitId) {
+    const today = getDateKey()
+    return completions.value.filter((completion) => completion.habitId === habitId && completion.date === today)
+  }
+
+  return {
+    completions,
+    loading,
+    todayCompletions,
+    completedHabitIds,
+    fetchToday,
+    fetchCompletions,
+    fetchLast90Days,
+    markComplete,
     unmarkComplete,
     getTodayCompletionsForHabit
   }

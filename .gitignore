@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+.quasar/
+src-capacitor/
+
+# Environment files
+.env
+.env.*
+!.env.example
+!.env.development.example
+!.env.production.example
+*.local
+
+# IDE and System files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

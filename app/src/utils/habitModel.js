@@ -247,7 +247,7 @@ export function getCompletionMap(completions = []) {
   const map = new Set()
 
   completions.forEach((completion) => {
-    if (completion.completed === false) return
+    if (completion.completed !== true) return
     map.add(`${completion.habitId}:${completion.date}`)
   })
 
@@ -255,7 +255,7 @@ export function getCompletionMap(completions = []) {
 }
 
 export function getCompletionsForDate(dateKey, completions = []) {
-  return completions.filter((completion) => completion.date === dateKey && completion.completed !== false)
+  return completions.filter((completion) => completion.date === dateKey && completion.completed === true)
 }
 
 export function getCompletionCountForDate(dateKey, completions = []) {
@@ -450,6 +450,10 @@ export function formatDayList(days = []) {
   if (labels.length === 0) return 'No days selected'
   if (labels.length === 7) return 'Every day'
   if (labels.length === 5 && !labels.includes('Sat') && !labels.includes('Sun')) return 'Weekdays'
+
+  return labels.join(', ')
+}
+ays'
 
   return labels.join(', ')
 }

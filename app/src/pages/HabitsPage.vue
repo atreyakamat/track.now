@@ -241,21 +241,24 @@ const decoratedHabits = computed(() => {
     if (missionProgress.missionDone) {
       statusLabel = 'Mission Complete'
       statusClass = 'status-done'
-    } else if (pausedToday) {
-      statusLabel = 'Paused Momentum'
-      statusClass = 'status-paused'
-    } else if (scheduledToday && todaySession.completed) {
-      statusLabel = 'Secured Today'
-      statusClass = 'status-done'
+    } else if (todaySession.completed && todaySession.completedSessionIds.length > 0) {
+      // Check if it was a grace completion
+      const sessionCompletions = completionsStore.getTodayCompletionsForHabit(habit.id)
+      const isGrace = sessionCompletions.some(c => c.completed === 'grace')
+      if (isGrace) {
+        statusLabel = 'Paused (Grace)'
+        statusClass = 'status-paused'
+      } else {
+        statusLabel = 'Secured Today'
+        statusClass = 'status-done'
+      }
     } else if (scheduledToday) {
       statusLabel = 'In Progress'
     }
 
     let actionLabel = 'Review'
     if (!missionProgress.missionDone) {
-      if (pausedToday) {
-        actionLabel = 'Resume'
-      } else if (scheduledToday && todaySession.completed) {
+      if (scheduledToday && todaySession.completed) {
         actionLabel = 'Undo'
       } else if (scheduledToday) {
         actionLabel = 'Complete'
@@ -264,14 +267,12 @@ const decoratedHabits = computed(() => {
 
     let pauseLabel = 'Not scheduled'
     if (scheduledToday && !missionProgress.missionDone) {
-      pauseLabel = pausedToday ? 'Resume Today' : 'Skip for Today'
+      pauseLabel = (todaySession.completed) ? 'Review' : 'Use Grace (Skip)'
     }
 
     let note = 'Open mission detail for full protocol settings'
     if (missionProgress.missionDone) {
       note = 'Mission complete and ready for a new cycle'
-    } else if (pausedToday) {
-      note = 'Paused by user command'
     } else if (scheduledToday && todaySession.completed) {
       note = `${missionProgress.remainingSessions} mission days left`
     } else if (missionProgress.remainingSessions <= 7) {
@@ -283,8 +284,6 @@ const decoratedHabits = computed(() => {
     let priorityRank = 2
     if (missionProgress.missionDone) {
       priorityRank = 4
-    } else if (pausedToday) {
-      priorityRank = 3
     } else if (scheduledToday && !todaySession.completed) {
       priorityRank = 0
     } else if (scheduledToday && todaySession.completed) {
@@ -297,7 +296,6 @@ const decoratedHabits = computed(() => {
       missionProgress,
       todaySession,
       scheduledToday,
-      pausedToday,
       statusLabel,
       statusClass,
       actionLabel,

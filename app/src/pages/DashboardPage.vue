@@ -23,6 +23,19 @@
                 ? `${identityInsight.meta.label} is leading your week with ${identityInsight.score}% consistency.`
                 : 'Once you complete a few scheduled habits, the strongest identity signal will appear here.' }}
             </p>
+            <div v-if="identityInsight" class="leveling-wrap">
+              <div class="level-labels">
+                <span>Level {{ Math.floor(identityInsight.completedCount / 5) + 1 }} {{ identityInsight.meta.identity }}</span>
+                <span>{{ (identityInsight.completedCount % 5) * 20 }} / 100 XP</span>
+              </div>
+              <q-linear-progress
+                :value="(identityInsight.completedCount % 5) / 5"
+                rounded
+                size="10px"
+                :color="identityInsight.meta.accent"
+                track-color="rgba(255,255,255,0.1)"
+              />
+            </div>
           </div>
           <div class="hero-plan">
             <span>Current plan</span>
@@ -367,6 +380,22 @@ onMounted(async () => {
   color: #a8a8ad;
   line-height: 1.45;
   font-size: 0.9rem;
+}
+
+.leveling-wrap {
+  margin-top: 16px;
+  max-width: 320px;
+}
+
+.level-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #c4c4c9;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .hero-plan {

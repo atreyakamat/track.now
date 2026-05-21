@@ -1,0 +1,5 @@
+{
+  "appId": "com.tracknow.app",
+  "appName": "Track.now",
+  "webDir": "dist/capacitor"
+}

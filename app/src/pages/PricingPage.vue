@@ -153,10 +153,37 @@ async function selectPlan(planName) {
   }
 
   try {
-    await authStore.updateAccountPlan(planName)
-    $q.notify({ message: `Plan switched to ${planName}.`, color: 'primary', icon: 'o_verified' })
+    const isDemoMode = authStore.user?.uid?.startsWith('demo-') || false; // Quick demo check
+    if (planName === 'free' || isDemoMode) {
+      await authStore.updateAccountPlan(planName)
+      $q.notify({ message: `Plan switched to ${planName}.`, color: 'primary', icon: 'o_verified' })
+      return
+    }
+
+    $q.loading.show({ message: 'Redirecting to Stripe...' })
+    
+    // Call our Firebase Function
+    const response = await fetch('https://us-central1-YOUR_PROJECT_ID.cloudfunctions.net/api/create-checkout-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        plan: planName,
+        userId: authStore.userId
+      })
+    })
+
+    const data = await response.json()
+    
+    if (data.url) {
+      window.location.href = data.url
+    } else {
+      throw new Error(data.error || 'Failed to start checkout')
+    }
   } catch (error) {
-    $q.notify({ message: error.message || 'Could not update plan.', color: 'negative', icon: 'o_error' })
+    console.error('Checkout error:', error)
+    $q.notify({ message: error.message || 'Could not initiate checkout.', color: 'negative', icon: 'o_error' })
+  } finally {
+    $q.loading.hide()
   }
 }
 

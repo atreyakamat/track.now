@@ -76,6 +76,10 @@ module.exports = configure(function (ctx) {
           }
         ]
       }
+    },
+    capacitor: {
+      hideSplashscreen: true,
+      capacitorCliPreparationParams: ['sync', ctx.targetName]
     }
   }
 })
