@@ -113,7 +113,6 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import confetti from 'canvas-confetti'
 import { useQuasar } from 'quasar'
-import { useAuthStore } from 'src/stores/auth'
 import { useCompletionsStore } from 'src/stores/completions'
 import { useHabitsStore } from 'src/stores/habits'
 import AppPageHeader from 'src/components/AppPageHeader.vue'
@@ -127,7 +126,6 @@ import {
 import { setupRevealOnScroll } from 'src/utils/revealMotion'
 
 const $q = useQuasar()
-const authStore = useAuthStore()
 const habitsStore = useHabitsStore()
 const completionsStore = useCompletionsStore()
 

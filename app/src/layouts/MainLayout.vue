@@ -122,7 +122,7 @@ import { usePreferencesStore } from 'src/stores/preferences'
 import { useHabitsStore } from 'src/stores/habits'
 import { useCompletionsStore } from 'src/stores/completions'
 import { useTasksStore } from 'src/stores/tasks'
-import { computed, onUnmounted, ref, watch } from 'vue'
+import { computed, onUnmounted, watch } from 'vue'
 import NotificationBell from 'src/components/NotificationBell.vue'
 
 const $q = useQuasar()

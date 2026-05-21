@@ -129,7 +129,7 @@ export function isHabitScheduledForDate(habit, date = new Date()) {
 export function getCompletionDatesForHabit(habitId, completions = []) {
   return [...new Set(
     completions
-      .filter((completion) => completion.habitId === habitId && completion.completed !== false)
+      .filter((completion) => completion.habitId === habitId && completion.completed === true)
       .map((completion) => completion.date)
   )]
 }
@@ -453,7 +453,4 @@ export function formatDayList(days = []) {
 
   return labels.join(', ')
 }
-ays'
 
-  return labels.join(', ')
-}

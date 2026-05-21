@@ -51,6 +51,14 @@ Date: 2026-04-12
 - Family is productized as pages/flows but not full enterprise-grade parental controls.
 - Browser extension data sync is separate from app backend account data.
 
+### Recent Updates (May 2026)
+
+- **Unified Extension Sync**: Browser extension is now connected to Firebase Auth and Firestore for real-time background sync.
+- **Stripe Checkout**: Mock pricing replaced with a Firebase Functions backend serving real Stripe Checkout sessions and webhooks.
+- **Identity Leveling**: Added XP tracking and dynamic levels for the primary identity to the dashboard to boost emotional engagement.
+- **Grace System**: Replaced local-storage pausing with a Firebase-backed `grace` completion status, officially preventing momentum loss.
+- **Capacitor Mobile Scaffolding**: Added `@capacitor/core` and `quasar.config.js` settings for native Android/iOS compilation.
+
 ## Launch-Ready Checklist (Tomorrow Use)
 
 1. Run in local mode with `npm run dev` in `app/`.

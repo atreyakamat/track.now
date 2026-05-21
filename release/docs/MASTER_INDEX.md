@@ -22,6 +22,7 @@ Visual docs portal:
 1. `../LAUNCH_CHECKLIST.md`
 2. `./IMPLEMENTATION_STATUS.md`
 3. `./DEPLOY_ANDROID_GUIDE.md`
+4. `./PRODUCTION_DEPLOYMENT.md`
 
 ## Current Build Summary
 
@@ -38,6 +39,7 @@ Visual docs portal:
 
 1. `./IMPLEMENTATION_STATUS.md`
 2. `./DEPLOY_ANDROID_GUIDE.md`
-3. `./BUSINESS_VALUE_AND_MONETIZATION.md`
-4. `../PRD.md`
-5. `../Product Spec.md`
+3. `./PRODUCTION_DEPLOYMENT.md`
+4. `./BUSINESS_VALUE_AND_MONETIZATION.md`
+5. `../PRD.md`
+6. `../Product Spec.md`

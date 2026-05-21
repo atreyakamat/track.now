@@ -231,7 +231,6 @@ const decoratedHabits = computed(() => {
     const missionProgress = getMissionProgress(habit, completionsStore.completions)
     const todaySession = getHabitSessionProgressForDate(habit, completionsStore.completions)
     const scheduledToday = isHabitScheduledForDate(habit)
-    const pausedToday = Boolean(pausedTodayMap.value[habit.id])
     const progressPercent = Math.round(missionProgress.progress * 100)
     const progressWidth = Math.max(progressPercent, progressPercent > 0 ? 8 : 0)
 
