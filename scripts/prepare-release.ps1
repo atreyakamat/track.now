@@ -4,6 +4,7 @@ $ErrorActionPreference = 'Stop'
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Resolve-Path (Join-Path $scriptRoot '..')
 $appDir = Join-Path $repoRoot 'app'
+$extensionDir = Join-Path $repoRoot 'extension'
 $releaseDir = Join-Path $repoRoot 'release'
 
 function Assert-WithinRoot {
@@ -32,6 +33,14 @@ Write-Host 'Building Track.now app...'
 Push-Location $appDir
 try {
   npm run build:pwa | Out-Host
+} finally {
+  Pop-Location
+}
+
+Write-Host 'Building browser extension...'
+Push-Location $extensionDir
+try {
+  npm run build | Out-Host
 } finally {
   Pop-Location
 }

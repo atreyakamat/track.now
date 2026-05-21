@@ -3,8 +3,23 @@ const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
 
-// Load env from extension/.env if it exists, otherwise fallback to root or app/
-dotenv.config();
+function loadEnvFile(filePath) {
+  if (!fs.existsSync(filePath)) {
+    return;
+  }
+
+  const parsed = dotenv.parse(fs.readFileSync(filePath));
+  Object.assign(process.env, parsed);
+}
+
+[
+  path.join(__dirname, '.env'),
+  path.join(__dirname, '.env.production'),
+  path.join(__dirname, '..', 'app', '.env'),
+  path.join(__dirname, '..', 'app', '.env.production'),
+  path.join(__dirname, '..', '.env'),
+  path.join(__dirname, '..', '.env.production')
+].forEach(loadEnvFile);
 
 const defines = {
   'process.env.VITE_FIREBASE_API_KEY': JSON.stringify(process.env.VITE_FIREBASE_API_KEY || ''),
@@ -20,15 +35,13 @@ async function build() {
   const distDir = path.join(__dirname, 'dist');
   
   // Ensure dist directory exists
-  if (!fs.existsSync(distDir)) {
-    fs.mkdirSync(distDir);
-  }
+  fs.mkdirSync(distDir, { recursive: true });
 
   // Bundle popup.js
   await esbuild.build({
-    entryPoints: ['src/popup.js'],
+    entryPoints: [path.join(__dirname, 'src', 'popup.js')],
     bundle: true,
-    outfile: 'dist/popup.js',
+    outfile: path.join(distDir, 'popup.js'),
     minify: true,
     sourcemap: false,
     target: ['chrome100'],
@@ -37,9 +50,9 @@ async function build() {
 
   // Bundle background.js
   await esbuild.build({
-    entryPoints: ['src/background.js'],
+    entryPoints: [path.join(__dirname, 'src', 'background.js')],
     bundle: true,
-    outfile: 'dist/background.js',
+    outfile: path.join(distDir, 'background.js'),
     minify: true,
     sourcemap: false,
     target: ['chrome100'],
@@ -47,19 +60,17 @@ async function build() {
   });
 
   // Copy manifest.json
-  fs.copyFileSync('manifest.json', 'dist/manifest.json');
+  fs.copyFileSync(path.join(__dirname, 'manifest.json'), path.join(distDir, 'manifest.json'));
 
   // Copy popup.html
-  fs.copyFileSync('popup.html', 'dist/popup.html');
+  fs.copyFileSync(path.join(__dirname, 'popup.html'), path.join(distDir, 'popup.html'));
 
   // Copy icons directory
   const iconsDist = path.join(distDir, 'icons');
-  if (!fs.existsSync(iconsDist)) {
-    fs.mkdirSync(iconsDist);
-  }
-  const icons = fs.readdirSync('icons');
+  fs.mkdirSync(iconsDist, { recursive: true });
+  const icons = fs.readdirSync(path.join(__dirname, 'icons'));
   for (const icon of icons) {
-    fs.copyFileSync(path.join('icons', icon), path.join(iconsDist, icon));
+    fs.copyFileSync(path.join(__dirname, 'icons', icon), path.join(iconsDist, icon));
   }
 
   console.log('Build complete!');
