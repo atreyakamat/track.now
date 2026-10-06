@@ -1,0 +1,115 @@
+/*
+  Track.now design tokens.
+  Components must consume these variables only — never raw colors.
+  To retheme the product, edit this file.
+*/
+:root {
+  color-scheme: light;
+
+  /* Surfaces & text — warm cream, black ink */
+  --background: #f4efe6;
+  --surface: #fbf8f2;
+  --surface-muted: #ebe5d8;
+  --surface-raised: #ffffff;
+  --text-primary: #141414;
+  --text-secondary: #6b665c;
+  --text-tertiary: #9a9487;
+  --border: #ddd5c5;
+  --border-strong: #c4bba8;
+
+  /* Controls: black in light mode, cream in dark mode */
+  --control-bg: #141414;
+  --control-text: #f4efe6;
+  --control-bg-hover: #2a2a27;
+
+  /* Semantic accents */
+  --accent-primary: #c8f169;
+  --accent-primary-text: #141414;
+  --accent-secondary: #b9a7ff;
+  --success: #2f7d4f;
+  --warning: #b7791f;
+  --danger: #c0392b;
+  --focus-ring: #141414;
+
+  /* Palette available to Tracks (stored by key, e.g. "lime") */
+  --accent-lime: #c8f169;
+  --accent-lilac: #b9a7ff;
+  --accent-peach: #ffb98f;
+  --accent-sky: #9fd3ff;
+  --accent-rose: #ffa9c4;
+  --accent-mint: #9eeccd;
+
+  /* Typography */
+  --font-sans: 'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --text-display: clamp(1.9rem, 1.4rem + 1.6vw, 2.6rem);
+  --text-h1: clamp(1.5rem, 1.25rem + 0.9vw, 1.9rem);
+  --text-h2: 1.25rem;
+  --text-h3: 1rem;
+  --text-body: 0.9375rem;
+  --text-caption: 0.8125rem;
+  --text-meta: 0.6875rem;
+
+  /* Shape, depth, spacing */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --shadow-sm: 0 1px 2px rgb(20 20 20 / 6%);
+  --shadow-md: 0 8px 24px rgb(20 20 20 / 8%);
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  --sidebar-width: 248px;
+  --bottom-nav-height: 64px;
+  --content-max-width: 1080px;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --background: #0e0e0c;
+  --surface: #171714;
+  --surface-muted: #22221e;
+  --surface-raised: #1d1d19;
+  --text-primary: #f4efe6;
+  --text-secondary: #a8a396;
+  --text-tertiary: #77736a;
+  --border: #2c2c27;
+  --border-strong: #46463f;
+  --control-bg: #f4efe6;
+  --control-text: #141414;
+  --control-bg-hover: #ffffff;
+  --success: #6fcf97;
+  --warning: #e0a94b;
+  --danger: #ef7a6c;
+  --focus-ring: #f4efe6;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 40%);
+  --shadow-md: 0 8px 24px rgb(0 0 0 / 45%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --background: #0e0e0c;
+    --surface: #171714;
+    --surface-muted: #22221e;
+    --surface-raised: #1d1d19;
+    --text-primary: #f4efe6;
+    --text-secondary: #a8a396;
+    --text-tertiary: #77736a;
+    --border: #2c2c27;
+    --border-strong: #46463f;
+    --control-bg: #f4efe6;
+    --control-text: #141414;
+    --control-bg-hover: #ffffff;
+    --success: #6fcf97;
+    --warning: #e0a94b;
+    --danger: #ef7a6c;
+    --focus-ring: #f4efe6;
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 40%);
+    --shadow-md: 0 8px 24px rgb(0 0 0 / 45%);
+  }
+}

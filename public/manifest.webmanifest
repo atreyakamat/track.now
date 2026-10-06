@@ -1,0 +1,12 @@
+{
+  "name": "Track.now",
+  "short_name": "Track.now",
+  "description": "A personal operating system for execution.",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#f4efe6",
+  "theme_color": "#f4efe6",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

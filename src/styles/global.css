@@ -1,0 +1,57 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+html, body {
+  overflow-x: hidden;
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.006em;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+h1, h2, h3, p { margin: 0; }
+a { color: inherit; text-decoration: none; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+ul { margin: 0; padding: 0; list-style: none; }
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.t-display { font-size: var(--text-display); font-weight: 600; letter-spacing: -0.03em; line-height: 1.1; }
+.t-h1 { font-size: var(--text-h1); font-weight: 600; letter-spacing: -0.025em; line-height: 1.2; }
+.t-h2 { font-size: var(--text-h2); font-weight: 600; letter-spacing: -0.015em; }
+.t-h3 { font-size: var(--text-h3); font-weight: 600; }
+.t-caption { font-size: var(--text-caption); color: var(--text-secondary); }
+.t-meta { font-size: var(--text-meta); font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); }
+.t-muted { color: var(--text-secondary); }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
