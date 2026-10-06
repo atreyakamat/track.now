@@ -33,6 +33,11 @@ export function SignupPage() {
     try {
       setBusy(true)
       setError(null)
+      // Dismiss any open browser autofill/password suggestion popups cleanly
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur()
+      }
+
       const res = await signUp(
         email.trim(),
         password,
@@ -75,7 +80,7 @@ export function SignupPage() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="auth__form">
+        <form onSubmit={handleSubmit} className="auth__form" noValidate>
           {successNotice ? (
             <div className="alert alert--info" style={{ textAlign: 'center' }}>
               <p>{successNotice}</p>
@@ -90,14 +95,17 @@ export function SignupPage() {
               {error && <div className="alert alert--error">{error}</div>}
 
               <Input
+                name="displayName"
                 label="Your Name or Alias"
                 placeholder="Alex, Builder, Athlete"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
+                autoComplete="name"
                 autoFocus
               />
 
               <Input
+                name="email"
                 label="Email"
                 type="email"
                 placeholder="you@domain.com"
@@ -108,6 +116,7 @@ export function SignupPage() {
               />
 
               <Input
+                name="password"
                 label="Password"
                 type="password"
                 placeholder="At least 6 characters"
@@ -118,6 +127,7 @@ export function SignupPage() {
               />
 
               <Input
+                name="confirmPassword"
                 label="Confirm Password"
                 type="password"
                 placeholder="Confirm password"

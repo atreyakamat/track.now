@@ -23,6 +23,9 @@ export function LoginPage() {
       setBusy(true)
       setError(null)
       clearNotice()
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur()
+      }
       await signIn(email.trim(), password)
       navigate('/dashboard', { replace: true })
     } catch (err) {
@@ -54,11 +57,12 @@ export function LoginPage() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="auth__form">
+        <form onSubmit={handleSubmit} className="auth__form" noValidate>
           {notice && <div className="alert alert--info">{notice}</div>}
           {error && <div className="alert alert--error">{error}</div>}
 
           <Input
+            name="email"
             label="Email"
             type="email"
             placeholder="you@domain.com"
@@ -70,6 +74,7 @@ export function LoginPage() {
           />
 
           <Input
+            name="password"
             label="Password"
             type="password"
             placeholder="••••••••"
