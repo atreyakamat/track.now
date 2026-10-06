@@ -97,7 +97,7 @@ export function TrackDetailPage() {
     <div>
       <PageHeader
         back={{ to: '/tracks', label: 'All Tracks' }}
-        eyebrow={track.template_type !== 'custom' ? `${track.template_type} track` : 'Custom Track'}
+        eyebrow={(track.template_key || track.template_type) && (track.template_key || track.template_type) !== 'custom' ? `${track.template_key || track.template_type} track` : 'Custom Track'}
         title={
           <div className="row" style={{ alignItems: 'center', gap: 'var(--space-3)' }}>
             <div

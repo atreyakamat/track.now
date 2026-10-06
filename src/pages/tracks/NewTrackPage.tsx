@@ -74,6 +74,7 @@ export function NewTrackPage() {
       const track = await createTrack(user.id, {
         name: name.trim(),
         description: description.trim() || null,
+        template_key: selectedTemplate !== 'custom' ? selectedTemplate : null,
         template_type: selectedTemplate,
         icon,
         color,
