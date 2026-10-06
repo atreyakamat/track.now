@@ -36,6 +36,23 @@ describe('dates domain logic', () => {
     expect(isUpcoming(null, fixedNow)).toBe(false)
   })
 
+  it('respects same-day boundaries regardless of time (midnight vs 23:59:59)', () => {
+    const midnight = new Date(2026, 2, 15, 0, 0, 0)
+    const endOfDay = new Date(2026, 2, 15, 23, 59, 59)
+
+    expect(getTodayDateString(midnight)).toBe('2026-03-15')
+    expect(getTodayDateString(endOfDay)).toBe('2026-03-15')
+
+    expect(isDueToday('2026-03-15', midnight)).toBe(true)
+    expect(isDueToday('2026-03-15', endOfDay)).toBe(true)
+
+    expect(isOverdue('2026-03-14', midnight)).toBe(true)
+    expect(isOverdue('2026-03-14', endOfDay)).toBe(true)
+
+    expect(isUpcoming('2026-03-16', midnight)).toBe(true)
+    expect(isUpcoming('2026-03-16', endOfDay)).toBe(true)
+  })
+
   it('generates appropriate greetings by time of day', () => {
     const morning = new Date('2026-03-15T09:00:00')
     const afternoon = new Date('2026-03-15T14:00:00')

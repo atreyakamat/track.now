@@ -26,6 +26,12 @@ describe('calcProgress', () => {
     expect(calcProgress(items)).toEqual({ total: 2, done: 1, percent: 50 })
   })
 
+  it('treats in_progress items as not done', () => {
+    // in_progress items must not be counted as done
+    expect(calcProgress([{ status: 'in_progress' }])).toEqual({ total: 1, done: 0, percent: 0 })
+    expect(calcProgress([{ status: 'todo' }, { status: 'in_progress' }])).toEqual({ total: 2, done: 0, percent: 0 })
+  })
+
   it('handles exact QA ratio specifications (0/0, 0/1, 1/1, 1/2, 2/3)', () => {
     // 0/0 -> 0%
     expect(calcProgress([])).toEqual({ total: 0, done: 0, percent: 0 })
@@ -184,5 +190,47 @@ describe('summarizeTrack', () => {
     // Only 2 items in active plan: 1 done, 1 todo -> 50%
     expect(summary.progress).toEqual({ total: 2, done: 1, percent: 50 })
     expect(summary.lastActivityAt).toBe('2026-01-03T00:00:00Z')
+  })
+
+  it('returns 0% for an empty Track with zero plans or items', () => {
+    const summary = summarizeTrack(mockTrack, [], [])
+    expect(summary.activePlans.length).toBe(0)
+    expect(summary.archivedPlans.length).toBe(0)
+    expect(summary.progress).toEqual({ total: 0, done: 0, percent: 0 })
+  })
+
+  it('returns 0% for an empty Plan with zero items', () => {
+    const summary = summarizePlan(activePlan, [])
+    expect(summary.progress).toEqual({ total: 0, done: 0, percent: 0 })
+    expect(summary.itemCountsByType).toEqual({})
+  })
+
+  it('aggregates across multiple active plans in the same Track', () => {
+    const secondPlan: Plan = {
+      id: 'plan-act-2',
+      user_id: 'user-1',
+      track_id: 'track-1',
+      title: 'Nutrition Arc',
+      status: 'active',
+      start_date: null,
+      end_date: null,
+      position: 1,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+    }
+    const extraItem: ExecutionItemSummary = {
+      id: 'i-4',
+      plan_id: 'plan-act-2',
+      type: 'habit',
+      title: 'Drink 2L water',
+      status: 'done',
+      priority: 'medium',
+      due_date: null,
+      updated_at: '2026-01-04T00:00:00Z',
+    }
+    const summary = summarizeTrack(mockTrack, [activePlan, secondPlan], [...items, extraItem])
+    expect(summary.activePlans.length).toBe(2)
+    // Active plan 1: 2 items (1 done), Active plan 2: 1 item (1 done) => 2 done / 3 total => 67%
+    expect(summary.progress).toEqual({ total: 3, done: 2, percent: 67 })
   })
 })

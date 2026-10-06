@@ -17,6 +17,17 @@ export async function getPlan(planId: string): Promise<Plan> {
 }
 
 export async function createPlan(userId: string, input: NewPlanInput): Promise<Plan> {
+  if (input.track_id) {
+    const { data: track, error: trackErr } = await supabase
+      .from('track_now_tracks')
+      .select('id')
+      .eq('id', input.track_id)
+      .maybeSingle()
+    if (trackErr || !track) {
+      throw new Error('Unauthorized or target track does not exist')
+    }
+  }
+
   return unwrap(
     await supabase
       .from('track_now_plans')

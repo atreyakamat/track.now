@@ -66,6 +66,17 @@ export async function createExecutionItem(
   userId: string,
   input: NewExecutionItemInput,
 ): Promise<ExecutionItem> {
+  if (input.plan_id) {
+    const { data: plan, error: planErr } = await supabase
+      .from('track_now_plans')
+      .select('id')
+      .eq('id', input.plan_id)
+      .maybeSingle()
+    if (planErr || !plan) {
+      throw new Error('Unauthorized or target plan does not exist')
+    }
+  }
+
   return unwrap(
     await supabase
       .from('track_now_execution_items')
@@ -101,6 +112,17 @@ export async function recordCompletion(
   completedDate?: string,
 ): Promise<void> {
   const dateStr = completedDate || new Date().toISOString().split('T')[0]
+
+  // Validate that target execution item exists and belongs to this user
+  const { data: item, error: itemErr } = await supabase
+    .from('track_now_execution_items')
+    .select('id')
+    .eq('id', itemId)
+    .maybeSingle()
+  if (itemErr || !item) {
+    throw new Error('Unauthorized or target execution item does not exist')
+  }
+
   // Prevent duplicate completions for the same item and date
   const { data: existing } = await supabase
     .from('track_now_item_completions')

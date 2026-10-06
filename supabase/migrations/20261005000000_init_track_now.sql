@@ -149,7 +149,14 @@ DROP POLICY IF EXISTS "track_now_plans_user_isolation" ON public.track_now_plans
 CREATE POLICY "track_now_plans_user_isolation"
   ON public.track_now_plans FOR ALL
   USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
+  WITH CHECK (
+    auth.uid() = user_id
+    AND EXISTS (
+      SELECT 1 FROM public.track_now_tracks
+      WHERE public.track_now_tracks.id = track_now_plans.track_id
+        AND public.track_now_tracks.user_id = auth.uid()
+    )
+  );
 
 DROP TRIGGER IF EXISTS tr_track_now_plans_updated_at ON public.track_now_plans;
 CREATE TRIGGER tr_track_now_plans_updated_at
@@ -189,7 +196,14 @@ DROP POLICY IF EXISTS "track_now_items_user_isolation" ON public.track_now_execu
 CREATE POLICY "track_now_items_user_isolation"
   ON public.track_now_execution_items FOR ALL
   USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
+  WITH CHECK (
+    auth.uid() = user_id
+    AND EXISTS (
+      SELECT 1 FROM public.track_now_plans
+      WHERE public.track_now_plans.id = track_now_execution_items.plan_id
+        AND public.track_now_plans.user_id = auth.uid()
+    )
+  );
 
 DROP TRIGGER IF EXISTS tr_track_now_items_updated_at ON public.track_now_execution_items;
 CREATE TRIGGER tr_track_now_items_updated_at
@@ -248,7 +262,14 @@ DROP POLICY IF EXISTS "track_now_completions_user_isolation" ON public.track_now
 CREATE POLICY "track_now_completions_user_isolation"
   ON public.track_now_item_completions FOR ALL
   USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
+  WITH CHECK (
+    auth.uid() = user_id
+    AND EXISTS (
+      SELECT 1 FROM public.track_now_execution_items
+      WHERE public.track_now_execution_items.id = track_now_item_completions.item_id
+        AND public.track_now_execution_items.user_id = auth.uid()
+    )
+  );
 
 -- 10. Seed Predefined Track Templates
 INSERT INTO public.track_now_track_templates (key, name, description, icon, color, default_items)
