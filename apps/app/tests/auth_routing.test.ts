@@ -1,94 +1,85 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { Navigate, Outlet } from 'react-router-dom'
+import { ProtectedRoute, PublicRoute } from '@/routes/ProtectedRoute'
 
-type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated'
+let mockStatus: 'loading' | 'authenticated' | 'unauthenticated' = 'loading'
 
-interface RouteGuardResult {
-  action: 'render' | 'redirect' | 'loading'
-  redirectTo?: string
-}
+vi.mock('@/features/auth/AuthProvider', () => ({
+  useAuth: () => ({
+    status: mockStatus,
+    user: mockStatus === 'authenticated' ? { id: 'usr-123' } : null,
+  }),
+}))
 
-function resolveProtectedRoute(status: AuthStatus): RouteGuardResult {
-  if (status === 'loading') return { action: 'loading' }
-  if (status === 'unauthenticated') return { action: 'redirect', redirectTo: '/login' }
-  return { action: 'render' }
-}
-
-function resolvePublicRoute(status: AuthStatus, targetPath: string): RouteGuardResult {
-  if (status === 'loading') return { action: 'loading' }
-  if (status === 'authenticated') return { action: 'redirect', redirectTo: '/dashboard' }
-  return { action: 'render' }
-}
-
-describe('Auth Routing & Route Guards Logic', () => {
+describe('Auth Routing & Route Guards', () => {
   it('blocks unauthenticated user from protected routes and redirects to /login', () => {
-    const result = resolveProtectedRoute('unauthenticated')
-    expect(result.action).toBe('redirect')
-    expect(result.redirectTo).toBe('/login')
+    mockStatus = 'unauthenticated'
+    const element = ProtectedRoute()
+    expect(element.type).toBe(Navigate)
+    expect(element.props.to).toBe('/login')
+    expect(element.props.replace).toBe(true)
   })
 
-  it('allows authenticated user into protected routes', () => {
-    const result = resolveProtectedRoute('authenticated')
-    expect(result.action).toBe('render')
-    expect(result.redirectTo).toBeUndefined()
+  it('allows authenticated user into protected routes by rendering Outlet', () => {
+    mockStatus = 'authenticated'
+    const element = ProtectedRoute()
+    expect(element.type).toBe(Outlet)
   })
 
-  it('redirects authenticated user visiting /login to /dashboard', () => {
-    const result = resolvePublicRoute('authenticated', '/login')
-    expect(result.action).toBe('redirect')
-    expect(result.redirectTo).toBe('/dashboard')
+  it('redirects authenticated user visiting public auth routes (/login, /signup) to /dashboard', () => {
+    mockStatus = 'authenticated'
+    const element = PublicRoute()
+    expect(element.type).toBe(Navigate)
+    expect(element.props.to).toBe('/dashboard')
+    expect(element.props.replace).toBe(true)
   })
 
-  it('redirects authenticated user visiting /signup to /dashboard', () => {
-    const result = resolvePublicRoute('authenticated', '/signup')
-    expect(result.action).toBe('redirect')
-    expect(result.redirectTo).toBe('/dashboard')
+  it('allows unauthenticated user to access public routes by rendering Outlet', () => {
+    mockStatus = 'unauthenticated'
+    const element = PublicRoute()
+    expect(element.type).toBe(Outlet)
   })
 
-  it('allows unauthenticated user to access /login and /signup', () => {
-    expect(resolvePublicRoute('unauthenticated', '/login')).toEqual({ action: 'render' })
-    expect(resolvePublicRoute('unauthenticated', '/signup')).toEqual({ action: 'render' })
+  it('renders loading session indicator while auth status is loading in ProtectedRoute', () => {
+    mockStatus = 'loading'
+    const element = ProtectedRoute()
+    expect(element.type).not.toBe(Navigate)
+    expect(element.type).not.toBe(Outlet)
+    expect(element.props.children).toBeDefined()
   })
 
-  it('renders loading state while verifying session without initiating redirects', () => {
-    expect(resolveProtectedRoute('loading')).toEqual({ action: 'loading' })
-    expect(resolvePublicRoute('loading', '/login')).toEqual({ action: 'loading' })
-    expect(resolvePublicRoute('loading', '/signup')).toEqual({ action: 'loading' })
+  it('renders loading session indicator while auth status is loading in PublicRoute', () => {
+    mockStatus = 'loading'
+    const element = PublicRoute()
+    expect(element.type).not.toBe(Navigate)
+    expect(element.type).not.toBe(Outlet)
+    expect(element.props.children).toBeDefined()
   })
 
-  it('verifies absence of infinite redirect loops', () => {
-    // Simulate navigation transitions:
-    // 1. Initial load -> loading -> no redirect
-    const s1 = resolveProtectedRoute('loading')
-    expect(s1.action).toBe('loading')
+  it('verifies non-cyclical redirect invariants across auth lifecycle transitions', () => {
+    // 1. Initial boot: loading -> yields loading indicator (no redirect)
+    mockStatus = 'loading'
+    const s1 = ProtectedRoute()
+    expect(s1.type).not.toBe(Navigate)
 
-    // 2. Unauthenticated -> redirects to /login -> at /login public route renders
-    const s2 = resolveProtectedRoute('unauthenticated')
-    expect(s2.redirectTo).toBe('/login')
-    const s3 = resolvePublicRoute('unauthenticated', '/login')
-    expect(s3.action).toBe('render') // Stable! No further redirect.
+    // 2. Unauthenticated: protected guard redirects to /login
+    mockStatus = 'unauthenticated'
+    const s2 = ProtectedRoute()
+    expect(s2.type).toBe(Navigate)
+    expect(s2.props.to).toBe('/login')
 
-    // 3. User signs in -> authenticated -> at /login redirects to /dashboard -> at /dashboard renders
-    const s4 = resolvePublicRoute('authenticated', '/login')
-    expect(s4.redirectTo).toBe('/dashboard')
-    const s5 = resolveProtectedRoute('authenticated')
-    expect(s5.action).toBe('render') // Stable! No further redirect.
-  })
+    // At /login, public guard renders Outlet without further redirect
+    const s3 = PublicRoute()
+    expect(s3.type).toBe(Outlet)
 
-  it('redirects unauthenticated root / access to /login via protected route guard', () => {
-    const result = resolveProtectedRoute('unauthenticated')
-    expect(result.action).toBe('redirect')
-    expect(result.redirectTo).toBe('/login')
-  })
+    // 3. Authenticated: public guard redirects to /dashboard
+    mockStatus = 'authenticated'
+    const s4 = PublicRoute()
+    expect(s4.type).toBe(Navigate)
+    expect(s4.props.to).toBe('/dashboard')
 
-  it('allows authenticated user accessing root / to enter app shell and navigate to /dashboard', () => {
-    const result = resolveProtectedRoute('authenticated')
-    expect(result.action).toBe('render')
-    expect(result.redirectTo).toBeUndefined()
-  })
-
-  it('preserves direct /dashboard access for authenticated users', () => {
-    const result = resolveProtectedRoute('authenticated')
-    expect(result.action).toBe('render')
-    expect(result.redirectTo).toBeUndefined()
+    // At /dashboard, protected guard renders Outlet stably
+    const s5 = ProtectedRoute()
+    expect(s5.type).toBe(Outlet)
   })
 })

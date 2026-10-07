@@ -36,9 +36,10 @@ if (!url || !anonKey) {
 }
 
 if (!serviceKey) {
-  console.log('NOTICE: SUPABASE_SERVICE_ROLE_KEY is not set in environment.');
-  console.log('Skipping administrative cross-tenant user creation test.');
-  process.exit(0);
+  console.log('STATUS = BLOCKED');
+  console.log('REASON: SUPABASE_SERVICE_ROLE_KEY is withheld for security and not set in environment.');
+  console.log('Administrative cross-tenant RLS verification requires SUPABASE_SERVICE_ROLE_KEY.');
+  process.exit(2);
 }
 
 const admin = createClient(url, serviceKey, { auth: { persistSession: false } });

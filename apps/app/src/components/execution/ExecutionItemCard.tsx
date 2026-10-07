@@ -10,6 +10,7 @@ interface ExecutionItemCardProps {
   onEdit?: (item: ExecutionItem) => void
   onDelete?: (itemId: string) => void
   busy?: boolean
+  isCompletedOverride?: boolean
 }
 
 export function ExecutionItemCard({
@@ -19,8 +20,9 @@ export function ExecutionItemCard({
   onEdit,
   onDelete,
   busy,
+  isCompletedOverride,
 }: ExecutionItemCardProps) {
-  const isDone = item.status === 'done'
+  const isDone = isCompletedOverride !== undefined ? isCompletedOverride : item.status === 'done'
   const overdue = !isDone && isOverdue(item.due_date)
   const targetCount = Math.max(1, item.target_count ?? 1)
   const currentCount = Math.max(0, item.current_count ?? 0)

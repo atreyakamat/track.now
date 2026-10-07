@@ -25,9 +25,10 @@ function walk(dir) {
   }
 }
 
-walk('src');
+const targetDirs = ['apps/app/src', 'apps/landing/src'].filter((d) => fs.existsSync(d));
+targetDirs.forEach((dir) => walk(dir));
 if (violations === 0) {
-  console.log('ALL CLEAR: Zero references to old table names in supabase.from() calls in src.');
+  console.log('ALL CLEAR: Zero references to old table names in supabase.from() calls in workspaces.');
 } else {
   console.error(`Found ${violations} violations!`);
   process.exit(1);

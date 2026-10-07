@@ -19,10 +19,13 @@ import {
   createExecutionItem,
   deleteExecutionItem,
   editExecutionItem,
+  listCompletionsForDate,
   listExecutionItems,
+  toggleHabitTodayCompletion,
   toggleItemStatus,
   updateItemProgress,
 } from '@/services/executionService'
+import { getTodayDateString } from '@/domain/dates'
 import { summarizePlan } from '@/domain/progress'
 import { formatDateRange } from '@/utils/format'
 import type {
@@ -85,6 +88,7 @@ export function PlanDetailPage() {
   // Plan deletion
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [deleteBusy, setDeleteBusy] = useState(false)
+  const [todayCompletedIds, setTodayCompletedIds] = useState<string[]>([])
 
   const loadData = async () => {
     if (!planId) return
@@ -93,13 +97,15 @@ export function PlanDetailPage() {
       setError(null)
       const p = await getPlan(planId)
       const targetTrackId = trackId || p.track_id
-      const [t, itemList] = await Promise.all([
+      const [t, itemList, completions] = await Promise.all([
         getTrack(targetTrackId),
         listExecutionItems(planId),
+        user ? listCompletionsForDate(user.id, getTodayDateString()).catch(() => []) : Promise.resolve([]),
       ])
       setTrack(t)
       setPlan(p)
       setItems(itemList)
+      setTodayCompletedIds(completions)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load plan')
     } finally {
@@ -109,7 +115,7 @@ export function PlanDetailPage() {
 
   useEffect(() => {
     loadData()
-  }, [trackId, planId])
+  }, [trackId, planId, user?.id])
 
   const handleTogglePlanArchive = async () => {
     if (!plan) return
@@ -170,10 +176,32 @@ export function PlanDetailPage() {
   }
 
   const handleToggleItemStatus = async (itemId: string, currentStatus: ExecutionItem['status']) => {
+    const item = items.find((i) => i.id === itemId)
+    if (!item) return
     try {
       setBusyItemId(itemId)
-      const updated = await toggleItemStatus(itemId, currentStatus, user?.id)
-      setItems((prev) => prev.map((item) => (item.id === itemId ? updated : item)))
+      if (item.type === 'habit') {
+        const isDoneToday = todayCompletedIds.includes(itemId)
+        if (user) {
+          const nextDone = await toggleHabitTodayCompletion(user.id, itemId, isDoneToday)
+          setTodayCompletedIds((prev) =>
+            nextDone ? [...prev, itemId] : prev.filter((id) => id !== itemId),
+          )
+          const target = Math.max(1, item.target_count ?? 1)
+          const newCount = nextDone ? target : 0
+          if ((item.current_count ?? 0) !== newCount) {
+            const updated = await updateItemProgress(itemId, newCount, user.id)
+            setItems((prev) => prev.map((it) => (it.id === itemId ? updated : it)))
+          }
+        } else {
+          setTodayCompletedIds((prev) =>
+            isDoneToday ? prev.filter((id) => id !== itemId) : [...prev, itemId],
+          )
+        }
+      } else {
+        const updated = await toggleItemStatus(itemId, currentStatus, user?.id)
+        setItems((prev) => prev.map((item) => (item.id === itemId ? updated : item)))
+      }
     } catch (err) {
       console.error('Failed to update item status:', err)
     } finally {
@@ -186,6 +214,15 @@ export function PlanDetailPage() {
       setBusyItemId(itemId)
       const updated = await updateItemProgress(itemId, newCount, user?.id)
       setItems((prev) => prev.map((item) => (item.id === itemId ? updated : item)))
+      const item = items.find((i) => i.id === itemId)
+      if (item && item.type === 'habit') {
+        const target = Math.max(1, updated.target_count ?? 1)
+        if (newCount >= target) {
+          setTodayCompletedIds((prev) => (prev.includes(itemId) ? prev : [...prev, itemId]))
+        } else {
+          setTodayCompletedIds((prev) => prev.filter((id) => id !== itemId))
+        }
+      }
     } catch (err) {
       console.error('Failed to update item count:', err)
     } finally {
@@ -385,6 +422,7 @@ export function PlanDetailPage() {
                   <ExecutionItemCard
                     key={item.id}
                     item={item}
+                    isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
                     onToggleStatus={handleToggleItemStatus}
                     onUpdateCount={handleUpdateItemCount}
                     onEdit={(item) => setEditingItem(item)}
@@ -423,6 +461,7 @@ export function PlanDetailPage() {
                 <ExecutionItemCard
                   key={item.id}
                   item={item}
+                  isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
                   onToggleStatus={handleToggleItemStatus}
                   onUpdateCount={handleUpdateItemCount}
                   onEdit={(item) => setEditingItem(item)}
@@ -461,6 +500,7 @@ export function PlanDetailPage() {
                 <ExecutionItemCard
                   key={item.id}
                   item={item}
+                  isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
                   onToggleStatus={handleToggleItemStatus}
                   onUpdateCount={handleUpdateItemCount}
                   onEdit={(item) => setEditingItem(item)}
@@ -499,6 +539,7 @@ export function PlanDetailPage() {
                 <ExecutionItemCard
                   key={item.id}
                   item={item}
+                  isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
                   onToggleStatus={handleToggleItemStatus}
                   onUpdateCount={handleUpdateItemCount}
                   onEdit={(item) => setEditingItem(item)}
@@ -537,6 +578,7 @@ export function PlanDetailPage() {
                 <ExecutionItemCard
                   key={item.id}
                   item={item}
+                  isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
                   onToggleStatus={handleToggleItemStatus}
                   onUpdateCount={handleUpdateItemCount}
                   onEdit={(item) => setEditingItem(item)}
@@ -575,6 +617,7 @@ export function PlanDetailPage() {
                 <ExecutionItemCard
                   key={item.id}
                   item={item}
+                  isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
                   onToggleStatus={handleToggleItemStatus}
                   onUpdateCount={handleUpdateItemCount}
                   onEdit={(item) => setEditingItem(item)}

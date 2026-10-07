@@ -7,9 +7,10 @@ import type {
   NewItemScheduleInput,
   UpdateExecutionItemInput,
 } from '@/types/domain'
+import { getTodayDateString } from '@/domain/dates'
 import { unwrap } from './helpers'
 
-function mapExecutionItemRow(row: any): ExecutionItem {
+export function mapExecutionItemRow(row: any): ExecutionItem {
   const rawSched = row.track_now_item_schedules ?? row.schedule
   const schedule: ItemSchedule | null = Array.isArray(rawSched)
     ? (rawSched[0] ?? null)
@@ -216,6 +217,7 @@ export async function updateItemProgress(
   itemId: string,
   newCount: number,
   userId?: string,
+  completedDate?: string,
 ): Promise<ExecutionItem> {
   const currentItem = await getExecutionItem(itemId)
   const targetCount = Math.max(1, currentItem.target_count ?? 1)
@@ -223,6 +225,7 @@ export async function updateItemProgress(
   const willBeDone = clampedCount >= targetCount
   const nextStatus: ItemStatus = willBeDone ? 'done' : 'todo'
   const wasDone = currentItem.status === 'done'
+  const dateStr = completedDate || getTodayDateString()
 
   const updated = await updateExecutionItem(itemId, {
     current_count: clampedCount,
@@ -231,11 +234,11 @@ export async function updateItemProgress(
 
   if (userId) {
     if (willBeDone && !wasDone) {
-      await recordCompletion(userId, itemId).catch((err) => {
+      await recordCompletion(userId, itemId, undefined, dateStr).catch((err) => {
         console.warn('Could not record completion log on progress completion:', err)
       })
     } else if (!willBeDone && wasDone) {
-      await deleteCompletionForDate(itemId).catch((err) => {
+      await deleteCompletionForDate(itemId, dateStr).catch((err) => {
         console.warn('Could not remove completion log on progress regress:', err)
       })
     }
@@ -248,8 +251,10 @@ export async function editExecutionItem(
   itemId: string,
   input: UpdateExecutionItemInput,
   userId?: string,
+  completedDate?: string,
 ): Promise<ExecutionItem> {
   const currentItem = await getExecutionItem(itemId)
+  const dateStr = completedDate || getTodayDateString()
 
   // Determine updated fields
   const targetCount =
@@ -294,11 +299,11 @@ export async function editExecutionItem(
 
   if (userId) {
     if (willBeDone && !wasDone) {
-      await recordCompletion(userId, itemId).catch((err) => {
+      await recordCompletion(userId, itemId, undefined, dateStr).catch((err) => {
         console.warn('Could not record completion log on edit completion:', err)
       })
     } else if (!willBeDone && wasDone) {
-      await deleteCompletionForDate(itemId).catch((err) => {
+      await deleteCompletionForDate(itemId, dateStr).catch((err) => {
         console.warn('Could not remove completion log on edit regress:', err)
       })
     }
@@ -313,7 +318,7 @@ export async function recordCompletion(
   notes?: string,
   completedDate?: string,
 ): Promise<void> {
-  const dateStr = completedDate || new Date().toISOString().split('T')[0]
+  const dateStr = completedDate || getTodayDateString()
 
   // Validate that target execution item exists and belongs to this user
   const { data: item, error: itemErr } = await supabase
@@ -355,7 +360,7 @@ export async function deleteCompletionForDate(
   itemId: string,
   completedDate?: string,
 ): Promise<void> {
-  const dateStr = completedDate || new Date().toISOString().split('T')[0]
+  const dateStr = completedDate || getTodayDateString()
   await supabase
     .from('track_now_item_completions')
     .delete()
@@ -363,15 +368,45 @@ export async function deleteCompletionForDate(
     .eq('completed_date', dateStr)
 }
 
+export async function listCompletionsForDate(
+  userId: string,
+  dateStr = getTodayDateString(),
+): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('track_now_item_completions')
+    .select('item_id')
+    .eq('user_id', userId)
+    .eq('completed_date', dateStr)
+  if (error) throw new Error(error.message)
+  return ((data || []) as Array<{ item_id: string }>).map((c) => c.item_id)
+}
+
+export async function toggleHabitTodayCompletion(
+  userId: string,
+  itemId: string,
+  completedToday: boolean,
+  dateStr = getTodayDateString(),
+): Promise<boolean> {
+  if (completedToday) {
+    await deleteCompletionForDate(itemId, dateStr)
+    return false
+  } else {
+    await recordCompletion(userId, itemId, undefined, dateStr)
+    return true
+  }
+}
+
 export async function toggleItemStatus(
   itemId: string,
   currentStatus: ItemStatus,
   userId?: string,
+  completedDate?: string,
 ): Promise<ExecutionItem> {
   const nextStatus: ItemStatus = currentStatus === 'done' ? 'todo' : 'done'
   const currentItem = await getExecutionItem(itemId)
   const targetCount = Math.max(1, currentItem.target_count ?? 1)
   const nextCount = nextStatus === 'done' ? Math.max(targetCount, currentItem.current_count ?? 0) : 0
+  const dateStr = completedDate || getTodayDateString()
 
   const updated = await updateExecutionItem(itemId, {
     status: nextStatus,
@@ -380,11 +415,11 @@ export async function toggleItemStatus(
 
   if (userId) {
     if (nextStatus === 'done') {
-      await recordCompletion(userId, itemId).catch((err) => {
+      await recordCompletion(userId, itemId, undefined, dateStr).catch((err) => {
         console.warn('Could not record completion log:', err)
       })
     } else {
-      await deleteCompletionForDate(itemId).catch((err) => {
+      await deleteCompletionForDate(itemId, dateStr).catch((err) => {
         console.warn('Could not remove completion log on uncomplete:', err)
       })
     }

@@ -3,11 +3,19 @@ import { CheckCircle2, Clock } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthProvider'
 import {
   editExecutionItem,
+  listCompletionsForDate,
   listTodayExecutionItems,
+  toggleHabitTodayCompletion,
   toggleItemStatus,
   updateItemProgress,
 } from '@/services/executionService'
-import { isDueToday, isHabitScheduledForToday, isOverdue, isUpcoming } from '@/domain/dates'
+import {
+  getTodayDateString,
+  isDueToday,
+  isHabitScheduledForToday,
+  isOverdue,
+  isUpcoming,
+} from '@/domain/dates'
 import type { ExecutionItem, UpdateExecutionItemInput } from '@/types/domain'
 import { EmptyState, ErrorState, LoadingState, PageHeader } from '@/components/ui'
 import { ExecutionItemCard } from '@/components/execution/ExecutionItemCard'
@@ -16,6 +24,7 @@ import { EditItemModal } from '@/components/execution/EditItemModal'
 export function TodayPage() {
   const { user } = useAuth()
   const [items, setItems] = useState<ExecutionItem[]>([])
+  const [todayCompletedIds, setTodayCompletedIds] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [editingItem, setEditingItem] = useState<ExecutionItem | null>(null)
@@ -27,6 +36,11 @@ export function TodayPage() {
       setError(null)
       const allItems = await listTodayExecutionItems()
       setItems(allItems)
+      if (user) {
+        const todayDate = getTodayDateString()
+        const completedIds = await listCompletionsForDate(user.id, todayDate)
+        setTodayCompletedIds(completedIds)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load today items')
     } finally {
@@ -36,13 +50,35 @@ export function TodayPage() {
 
   useEffect(() => {
     loadData()
-  }, [])
+  }, [user?.id])
 
   const handleToggleStatus = async (itemId: string, currentStatus: ExecutionItem['status']) => {
+    const item = items.find((i) => i.id === itemId)
+    if (!item) return
     try {
       setBusyItemId(itemId)
-      const updated = await toggleItemStatus(itemId, currentStatus, user?.id)
-      setItems((prev) => prev.map((item) => (item.id === itemId ? updated : item)))
+      if (item.type === 'habit') {
+        const isDoneToday = todayCompletedIds.includes(itemId)
+        if (user) {
+          const nextDone = await toggleHabitTodayCompletion(user.id, itemId, isDoneToday)
+          setTodayCompletedIds((prev) =>
+            nextDone ? [...prev, itemId] : prev.filter((id) => id !== itemId),
+          )
+          const target = Math.max(1, item.target_count ?? 1)
+          const newCount = nextDone ? target : 0
+          if ((item.current_count ?? 0) !== newCount) {
+            const updated = await updateItemProgress(itemId, newCount, user.id)
+            setItems((prev) => prev.map((it) => (it.id === itemId ? updated : it)))
+          }
+        } else {
+          setTodayCompletedIds((prev) =>
+            isDoneToday ? prev.filter((id) => id !== itemId) : [...prev, itemId],
+          )
+        }
+      } else {
+        const updated = await toggleItemStatus(itemId, currentStatus, user?.id)
+        setItems((prev) => prev.map((it) => (it.id === itemId ? updated : it)))
+      }
     } catch (err) {
       console.error('Failed to toggle status:', err)
     } finally {
@@ -55,6 +91,15 @@ export function TodayPage() {
       setBusyItemId(itemId)
       const updated = await updateItemProgress(itemId, newCount, user?.id)
       setItems((prev) => prev.map((item) => (item.id === itemId ? updated : item)))
+      const item = items.find((i) => i.id === itemId)
+      if (item && item.type === 'habit') {
+        const target = Math.max(1, updated.target_count ?? 1)
+        if (newCount >= target) {
+          setTodayCompletedIds((prev) => (prev.includes(itemId) ? prev : [...prev, itemId]))
+        } else {
+          setTodayCompletedIds((prev) => prev.filter((id) => id !== itemId))
+        }
+      }
     } catch (err) {
       console.error('Failed to update item count:', err)
     } finally {
@@ -81,8 +126,15 @@ export function TodayPage() {
   if (error) return <ErrorState message={error} onRetry={loadData} />
 
   // Partition items into Overdue, Today, Upcoming, and Completed
-  const uncompleted = items.filter((i) => i.status !== 'done' && i.status !== 'archived')
-  const completed = items.filter((i) => i.status === 'done')
+  const isItemCompleted = (i: ExecutionItem) => {
+    if (i.type === 'habit') {
+      return todayCompletedIds.includes(i.id)
+    }
+    return i.status === 'done'
+  }
+
+  const uncompleted = items.filter((i) => !isItemCompleted(i) && i.status !== 'archived')
+  const completed = items.filter((i) => isItemCompleted(i) && i.status !== 'archived')
 
   const overdueItems = uncompleted.filter((i) => i.type !== 'habit' && isOverdue(i.due_date))
 
@@ -141,6 +193,7 @@ export function TodayPage() {
                   <ExecutionItemCard
                     key={item.id}
                     item={item}
+                    isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
                     onToggleStatus={handleToggleStatus}
                     onUpdateCount={handleUpdateCount}
                     onEdit={(item) => setEditingItem(item)}
@@ -162,6 +215,7 @@ export function TodayPage() {
                   <ExecutionItemCard
                     key={item.id}
                     item={item}
+                    isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
                     onToggleStatus={handleToggleStatus}
                     onUpdateCount={handleUpdateCount}
                     onEdit={(item) => setEditingItem(item)}
@@ -183,6 +237,7 @@ export function TodayPage() {
                   <ExecutionItemCard
                     key={item.id}
                     item={item}
+                    isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
                     onToggleStatus={handleToggleStatus}
                     onUpdateCount={handleUpdateCount}
                     onEdit={(item) => setEditingItem(item)}
@@ -206,6 +261,7 @@ export function TodayPage() {
                   <ExecutionItemCard
                     key={item.id}
                     item={item}
+                    isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
                     onToggleStatus={handleToggleStatus}
                     onUpdateCount={handleUpdateCount}
                     onEdit={(item) => setEditingItem(item)}
@@ -229,6 +285,7 @@ export function TodayPage() {
                   <ExecutionItemCard
                     key={item.id}
                     item={item}
+                    isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
                     onToggleStatus={handleToggleStatus}
                     onUpdateCount={handleUpdateCount}
                     onEdit={(item) => setEditingItem(item)}
