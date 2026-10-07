@@ -73,4 +73,22 @@ describe('Auth Routing & Route Guards Logic', () => {
     const s5 = resolveProtectedRoute('authenticated')
     expect(s5.action).toBe('render') // Stable! No further redirect.
   })
+
+  it('redirects unauthenticated root / access to /login via protected route guard', () => {
+    const result = resolveProtectedRoute('unauthenticated')
+    expect(result.action).toBe('redirect')
+    expect(result.redirectTo).toBe('/login')
+  })
+
+  it('allows authenticated user accessing root / to enter app shell and navigate to /dashboard', () => {
+    const result = resolveProtectedRoute('authenticated')
+    expect(result.action).toBe('render')
+    expect(result.redirectTo).toBeUndefined()
+  })
+
+  it('preserves direct /dashboard access for authenticated users', () => {
+    const result = resolveProtectedRoute('authenticated')
+    expect(result.action).toBe('render')
+    expect(result.redirectTo).toBeUndefined()
+  })
 })

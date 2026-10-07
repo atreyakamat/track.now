@@ -1,30 +1,25 @@
 {
-  "name": "track-now",
+  "name": "track-now-monorepo",
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "workspaces": [
+    "apps/*"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "typecheck": "tsc -b --noEmit",
-    "test": "vitest run",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "@fontsource-variable/inter": "^5.1.0",
-    "@supabase/supabase-js": "^2.45.0",
-    "lucide-react": "^0.460.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-router-dom": "^6.28.0"
+    "dev": "npm --workspace=app run dev",
+    "dev:landing": "npm --workspace=landing run dev",
+    "dev:app": "npm --workspace=app run dev",
+    "build": "npm run build:landing && npm run build:app",
+    "build:landing": "npm --workspace=landing run build",
+    "build:app": "npm --workspace=app run build",
+    "typecheck": "npm --workspace=landing run typecheck && npm --workspace=app run typecheck",
+    "test": "npm --workspace=app run test",
+    "test:app": "npm --workspace=app run test",
+    "preview:landing": "npm --workspace=landing run preview",
+    "preview:app": "npm --workspace=app run preview"
   },
   "devDependencies": {
-    "@types/node": "^26.6.4",
-    "@types/react": "^18.3.12",
-    "@types/react-dom": "^18.3.1",
-    "@vitejs/plugin-react": "^4.3.3",
-    "typescript": "~5.6.3",
-    "vite": "^5.4.11",
-    "vitest": "^2.1.8"
+    "typescript": "~5.6.3"
   }
 }

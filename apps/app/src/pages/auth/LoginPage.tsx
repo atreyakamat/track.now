@@ -167,6 +167,11 @@ export function LoginPage() {
         <p className="auth__alt">
           Don't have an account yet? <Link to="/signup">Create one</Link>
         </p>
+        <p className="auth__alt" style={{ marginTop: 'var(--space-2)' }}>
+          <a href="https://tracknow.atreyakamat.dev" style={{ color: 'var(--text-secondary)' }}>
+            ← Back to Track.now
+          </a>
+        </p>
       </div>
     </div>
   )

@@ -1,88 +1,92 @@
-# Track.now — Environment & Configuration Guide
+# Track.now — Environment & Deployment Guide
 
-This guide details all environment variables, local development setup steps, and security boundaries for running **Track.now**.
+This guide details all environment variables, Netlify multi-site configuration, and security boundaries for running and deploying **Track.now**.
 
 ---
 
-## 1. Environment Variables Specification
+## 1. Multi-Site Architecture & Deployment Overview
 
-All environment variables used by the client application must be prefixed with `VITE_` so that the Vite build pipeline exposes them safely via `import.meta.env`.
+Track.now is partitioned into two independently deployable targets within the repository:
+
+| Target | Production Domain | Directory | Netlify Base Dir | Netlify Build Cmd | Publish Dir | SPA Rewrite |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Public Landing Site** | `https://tracknow.atreyakamat.dev` | `apps/landing` | `apps/landing` | `npm run build` | `dist` | *None* |
+| **Authenticated App** | `https://trackapp.atreyakamat.dev` | `apps/app` | `apps/app` | `npm run build` | `dist` | `/* /index.html 200` |
+
+---
+
+## 2. Environment Variables Specification
+
+### Target 1: Public Landing Site (`apps/landing`)
+The landing site is a zero-backend, high-performance marketing web experience. It does **NOT** require any database credentials.
 
 | Variable Name | Required | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `VITE_SUPABASE_URL` | **Yes** | *None* | The unique HTTPS URL of your Supabase project (e.g. `https://xyzproject.supabase.co` or `http://127.0.0.1:54321` for local development). |
+| `VITE_APP_URL` | Optional | `https://trackapp.atreyakamat.dev` | Target URL for CTAs pointing to the authenticated application. |
+
+### Target 2: Authenticated Application (`apps/app`)
+The application interacts directly with Supabase via browser-safe client credentials protected by Row Level Security (RLS).
+
+| Variable Name | Required | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `VITE_SUPABASE_URL` | **Yes** | *None* | The unique HTTPS URL of your Supabase project (e.g. `https://xyzproject.supabase.co`). |
 | `VITE_SUPABASE_ANON_KEY` | **Yes** | *None* | The public anonymous API key (JWT) used for client-side requests. Enforced by PostgreSQL RLS. |
 
-### Example `.env` File
-Create a `.env` file at the root of the project:
-```env
-# Supabase Project Connection
-VITE_SUPABASE_URL=https://your-project-id.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
-
 > [!CAUTION]
-> **NEVER** expose your Supabase `service_role` key in frontend environment files (`.env`, `.env.local`, or source code). The `service_role` key bypasses all Row Level Security policies. Only the `anon` key is safe for client applications.
+> **NEVER** expose your Supabase `service_role` key in frontend environment variables, Netlify site configuration, or source code.
+> The `service_role` key bypasses all Row Level Security policies. Only `VITE_SUPABASE_ANON_KEY` is browser-safe.
 
 ---
 
-## 2. Setup Options
+## 3. Netlify Deployment Setup
 
-### Option A: Supabase Cloud (Recommended for Quick Setup)
+### Site 1: Track.now Landing
+1. In Netlify, create a new site from the Git repository.
+2. Configure **Build settings**:
+   - **Base directory:** `apps/landing`
+   - **Build command:** `npm run build`
+   - **Publish directory:** `apps/landing/dist` (or `dist` relative to base)
+3. Set custom domain: `tracknow.atreyakamat.dev`.
+4. Environment variables: None required (optionally set `VITE_APP_URL=https://trackapp.atreyakamat.dev`).
 
-1. Navigate to [supabase.com](https://supabase.com) and create or open a project.
-2. In your project dashboard, navigate to **Project Settings** → **API**.
-3. Copy the **Project URL** and paste it as `VITE_SUPABASE_URL`.
-4. Copy the **Project API Keys** → `anon public` key and paste it as `VITE_SUPABASE_ANON_KEY`.
-5. Open the **SQL Editor** in your Supabase dashboard.
-6. Open [`supabase/migrations/20261005000000_init_track_now.sql`](supabase/migrations/20261005000000_init_track_now.sql) in this repo, copy its contents, paste them into the SQL editor, and click **Run**.
-7. Restart your Vite dev server (`npm run dev`).
-
----
-
-### Option B: Local Supabase Development via CLI
-
-If you prefer running Supabase locally using Docker:
-
-1. Install the Supabase CLI:
-   ```bash
-   npm install -g supabase
-   ```
-2. Initialize and start the local containers:
-   ```bash
-   supabase start
-   ```
-3. Apply the migration:
-   ```bash
-   supabase db reset
-   ```
-4. Note the output credentials provided by `supabase start`:
-   - API URL: `http://127.0.0.1:54321`
-   - Anon key: `eyJhbGciOi...`
-5. Configure your `.env`:
-   ```env
-   VITE_SUPABASE_URL=http://127.0.0.1:54321
-   VITE_SUPABASE_ANON_KEY=eyJhbGciOi...
-   ```
+### Site 2: Track.now App
+1. In Netlify, create a second site from the same Git repository.
+2. Configure **Build settings**:
+   - **Base directory:** `apps/app`
+   - **Build command:** `npm run build`
+   - **Publish directory:** `apps/app/dist` (or `dist` relative to base)
+3. Set custom domain: `trackapp.atreyakamat.dev`.
+4. Configure **Environment variables** in Netlify Site Configuration:
+   - `VITE_SUPABASE_URL` = `https://<your-project>.supabase.co`
+   - `VITE_SUPABASE_ANON_KEY` = `<your-anon-key>`
+5. SPA redirect rewrite is automatically handled by `apps/app/netlify.toml` and `apps/app/public/_redirects`.
 
 ---
 
-## 3. Graceful Fallback & Unconfigured State Handling
+## 4. Local Development
 
-If `VITE_SUPABASE_URL` or `VITE_SUPABASE_ANON_KEY` is missing or contains placeholder values (`your-project` / `your-anon-key`), Track.now **will not crash with a blank white screen**.
-
-Instead:
-1. `src/lib/supabase/client.ts` validates credentials via `isSupabaseConfigured()`.
-2. The `<UnconfiguredNotice />` banner is displayed at the top of the interface, guiding the developer on how to configure `.env`.
-3. The auth provider will display helpful notices on the login and signup forms rather than firing failing network requests.
-
----
-
-## 4. Verification Checklist
-
-To verify your environment is correctly configured:
-- [ ] `.env` exists in the project root.
-- [ ] `VITE_SUPABASE_URL` begins with `https://` (or `http://127.0.0.1`).
-- [ ] `VITE_SUPABASE_ANON_KEY` is a valid JWT string.
-- [ ] Running `npm run dev` and loading the app shows no orange configuration warning banner.
-- [ ] Signing up a new account creates a row in `auth.users` and `public.track_now_profiles`.
+### Run Applications Locally
+- **Root monorepo installation:**
+  ```bash
+  npm install
+  ```
+- **Develop Landing Page:**
+  ```bash
+  npm run dev:landing
+  ```
+- **Develop Application:**
+  ```bash
+  npm run dev:app
+  ```
+- **Run Tests:**
+  ```bash
+  npm test
+  ```
+- **Typecheck Both Applications:**
+  ```bash
+  npm run typecheck
+  ```
+- **Build Both Applications:**
+  ```bash
+  npm run build
+  ```

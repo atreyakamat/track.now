@@ -147,6 +147,11 @@ export function SignupPage() {
         <p className="auth__alt">
           Already have an account? <Link to="/login">Sign in</Link>
         </p>
+        <p className="auth__alt" style={{ marginTop: 'var(--space-2)' }}>
+          <a href="https://tracknow.atreyakamat.dev" style={{ color: 'var(--text-secondary)' }}>
+            ← Back to Track.now
+          </a>
+        </p>
       </div>
     </div>
   )

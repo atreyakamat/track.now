@@ -9,5 +9,6 @@ dist
 .vscode/*
 !.vscode/extensions.json
 scratch/
+scratch_chrome_user_data/
 *.log
 *.dmp
