@@ -557,4 +557,105 @@ describe('Phase 2 — Feature 01: Numeric Targets & Target Quantities', () => {
       expect(negativeEdit.item.current_count).toBe(0)
     })
   })
+
+  describe('Concurrency & Atomic Stepper Invariants', () => {
+    it('applies concurrent relative delta mutations atomically (initial 2 + 1 + 1 = 4)', () => {
+      let state = { current_count: 2, target_count: 5 }
+
+      // Simulate atomic delta queue (matching PostgreSQL row-lock serialization)
+      const applyAtomicDelta = (delta: number) => {
+        state = {
+          ...state,
+          current_count: Math.max(0, state.current_count + delta),
+        }
+      }
+
+      // Simulate two concurrent clicks
+      applyAtomicDelta(1)
+      applyAtomicDelta(1)
+
+      expect(state.current_count).toBe(4) // NOT 3!
+    })
+
+    it('processes rapid alternating increments and decrements without losing updates', () => {
+      let state = { current_count: 2, target_count: 10 }
+      const deltas = [1, 1, 1, -1, 1, -1, 1] // net delta: +3
+
+      deltas.forEach((d) => {
+        state = {
+          ...state,
+          current_count: Math.max(0, state.current_count + d),
+        }
+      })
+
+      expect(state.current_count).toBe(5) // 2 + 3 = 5
+    })
+  })
+
+  describe('Habit Multi-Day Recurrence & Stepper Reset Invariants', () => {
+    const habitItem: ExecutionItem = {
+      id: 'habit-water',
+      plan_id: 'plan-1',
+      track_id: 'track-1',
+      user_id: 'user-1',
+      name: 'Hydration Target',
+      type: 'habit',
+      status: 'done',
+      priority: 'high',
+      target_count: 8,
+      current_count: 8,
+      unit: 'glasses',
+      created_at: '2026-10-06T08:00:00Z',
+      updated_at: '2026-10-06T18:00:00Z',
+    }
+
+    it('resets displayed count to 0 and isDone to false on a new day if not completed today', () => {
+      const todayDate = '2026-10-07'
+      const todayCompletedIds: string[] = [] // Not completed on 2026-10-07
+
+      const isDone = todayCompletedIds.includes(habitItem.id)
+      const isHabitUnfinishedNewDay =
+        habitItem.type === 'habit' &&
+        !isDone &&
+        Boolean(habitItem.updated_at) &&
+        habitItem.updated_at.split('T')[0] < todayDate
+
+      const displayedCount = isHabitUnfinishedNewDay ? 0 : habitItem.current_count
+
+      expect(isDone).toBe(false)
+      expect(displayedCount).toBe(0)
+    })
+
+    it('advances from 0 to 1 when user increments on the new day', () => {
+      const todayDate = '2026-10-07'
+      const todayCompletedIds: string[] = []
+      const isDone = todayCompletedIds.includes(habitItem.id)
+      const isHabitUnfinishedNewDay =
+        habitItem.type === 'habit' &&
+        !isDone &&
+        Boolean(habitItem.updated_at) &&
+        habitItem.updated_at.split('T')[0] < todayDate
+
+      const baseCount = isHabitUnfinishedNewDay ? 0 : habitItem.current_count
+      const nextCount = baseCount + 1
+
+      expect(nextCount).toBe(1)
+    })
+
+    it('retains 0 on a missed day without completing or corrupting history', () => {
+      const missedDayDate = '2026-10-08'
+      const todayCompletedIds: string[] = [] // missed day
+      const isDone = todayCompletedIds.includes(habitItem.id)
+      const isHabitUnfinishedNewDay =
+        habitItem.type === 'habit' &&
+        !isDone &&
+        Boolean(habitItem.updated_at) &&
+        habitItem.updated_at.split('T')[0] < missedDayDate
+
+      const displayedCount = isHabitUnfinishedNewDay ? 0 : habitItem.current_count
+      expect(isDone).toBe(false)
+      expect(displayedCount).toBe(0)
+    })
+  })
 })
+

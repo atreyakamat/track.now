@@ -321,6 +321,33 @@ async function runNumericBrowserE2E() {
           } else {
             bodyObj = state.completions;
           }
+        } else if (reqPath.includes('/rest/v1/rpc/track_now_increment_item_count')) {
+          const raw = request.postData ? JSON.parse(request.postData) : {};
+          const item = state.items.find((i) => i.id === raw.p_item_id);
+          if (item) {
+            const delta = raw.p_delta || 0;
+            const target = Math.max(1, item.target_count || 1);
+            const newCount = Math.max(0, (item.current_count || 0) + delta);
+            const willBeDone = newCount >= target;
+            const wasDone = item.status === 'done';
+            item.current_count = newCount;
+            item.status = willBeDone ? 'done' : 'todo';
+            item.updated_at = new Date().toISOString();
+            if (willBeDone && !wasDone) {
+              state.completions.push({
+                id: `comp-${Date.now()}`,
+                item_id: item.id,
+                user_id: state.user.id,
+                completed_date: raw.p_completed_date || '2026-10-08',
+              });
+            } else if (!willBeDone && wasDone) {
+              state.completions = state.completions.filter((c) => c.item_id !== item.id);
+            }
+            bodyObj = item;
+          } else {
+            statusCode = 404;
+            bodyObj = { message: 'Item not found' };
+          }
         } else {
           bodyObj = [];
         }

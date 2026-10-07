@@ -37,9 +37,10 @@ if (!url || !anonKey) {
 }
 
 if (!serviceKey) {
-  console.log('NOTICE: SUPABASE_SERVICE_ROLE_KEY is not set in environment (withheld per Phase 1 security audit).');
-  console.log('Skipping administrative Chrome CDP test.');
-  process.exit(0);
+  console.log('STATUS = BLOCKED');
+  console.log('REASON: SUPABASE_SERVICE_ROLE_KEY is withheld for security and not set in environment.');
+  console.log('Administrative live user creation tests require an isolated administrative credential.');
+  process.exit(2);
 }
 
 const admin = createClient(url, serviceKey, { auth: { persistSession: false } });

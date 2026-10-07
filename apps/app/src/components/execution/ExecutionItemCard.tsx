@@ -1,12 +1,13 @@
 import { Calendar, Check, Edit2, Repeat, Trash2 } from 'lucide-react'
 import type { ExecutionItem } from '@/types/domain'
 import { Badge, Button } from '@/components/ui'
-import { isOverdue } from '@/domain/dates'
+import { getTodayDateString, isOverdue } from '@/domain/dates'
 
 interface ExecutionItemCardProps {
   item: ExecutionItem
   onToggleStatus: (itemId: string, currentStatus: ExecutionItem['status']) => void
   onUpdateCount?: (itemId: string, newCount: number) => void
+  onStepCount?: (itemId: string, delta: number) => void
   onEdit?: (item: ExecutionItem) => void
   onDelete?: (itemId: string) => void
   busy?: boolean
@@ -17,6 +18,7 @@ export function ExecutionItemCard({
   item,
   onToggleStatus,
   onUpdateCount,
+  onStepCount,
   onEdit,
   onDelete,
   busy,
@@ -25,7 +27,14 @@ export function ExecutionItemCard({
   const isDone = isCompletedOverride !== undefined ? isCompletedOverride : item.status === 'done'
   const overdue = !isDone && isOverdue(item.due_date)
   const targetCount = Math.max(1, item.target_count ?? 1)
-  const currentCount = Math.max(0, item.current_count ?? 0)
+  const isHabitUnfinishedNewDay =
+    item.type === 'habit' &&
+    !isDone &&
+    Boolean(item.updated_at) &&
+    getTodayDateString(new Date(item.updated_at)) < getTodayDateString()
+  const currentCount = isHabitUnfinishedNewDay
+    ? 0
+    : Math.max(0, item.current_count ?? 0)
   const hasNumericTarget = targetCount > 1 || Boolean(item.unit)
   const progressPercent = Math.min(100, Math.round((currentCount / targetCount) * 100))
 
@@ -193,8 +202,12 @@ export function ExecutionItemCard({
               fontWeight: 700,
               lineHeight: 1,
             }}
-            onClick={() => onUpdateCount?.(item.id, Math.max(0, currentCount - 1))}
-            disabled={busy || currentCount <= 0 || !onUpdateCount}
+            onClick={() =>
+              onStepCount
+                ? onStepCount(item.id, -1)
+                : onUpdateCount?.(item.id, Math.max(0, currentCount - 1))
+            }
+            disabled={busy || currentCount <= 0 || (!onUpdateCount && !onStepCount)}
             aria-label={`Decrease ${item.name} count`}
           >
             –
@@ -223,8 +236,10 @@ export function ExecutionItemCard({
               fontWeight: 700,
               lineHeight: 1,
             }}
-            onClick={() => onUpdateCount?.(item.id, currentCount + 1)}
-            disabled={busy || !onUpdateCount}
+            onClick={() =>
+              onStepCount ? onStepCount(item.id, 1) : onUpdateCount?.(item.id, currentCount + 1)
+            }
+            disabled={busy || (!onUpdateCount && !onStepCount)}
             aria-label={`Increase ${item.name} count`}
           >
             +

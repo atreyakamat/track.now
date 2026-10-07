@@ -5,6 +5,7 @@ import {
   editExecutionItem,
   listCompletionsForDate,
   listTodayExecutionItems,
+  stepItemCount,
   toggleHabitTodayCompletion,
   toggleItemStatus,
   updateItemProgress,
@@ -107,6 +108,27 @@ export function TodayPage() {
     }
   }
 
+  const handleStepCount = async (itemId: string, delta: number) => {
+    try {
+      setBusyItemId(itemId)
+      const updated = await stepItemCount(itemId, delta, user?.id)
+      setItems((prev) => prev.map((item) => (item.id === itemId ? updated : item)))
+      const item = items.find((i) => i.id === itemId)
+      if (item && item.type === 'habit') {
+        const target = Math.max(1, updated.target_count ?? 1)
+        if ((updated.current_count ?? 0) >= target) {
+          setTodayCompletedIds((prev) => (prev.includes(itemId) ? prev : [...prev, itemId]))
+        } else {
+          setTodayCompletedIds((prev) => prev.filter((id) => id !== itemId))
+        }
+      }
+    } catch (err) {
+      console.error('Failed to step item count:', err)
+    } finally {
+      setBusyItemId(null)
+    }
+  }
+
   const handleSaveEditItem = async (itemId: string, input: UpdateExecutionItemInput) => {
     if (!user) return
     try {
@@ -196,6 +218,7 @@ export function TodayPage() {
                     isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
                     onToggleStatus={handleToggleStatus}
                     onUpdateCount={handleUpdateCount}
+                    onStepCount={handleStepCount}
                     onEdit={(item) => setEditingItem(item)}
                     busy={busyItemId === item.id}
                   />
@@ -218,6 +241,7 @@ export function TodayPage() {
                     isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
                     onToggleStatus={handleToggleStatus}
                     onUpdateCount={handleUpdateCount}
+                    onStepCount={handleStepCount}
                     onEdit={(item) => setEditingItem(item)}
                     busy={busyItemId === item.id}
                   />
@@ -240,6 +264,7 @@ export function TodayPage() {
                     isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
                     onToggleStatus={handleToggleStatus}
                     onUpdateCount={handleUpdateCount}
+                    onStepCount={handleStepCount}
                     onEdit={(item) => setEditingItem(item)}
                     busy={busyItemId === item.id}
                   />
@@ -264,6 +289,7 @@ export function TodayPage() {
                     isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
                     onToggleStatus={handleToggleStatus}
                     onUpdateCount={handleUpdateCount}
+                    onStepCount={handleStepCount}
                     onEdit={(item) => setEditingItem(item)}
                     busy={busyItemId === item.id}
                   />
@@ -288,6 +314,7 @@ export function TodayPage() {
                     isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
                     onToggleStatus={handleToggleStatus}
                     onUpdateCount={handleUpdateCount}
+                    onStepCount={handleStepCount}
                     onEdit={(item) => setEditingItem(item)}
                     busy={busyItemId === item.id}
                   />

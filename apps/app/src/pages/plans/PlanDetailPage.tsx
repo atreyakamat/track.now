@@ -21,6 +21,7 @@ import {
   editExecutionItem,
   listCompletionsForDate,
   listExecutionItems,
+  stepItemCount,
   toggleHabitTodayCompletion,
   toggleItemStatus,
   updateItemProgress,
@@ -230,6 +231,27 @@ export function PlanDetailPage() {
     }
   }
 
+  const handleStepItemCount = async (itemId: string, delta: number) => {
+    try {
+      setBusyItemId(itemId)
+      const updated = await stepItemCount(itemId, delta, user?.id)
+      setItems((prev) => prev.map((item) => (item.id === itemId ? updated : item)))
+      const item = items.find((i) => i.id === itemId)
+      if (item && item.type === 'habit') {
+        const target = Math.max(1, updated.target_count ?? 1)
+        if ((updated.current_count ?? 0) >= target) {
+          setTodayCompletedIds((prev) => (prev.includes(itemId) ? prev : [...prev, itemId]))
+        } else {
+          setTodayCompletedIds((prev) => prev.filter((id) => id !== itemId))
+        }
+      }
+    } catch (err) {
+      console.error('Failed to step item count:', err)
+    } finally {
+      setBusyItemId(null)
+    }
+  }
+
   const handleDeleteItem = async (itemId: string) => {
     try {
       setBusyItemId(itemId)
@@ -425,6 +447,7 @@ export function PlanDetailPage() {
                     isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
                     onToggleStatus={handleToggleItemStatus}
                     onUpdateCount={handleUpdateItemCount}
+                    onStepCount={handleStepItemCount}
                     onEdit={(item) => setEditingItem(item)}
                     onDelete={handleDeleteItem}
                     busy={busyItemId === item.id}
@@ -464,6 +487,7 @@ export function PlanDetailPage() {
                   isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
                   onToggleStatus={handleToggleItemStatus}
                   onUpdateCount={handleUpdateItemCount}
+                  onStepCount={handleStepItemCount}
                   onEdit={(item) => setEditingItem(item)}
                   onDelete={handleDeleteItem}
                   busy={busyItemId === item.id}
@@ -503,6 +527,7 @@ export function PlanDetailPage() {
                   isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
                   onToggleStatus={handleToggleItemStatus}
                   onUpdateCount={handleUpdateItemCount}
+                  onStepCount={handleStepItemCount}
                   onEdit={(item) => setEditingItem(item)}
                   onDelete={handleDeleteItem}
                   busy={busyItemId === item.id}
@@ -542,6 +567,7 @@ export function PlanDetailPage() {
                   isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
                   onToggleStatus={handleToggleItemStatus}
                   onUpdateCount={handleUpdateItemCount}
+                  onStepCount={handleStepItemCount}
                   onEdit={(item) => setEditingItem(item)}
                   onDelete={handleDeleteItem}
                   busy={busyItemId === item.id}
@@ -581,6 +607,7 @@ export function PlanDetailPage() {
                   isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
                   onToggleStatus={handleToggleItemStatus}
                   onUpdateCount={handleUpdateItemCount}
+                  onStepCount={handleStepItemCount}
                   onEdit={(item) => setEditingItem(item)}
                   onDelete={handleDeleteItem}
                   busy={busyItemId === item.id}
@@ -620,6 +647,7 @@ export function PlanDetailPage() {
                   isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
                   onToggleStatus={handleToggleItemStatus}
                   onUpdateCount={handleUpdateItemCount}
+                  onStepCount={handleStepItemCount}
                   onEdit={(item) => setEditingItem(item)}
                   onDelete={handleDeleteItem}
                   busy={busyItemId === item.id}

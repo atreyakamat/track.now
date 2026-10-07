@@ -247,6 +247,45 @@ export async function updateItemProgress(
   return updated
 }
 
+/**
+ * Atomic relative increment/decrement counter mutation.
+ * Attempts database-side RPC (with row-level lock) to prevent lost-update races.
+ * Gracefully falls back to optimistic read-calculate-write if RPC is unavailable.
+ */
+export async function stepItemCount(
+  itemId: string,
+  delta: number,
+  userId?: string,
+  completedDate?: string,
+): Promise<ExecutionItem> {
+  const dateStr = completedDate || getTodayDateString()
+  if (userId) {
+    try {
+      const { data, error } = await supabase.rpc('track_now_increment_item_count', {
+        p_item_id: itemId,
+        p_delta: delta,
+        p_user_id: userId,
+        p_completed_date: dateStr,
+      })
+      if (!error && data) {
+        return mapExecutionItemRow(data)
+      }
+    } catch {
+      // Fall through to safe client-side fallback
+    }
+  }
+
+  const currentItem = await getExecutionItem(itemId)
+  const isHabitUnfinishedNewDay =
+    currentItem.type === 'habit' &&
+    currentItem.status !== 'done' &&
+    currentItem.updated_at &&
+    getTodayDateString(new Date(currentItem.updated_at)) < dateStr
+  const baseCount = isHabitUnfinishedNewDay ? 0 : (currentItem.current_count ?? 0)
+  const nextCount = Math.max(0, baseCount + delta)
+  return updateItemProgress(itemId, nextCount, userId, dateStr)
+}
+
 export async function editExecutionItem(
   itemId: string,
   input: UpdateExecutionItemInput,
