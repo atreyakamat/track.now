@@ -1,18 +1,20 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
   Archive,
   CheckCircle2,
+  Edit2,
   FolderKanban,
   ListCheck,
   Milestone,
   Plus,
   Repeat,
   RotateCcw,
+  Trash2,
 } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { getTrack } from '@/services/tracksService'
-import { getPlan, setPlanArchived } from '@/services/plansService'
+import { deletePlan, getPlan, setPlanArchived, updatePlan } from '@/services/plansService'
 import {
   createExecutionItem,
   deleteExecutionItem,
@@ -25,20 +27,25 @@ import type { ExecutionItem, ItemType, NewExecutionItemInput, Plan, Track } from
 import {
   Badge,
   Button,
+  ConfirmDialog,
   EmptyState,
   ErrorState,
+  Input,
   LoadingState,
+  Modal,
   PageHeader,
   ProgressBar,
   ProgressCircle,
   TabPanel,
   Tabs,
+  Textarea,
 } from '@/components/ui'
 import { ExecutionItemCard } from '@/components/execution/ExecutionItemCard'
 import { CreateItemModal } from '@/components/execution/CreateItemModal'
 
 export function PlanDetailPage() {
-  const { trackId, planId } = useParams<{ trackId: string; planId: string }>()
+  const { trackId, planId } = useParams<{ trackId?: string; planId?: string }>()
+  const navigate = useNavigate()
   const { user } = useAuth()
 
   const [track, setTrack] = useState<Track | null>(null)
@@ -55,14 +62,28 @@ export function PlanDetailPage() {
   const [modalDefaultType, setModalDefaultType] = useState<ItemType>('task')
   const [busyItemId, setBusyItemId] = useState<string | null>(null)
 
+  // Plan editing modal
+  const [editPlanOpen, setEditPlanOpen] = useState(false)
+  const [editPlanName, setEditPlanName] = useState('')
+  const [editPlanDesc, setEditPlanDesc] = useState('')
+  const [editPlanStart, setEditPlanStart] = useState('')
+  const [editPlanEnd, setEditPlanEnd] = useState('')
+  const [editPlanBusy, setEditPlanBusy] = useState(false)
+  const [editPlanError, setEditPlanError] = useState<string | null>(null)
+
+  // Plan deletion
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [deleteBusy, setDeleteBusy] = useState(false)
+
   const loadData = async () => {
-    if (!trackId || !planId) return
+    if (!planId) return
     try {
       setLoading(true)
       setError(null)
-      const [t, p, itemList] = await Promise.all([
-        getTrack(trackId),
-        getPlan(planId),
+      const p = await getPlan(planId)
+      const targetTrackId = trackId || p.track_id
+      const [t, itemList] = await Promise.all([
+        getTrack(targetTrackId),
         listExecutionItems(planId),
       ])
       setTrack(t)
@@ -86,6 +107,54 @@ export function PlanDetailPage() {
       await loadData()
     } catch (err) {
       console.error('Failed to toggle plan archive:', err)
+    }
+  }
+
+  const handleOpenEditPlan = () => {
+    if (!plan) return
+    setEditPlanName(plan.name)
+    setEditPlanDesc(plan.description || '')
+    setEditPlanStart(plan.start_date || '')
+    setEditPlanEnd(plan.end_date || '')
+    setEditPlanError(null)
+    setEditPlanOpen(true)
+  }
+
+  const handleSaveEditPlan = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!plan) return
+    if (!editPlanName.trim()) {
+      setEditPlanError('Plan name is required')
+      return
+    }
+
+    try {
+      setEditPlanBusy(true)
+      setEditPlanError(null)
+      const updated = await updatePlan(plan.id, {
+        name: editPlanName.trim(),
+        description: editPlanDesc.trim() || null,
+        start_date: editPlanStart || null,
+        end_date: editPlanEnd || null,
+      })
+      setPlan(updated)
+      setEditPlanOpen(false)
+    } catch (err) {
+      setEditPlanError(err instanceof Error ? err.message : 'Failed to update plan')
+    } finally {
+      setEditPlanBusy(false)
+    }
+  }
+
+  const handleDeletePlan = async () => {
+    if (!plan) return
+    try {
+      setDeleteBusy(true)
+      await deletePlan(plan.id)
+      navigate(`/tracks/${plan.track_id}`)
+    } catch (err) {
+      console.error('Failed to delete plan:', err)
+      setDeleteBusy(false)
     }
   }
 
@@ -179,6 +248,17 @@ export function PlanDetailPage() {
               title={isArchived ? 'Restore Plan' : 'Archive Plan'}
             >
               {isArchived ? <><RotateCcw size={16} /> Restore</> : <><Archive size={16} /> Archive</>}
+            </Button>
+            <Button variant="ghost" onClick={handleOpenEditPlan} title="Edit Plan">
+              <Edit2 size={16} /> Edit
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => setDeleteConfirmOpen(true)}
+              title="Delete Plan"
+              style={{ color: 'var(--danger)' }}
+            >
+              <Trash2 size={16} /> Delete
             </Button>
             <Button variant="primary" onClick={() => openCreateModalForType('task')}>
               <Plus size={16} />
@@ -492,6 +572,64 @@ export function PlanDetailPage() {
         trackId={track.id}
         defaultType={modalDefaultType}
         onSubmit={handleCreateItem}
+      />
+
+      {/* Edit Plan Modal */}
+      <Modal
+        open={editPlanOpen}
+        onClose={() => setEditPlanOpen(false)}
+        title="Edit Plan"
+        actions={
+          <>
+            <Button variant="ghost" onClick={() => setEditPlanOpen(false)} disabled={editPlanBusy}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={handleSaveEditPlan} disabled={editPlanBusy}>
+              {editPlanBusy ? 'Saving…' : 'Save Changes'}
+            </Button>
+          </>
+        }
+      >
+        <form onSubmit={handleSaveEditPlan} className="form" style={{ gap: 'var(--space-3)' }}>
+          {editPlanError && <div className="alert alert--error">{editPlanError}</div>}
+          <Input
+            label="Plan Name"
+            value={editPlanName}
+            onChange={(e) => setEditPlanName(e.target.value)}
+            required
+          />
+          <Textarea
+            label="Description (Optional)"
+            value={editPlanDesc}
+            onChange={(e) => setEditPlanDesc(e.target.value)}
+          />
+          <div className="grid grid--2" style={{ gap: 'var(--space-3)' }}>
+            <Input
+              label="Start Date (Optional)"
+              type="date"
+              value={editPlanStart}
+              onChange={(e) => setEditPlanStart(e.target.value)}
+            />
+            <Input
+              label="End Date (Optional)"
+              type="date"
+              value={editPlanEnd}
+              onChange={(e) => setEditPlanEnd(e.target.value)}
+            />
+          </div>
+        </form>
+      </Modal>
+
+      {/* Delete Plan Confirm Dialog */}
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        title={`Delete Plan "${plan.name}"?`}
+        message="This will permanently delete this plan and all associated execution items and completion logs. This action cannot be undone."
+        confirmLabel={deleteBusy ? 'Deleting…' : 'Delete Plan'}
+        destructive
+        busy={deleteBusy}
+        onConfirm={handleDeletePlan}
+        onCancel={() => setDeleteConfirmOpen(false)}
       />
     </div>
   )

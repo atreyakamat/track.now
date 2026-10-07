@@ -1,4 +1,4 @@
-import { Calendar, Check, Trash2 } from 'lucide-react'
+import { Calendar, Check, Repeat, Trash2 } from 'lucide-react'
 import type { ExecutionItem } from '@/types/domain'
 import { Badge, Button } from '@/components/ui'
 import { isOverdue } from '@/domain/dates'
@@ -20,8 +20,10 @@ export function ExecutionItemCard({
   const overdue = !isDone && isOverdue(item.due_date)
 
   const priorityColor =
-    item.priority === 'high'
-      ? 'var(--danger)'
+    item.priority === 'urgent'
+      ? '#ef4444'
+      : item.priority === 'high'
+      ? 'var(--warning, #e67e22)'
       : item.priority === 'low'
       ? 'var(--text-tertiary)'
       : 'var(--text-secondary)'
@@ -107,6 +109,25 @@ export function ExecutionItemCard({
             <Calendar size={12} />
             <span>
               {item.due_date} {overdue ? '(Overdue)' : ''}
+            </span>
+          </div>
+        )}
+
+        {item.schedule && (
+          <div
+            className="row"
+            style={{
+              gap: '4px',
+              fontSize: 'var(--text-meta)',
+              color: 'var(--text-secondary)',
+            }}
+          >
+            <Repeat size={12} />
+            <span style={{ textTransform: 'capitalize' }}>
+              {item.schedule.frequency}
+              {item.schedule.time_of_day && item.schedule.time_of_day !== 'anytime'
+                ? ` · ${item.schedule.time_of_day}`
+                : ''}
             </span>
           </div>
         )}

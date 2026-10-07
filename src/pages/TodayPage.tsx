@@ -5,7 +5,7 @@ import {
   listTodayExecutionItems,
   toggleItemStatus,
 } from '@/services/executionService'
-import { isDueToday, isOverdue, isUpcoming } from '@/domain/dates'
+import { isDueToday, isHabitScheduledForToday, isOverdue, isUpcoming } from '@/domain/dates'
 import type { ExecutionItem } from '@/types/domain'
 import { EmptyState, ErrorState, LoadingState, PageHeader } from '@/components/ui'
 import { ExecutionItemCard } from '@/components/execution/ExecutionItemCard'
@@ -53,10 +53,26 @@ export function TodayPage() {
   const uncompleted = items.filter((i) => i.status !== 'done' && i.status !== 'archived')
   const completed = items.filter((i) => i.status === 'done')
 
-  const overdueItems = uncompleted.filter((i) => isOverdue(i.due_date))
-  const todayItems = uncompleted.filter((i) => isDueToday(i.due_date))
-  const upcomingItems = uncompleted.filter((i) => isUpcoming(i.due_date))
-  const anytimeItems = uncompleted.filter((i) => !i.due_date)
+  const overdueItems = uncompleted.filter((i) => i.type !== 'habit' && isOverdue(i.due_date))
+
+  const todayItems = uncompleted.filter((i) => {
+    if (i.type === 'habit') {
+      return !i.schedule || isHabitScheduledForToday(i.schedule)
+    }
+    return isDueToday(i.due_date)
+  })
+
+  const upcomingItems = uncompleted.filter((i) => {
+    if (i.type === 'habit') {
+      return Boolean(i.schedule && !isHabitScheduledForToday(i.schedule))
+    }
+    return isUpcoming(i.due_date)
+  })
+
+  const anytimeItems = uncompleted.filter((i) => {
+    if (i.type === 'habit') return false
+    return !i.due_date
+  })
 
   const totalOpen = uncompleted.length
 

@@ -31,9 +31,15 @@ const url = env.VITE_SUPABASE_URL || env.SUPABASE_URL;
 const anonKey = env.VITE_SUPABASE_ANON_KEY || env.SUPABASE_ANON_KEY;
 const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!url || !anonKey || !serviceKey) {
-  console.error('Missing Supabase configuration or SUPABASE_SERVICE_ROLE_KEY.');
+if (!url || !anonKey) {
+  console.error('Missing Supabase configuration in environment.');
   process.exit(1);
+}
+
+if (!serviceKey) {
+  console.log('NOTICE: SUPABASE_SERVICE_ROLE_KEY is not set in environment (withheld per Phase 1 security audit).');
+  console.log('Skipping administrative Chrome CDP test.');
+  process.exit(0);
 }
 
 const admin = createClient(url, serviceKey, { auth: { persistSession: false } });

@@ -4,6 +4,7 @@ import {
   getTodayDateString,
   greeting,
   isDueToday,
+  isHabitScheduledForToday,
   isOverdue,
   isUpcoming,
 } from '@/domain/dates'
@@ -83,5 +84,30 @@ describe('dates domain logic', () => {
     expect(endOnly).toContain('31')
 
     expect(formatDateRange(null, null)).toBeNull()
+  })
+
+  it('evaluates habit recurrence schedule matching for daily, weekly, and custom days', () => {
+    // 2026-03-15 is a Sunday (getDay() === 0)
+    const sunday = new Date('2026-03-15T12:00:00Z')
+    // 2026-03-16 is a Monday (getDay() === 1)
+    const monday = new Date('2026-03-16T12:00:00Z')
+
+    // Unscheduled habit defaults to daily -> due on Sunday and Monday
+    expect(isHabitScheduledForToday(null, sunday)).toBe(true)
+    expect(isHabitScheduledForToday(undefined, sunday)).toBe(true)
+
+    // Daily schedule -> due on both
+    expect(isHabitScheduledForToday({ frequency: 'daily' }, sunday)).toBe(true)
+    expect(isHabitScheduledForToday({ frequency: 'daily' }, monday)).toBe(true)
+
+    // Weekly schedule on Sunday only ([0])
+    const sundayOnly = { frequency: 'weekly', days_of_week: [0] }
+    expect(isHabitScheduledForToday(sundayOnly, sunday)).toBe(true)
+    expect(isHabitScheduledForToday(sundayOnly, monday)).toBe(false)
+
+    // Weekdays schedule ([1, 2, 3, 4, 5])
+    const weekdays = { frequency: 'custom', days_of_week: [1, 2, 3, 4, 5] }
+    expect(isHabitScheduledForToday(weekdays, sunday)).toBe(false)
+    expect(isHabitScheduledForToday(weekdays, monday)).toBe(true)
   })
 })

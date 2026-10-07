@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase/client'
-import type { Profile, Track, NewTrackInput, TemplateType } from '@/types/domain'
+import type { Profile, Track, NewTrackInput, TemplateType, TrackTemplate } from '@/types/domain'
+import { DEFAULT_TRACK_TEMPLATES } from '@/constants/trackTemplates'
 import { unwrap } from './helpers'
 
 function mapTrackRow(row: Track & { template_key?: string | null }): Track {
@@ -16,6 +17,32 @@ export async function listTracks(): Promise<Track[]> {
     await supabase.from('track_now_tracks').select('*').order('created_at', { ascending: true }),
   ) as Array<Track & { template_key?: string | null }>
   return rows.map(mapTrackRow)
+}
+
+export async function listTrackTemplates(): Promise<TrackTemplate[]> {
+  const { data, error } = await supabase
+    .from('track_now_track_templates')
+    .select('*')
+    .order('created_at', { ascending: true })
+
+  if (error || !data || data.length === 0) {
+    return DEFAULT_TRACK_TEMPLATES.map((t, idx) => ({
+      id: `fallback-${idx}`,
+      ...t,
+    }))
+  }
+
+  return data.map((d) => ({
+    id: d.id,
+    key: d.key,
+    template_type: d.key as TemplateType,
+    name: d.name,
+    description: d.description,
+    icon: d.icon,
+    color: d.color,
+    default_items: Array.isArray(d.default_items) ? d.default_items : [],
+    suggested_areas: [],
+  }))
 }
 
 export async function getTrack(trackId: string): Promise<Track> {
@@ -102,6 +129,41 @@ export async function getProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase.from('track_now_profiles').select('*').eq('id', userId).maybeSingle()
   if (error) throw new Error(error.message)
   return (data as Profile | null) ?? null
+}
+
+export async function updateProfile(
+  userId: string,
+  updates: {
+    display_name?: string | null
+    full_name?: string | null
+    theme_preference?: 'system' | 'light' | 'dark'
+    avatar_url?: string | null
+  },
+): Promise<Profile> {
+  const payload: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  }
+  const nameToUpdate = updates.full_name !== undefined ? updates.full_name : updates.display_name
+  if (nameToUpdate !== undefined) {
+    payload.full_name = nameToUpdate
+  }
+  if (updates.theme_preference !== undefined) {
+    payload.theme_preference = updates.theme_preference
+  }
+  if (updates.avatar_url !== undefined) {
+    payload.avatar_url = updates.avatar_url
+  }
+
+  const row = unwrap(
+    await supabase
+      .from('track_now_profiles')
+      .update(payload)
+      .eq('id', userId)
+      .select()
+      .single(),
+  ) as Profile
+
+  return row
 }
 
 export async function ensureProfile(userId: string, displayName: string | null): Promise<Profile> {

@@ -28,6 +28,20 @@ export function isUpcoming(dueDate: string | null, now = new Date()): boolean {
   return dueDate > today
 }
 
+export function isHabitScheduledForToday(
+  schedule: { frequency?: string; days_of_week?: number[] | null } | null | undefined,
+  now = new Date(),
+): boolean {
+  if (!schedule) return true // Default unscheduled habit is treated as daily
+  if (schedule.frequency === 'daily') return true
+  if (schedule.frequency === 'weekly' || schedule.frequency === 'custom') {
+    if (!schedule.days_of_week || schedule.days_of_week.length === 0) return true
+    const dayOfWeek = now.getDay() // 0 = Sun, 1 = Mon, 2 = Tue, ..., 6 = Sat
+    return schedule.days_of_week.includes(dayOfWeek)
+  }
+  return true
+}
+
 export function greeting(date = new Date()): string {
   const hour = date.getHours()
   if (hour < 5) return 'Good evening'

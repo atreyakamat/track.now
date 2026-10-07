@@ -35,6 +35,7 @@ export function AppRoutes() {
           <Route path="/tracks/:trackId" element={<TrackDetailPage />} />
           <Route path="/tracks/:trackId/plans/new" element={<NewPlanPage />} />
           <Route path="/tracks/:trackId/plans/:planId" element={<PlanDetailPage />} />
+          <Route path="/plans/:planId" element={<PlanDetailPage />} />
           <Route path="/today" element={<TodayPage />} />
           <Route path="/reviews" element={<ReviewsPage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />

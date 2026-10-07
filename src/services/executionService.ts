@@ -1,13 +1,29 @@
 import { supabase } from '@/lib/supabase/client'
-import type { ExecutionItem, ItemStatus, NewExecutionItemInput } from '@/types/domain'
+import type { ExecutionItem, ItemSchedule, ItemStatus, NewExecutionItemInput, NewItemScheduleInput } from '@/types/domain'
 import { unwrap } from './helpers'
 
+function mapExecutionItemRow(row: any): ExecutionItem {
+  const rawSched = row.track_now_item_schedules ?? row.schedule
+  const schedule: ItemSchedule | null = Array.isArray(rawSched)
+    ? (rawSched[0] ?? null)
+    : (rawSched ?? null)
+  const { track_now_item_schedules: _t, schedule: _s, ...clean } = row
+  return {
+    ...clean,
+    schedule,
+  } as ExecutionItem
+}
+
 export async function listExecutionItems(planId?: string): Promise<ExecutionItem[]> {
-  let query = supabase.from('track_now_execution_items').select('*').order('created_at', { ascending: true })
+  let query = supabase
+    .from('track_now_execution_items')
+    .select('*, track_now_item_schedules(*)')
+    .order('created_at', { ascending: true })
   if (planId) {
     query = query.eq('plan_id', planId)
   }
-  return unwrap(await query) as ExecutionItem[]
+  const rows = unwrap(await query) as any[]
+  return rows.map(mapExecutionItemRow)
 }
 
 /**
@@ -38,28 +54,34 @@ export async function listTodayExecutionItems(): Promise<ExecutionItem[]> {
 
   const { data: items, error: itemsErr } = await supabase
     .from('track_now_execution_items')
-    .select('*')
+    .select('*, track_now_item_schedules(*)')
     .in('plan_id', activePlanIds)
     .neq('status', 'archived')
     .order('created_at', { ascending: true })
 
   if (itemsErr) throw new Error(itemsErr.message)
-  return (items || []) as ExecutionItem[]
+  return ((items || []) as any[]).map(mapExecutionItemRow)
 }
 
 export async function listExecutionItemsByTrack(trackId: string): Promise<ExecutionItem[]> {
   const query = supabase
     .from('track_now_execution_items')
-    .select('*')
+    .select('*, track_now_item_schedules(*)')
     .eq('track_id', trackId)
     .order('created_at', { ascending: true })
-  return unwrap(await query) as ExecutionItem[]
+  const rows = unwrap(await query) as any[]
+  return rows.map(mapExecutionItemRow)
 }
 
 export async function getExecutionItem(itemId: string): Promise<ExecutionItem> {
-  return unwrap(
-    await supabase.from('track_now_execution_items').select('*').eq('id', itemId).single(),
-  ) as ExecutionItem
+  const row = unwrap(
+    await supabase
+      .from('track_now_execution_items')
+      .select('*, track_now_item_schedules(*)')
+      .eq('id', itemId)
+      .single(),
+  )
+  return mapExecutionItemRow(row)
 }
 
 export async function createExecutionItem(
@@ -77,18 +99,80 @@ export async function createExecutionItem(
     }
   }
 
-  return unwrap(
+  const { schedule: scheduleInput, ...itemFields } = input
+
+  const item = unwrap(
     await supabase
       .from('track_now_execution_items')
       .insert({
-        ...input,
+        ...itemFields,
         user_id: userId,
-        status: input.status || 'todo',
-        priority: input.priority || 'medium',
+        status: itemFields.status || 'todo',
+        priority: itemFields.priority || 'medium',
       })
       .select()
       .single(),
   ) as ExecutionItem
+
+  // Persist schedule if provided or if type is habit
+  if (scheduleInput || input.type === 'habit') {
+    const schedPayload = {
+      item_id: item.id,
+      frequency: scheduleInput?.frequency || 'daily',
+      days_of_week: scheduleInput?.days_of_week ?? (scheduleInput?.frequency === 'daily' || !scheduleInput?.frequency ? [0, 1, 2, 3, 4, 5, 6] : null),
+      time_of_day: scheduleInput?.time_of_day || 'anytime',
+      reminder_time: scheduleInput?.reminder_time || null,
+    }
+    const { data: createdSched } = await supabase
+      .from('track_now_item_schedules')
+      .insert(schedPayload)
+      .select()
+      .maybeSingle()
+    item.schedule = createdSched as ItemSchedule | null
+  }
+
+  return item
+}
+
+export async function saveItemSchedule(
+  itemId: string,
+  schedule: NewItemScheduleInput,
+): Promise<ItemSchedule> {
+  const { data: existing } = await supabase
+    .from('track_now_item_schedules')
+    .select('id')
+    .eq('item_id', itemId)
+    .maybeSingle()
+
+  if (existing) {
+    return unwrap(
+      await supabase
+        .from('track_now_item_schedules')
+        .update({
+          frequency: schedule.frequency,
+          days_of_week: schedule.days_of_week ?? null,
+          time_of_day: schedule.time_of_day ?? 'anytime',
+          reminder_time: schedule.reminder_time ?? null,
+        })
+        .eq('id', existing.id)
+        .select()
+        .single(),
+    ) as ItemSchedule
+  }
+
+  return unwrap(
+    await supabase
+      .from('track_now_item_schedules')
+      .insert({
+        item_id: itemId,
+        frequency: schedule.frequency,
+        days_of_week: schedule.days_of_week ?? null,
+        time_of_day: schedule.time_of_day ?? 'anytime',
+        reminder_time: schedule.reminder_time ?? null,
+      })
+      .select()
+      .single(),
+  ) as ItemSchedule
 }
 
 export async function updateExecutionItem(

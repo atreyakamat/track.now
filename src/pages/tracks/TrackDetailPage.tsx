@@ -1,31 +1,40 @@
 import { useEffect, useState } from 'react'
-import { useParams, useSearchParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   Archive,
   ChevronDown,
   ChevronRight,
+  Edit2,
   Plus,
   RotateCcw,
+  Trash2,
 } from 'lucide-react'
-import { getTrack, setTrackArchived } from '@/services/tracksService'
+import { deleteTrack, getTrack, setTrackArchived, updateTrack } from '@/services/tracksService'
 import { listItemSummaries, listPlans, setPlanArchived } from '@/services/plansService'
 import { summarizeTrack, type TrackSummary } from '@/domain/progress'
+import { TRACK_COLORS, TRACK_ICONS } from '@/constants/trackTemplates'
 import type { Track } from '@/types/domain'
 import {
   Badge,
   Button,
   ButtonLink,
+  ConfirmDialog,
   EmptyState,
   ErrorState,
+  Input,
   LoadingState,
+  Modal,
   PageHeader,
   ProgressCircle,
+  Select,
+  Textarea,
 } from '@/components/ui'
 import { TrackIcon } from '@/components/tracks/TrackIcon'
 import { PlanCard } from '@/components/plans/PlanCard'
 
 export function TrackDetailPage() {
   const { trackId } = useParams<{ trackId: string }>()
+  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const justCreated = searchParams.get('created') === 'true'
 
@@ -35,6 +44,19 @@ export function TrackDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [showArchived, setShowArchived] = useState(false)
   const [busyPlanId, setBusyPlanId] = useState<string | null>(null)
+
+  // Edit Track modal
+  const [editTrackOpen, setEditTrackOpen] = useState(false)
+  const [editName, setEditName] = useState('')
+  const [editDesc, setEditDesc] = useState('')
+  const [editIcon, setEditIcon] = useState('Activity')
+  const [editColor, setEditColor] = useState('#c8f169')
+  const [editBusy, setEditBusy] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
+
+  // Delete Track dialog
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [deleteBusy, setDeleteBusy] = useState(false)
 
   const loadData = async () => {
     if (!trackId) return
@@ -78,6 +100,53 @@ export function TrackDetailPage() {
       console.error('Failed to toggle plan archive:', err)
     } finally {
       setBusyPlanId(null)
+    }
+  }
+
+  const handleOpenEditTrack = () => {
+    if (!track) return
+    setEditName(track.name)
+    setEditDesc(track.description || '')
+    setEditIcon(track.icon || 'Activity')
+    setEditColor(track.color || '#c8f169')
+    setEditError(null)
+    setEditTrackOpen(true)
+  }
+
+  const handleSaveEditTrack = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!track) return
+    if (!editName.trim()) {
+      setEditError('Track name is required')
+      return
+    }
+    try {
+      setEditBusy(true)
+      setEditError(null)
+      const updated = await updateTrack(track.id, {
+        name: editName.trim(),
+        description: editDesc.trim() || null,
+        icon: editIcon,
+        color: editColor,
+      })
+      setTrack(updated)
+      setEditTrackOpen(false)
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : 'Failed to update track')
+    } finally {
+      setEditBusy(false)
+    }
+  }
+
+  const handleDeleteTrack = async () => {
+    if (!track) return
+    try {
+      setDeleteBusy(true)
+      await deleteTrack(track.id)
+      navigate('/tracks')
+    } catch (err) {
+      console.error('Failed to delete track:', err)
+      setDeleteBusy(false)
     }
   }
 
@@ -128,6 +197,17 @@ export function TrackDetailPage() {
                   <Archive size={16} /> Archive Track
                 </>
               )}
+            </Button>
+            <Button variant="ghost" onClick={handleOpenEditTrack} title="Edit Track">
+              <Edit2 size={16} /> Edit Track
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => setDeleteConfirmOpen(true)}
+              title="Delete Track"
+              style={{ color: 'var(--danger)' }}
+            >
+              <Trash2 size={16} /> Delete Track
             </Button>
             <ButtonLink to={`/tracks/${track.id}/plans/new`} variant="primary">
               <Plus size={16} />
@@ -223,6 +303,74 @@ export function TrackDetailPage() {
           )}
         </section>
       )}
+
+      {/* Edit Track Modal */}
+      <Modal
+        open={editTrackOpen}
+        onClose={() => setEditTrackOpen(false)}
+        title="Edit Track"
+        actions={
+          <>
+            <Button variant="ghost" onClick={() => setEditTrackOpen(false)} disabled={editBusy}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={handleSaveEditTrack} disabled={editBusy}>
+              {editBusy ? 'Saving…' : 'Save Changes'}
+            </Button>
+          </>
+        }
+      >
+        <form onSubmit={handleSaveEditTrack} className="form" style={{ gap: 'var(--space-3)' }}>
+          {editError && <div className="alert alert--error">{editError}</div>}
+          <Input
+            label="Track Name"
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            required
+          />
+          <Textarea
+            label="Description (Optional)"
+            value={editDesc}
+            onChange={(e) => setEditDesc(e.target.value)}
+          />
+          <div className="grid grid--2" style={{ gap: 'var(--space-3)' }}>
+            <Select
+              label="Icon"
+              value={editIcon}
+              onChange={(e) => setEditIcon(e.target.value)}
+            >
+              {TRACK_ICONS.map((iconName) => (
+                <option key={iconName} value={iconName}>
+                  {iconName}
+                </option>
+              ))}
+            </Select>
+            <Select
+              label="Accent Color"
+              value={editColor}
+              onChange={(e) => setEditColor(e.target.value)}
+            >
+              {TRACK_COLORS.map((c) => (
+                <option key={c.key} value={c.value}>
+                  {c.label} ({c.value})
+                </option>
+              ))}
+            </Select>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Delete Track Confirm Dialog */}
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        title={`Delete Track "${track.name}"?`}
+        message="This will permanently delete this track along with all associated plans, execution items, and completions. This action cannot be undone."
+        confirmLabel={deleteBusy ? 'Deleting…' : 'Delete Track'}
+        destructive
+        busy={deleteBusy}
+        onConfirm={handleDeleteTrack}
+        onCancel={() => setDeleteConfirmOpen(false)}
+      />
     </div>
   )
 }

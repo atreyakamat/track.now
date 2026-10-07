@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Check, Plus } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthProvider'
-import { createTrack, listTracks } from '@/services/tracksService'
-import type { TemplateType, Track } from '@/types/domain'
+import { createTrack, listTracks, listTrackTemplates } from '@/services/tracksService'
+import { createPlan } from '@/services/plansService'
+import { createExecutionItem } from '@/services/executionService'
+import type { TemplateType, Track, TrackTemplate } from '@/types/domain'
 import {
   DEFAULT_TRACK_TEMPLATES,
   TRACK_COLORS,
@@ -24,6 +26,7 @@ export function NewTrackPage() {
   const navigate = useNavigate()
 
   const [existingTracks, setExistingTracks] = useState<Track[]>([])
+  const [templates, setTemplates] = useState<TrackTemplate[]>([])
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateType>('fitness')
   const [name, setName] = useState('Fitness')
   const [description, setDescription] = useState(
@@ -32,6 +35,7 @@ export function NewTrackPage() {
   const [icon, setIcon] = useState('Activity')
   const [color, setColor] = useState('#c8f169')
   const [suggestedAreas, setSuggestedAreas] = useState<string[]>([])
+  const [seedStarterPlan, setSeedStarterPlan] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -43,6 +47,20 @@ export function NewTrackPage() {
     listTracks()
       .then((tracks) => setExistingTracks(tracks))
       .catch((err) => console.error('Could not prefetch tracks:', err))
+
+    listTrackTemplates()
+      .then((tpls) => {
+        setTemplates(tpls)
+        const fitness = tpls.find((t) => t.template_type === 'fitness')
+        if (fitness) {
+          setName(fitness.name)
+          setDescription(fitness.description)
+          setIcon(fitness.icon)
+          setColor(fitness.color)
+          setSuggestedAreas(fitness.suggested_areas || [])
+        }
+      })
+      .catch((err) => console.error('Could not load templates:', err))
   }, [])
 
   const handleSelectTemplate = (type: TemplateType) => {
@@ -56,13 +74,15 @@ export function NewTrackPage() {
       return
     }
 
-    const t = DEFAULT_TRACK_TEMPLATES.find((tpl) => tpl.template_type === type)
+    const t = (templates.length > 0 ? templates : DEFAULT_TRACK_TEMPLATES).find(
+      (tpl) => (tpl.key || tpl.template_type) === type,
+    )
     if (t) {
       setName(t.name)
       setDescription(t.description)
       setIcon(t.icon)
       setColor(t.color)
-      setSuggestedAreas(t.suggested_areas)
+      setSuggestedAreas(t.suggested_areas || [])
     }
   }
 
@@ -79,6 +99,46 @@ export function NewTrackPage() {
         icon,
         color,
       })
+
+      // Seed starter plan and items if requested and from a template
+      if (seedStarterPlan && selectedTemplate !== 'custom') {
+        const tplList = templates.length > 0 ? templates : DEFAULT_TRACK_TEMPLATES
+        const tpl = tplList.find((t) => (t.key || t.template_type) === selectedTemplate)
+        if (tpl) {
+          try {
+            const starterPlan = await createPlan(user.id, {
+              track_id: track.id,
+              name: `${track.name} Kickoff`,
+              description: `Starter plan seeded from ${tpl.name} template`,
+              start_date: new Date().toISOString().slice(0, 10),
+              end_date: null,
+            })
+
+            const itemsToSeed = tpl.default_items && tpl.default_items.length > 0
+              ? tpl.default_items
+              : [
+                  { title: `${track.name} daily routine`, type: 'habit' as const },
+                  { title: `Set up ${track.name} system`, type: 'task' as const },
+                  { title: `First month review`, type: 'milestone' as const },
+                ]
+
+            for (const item of itemsToSeed) {
+              await createExecutionItem(user.id, {
+                plan_id: starterPlan.id,
+                track_id: track.id,
+                name: item.title,
+                type: item.type,
+                priority: 'medium',
+                due_date: null,
+                schedule: item.type === 'habit' ? { frequency: 'daily', time_of_day: 'anytime' } : null,
+              })
+            }
+          } catch (seedErr) {
+            console.error('Failed to seed starter plan/items:', seedErr)
+          }
+        }
+      }
+
       navigate(`/tracks/${track.id}?created=true`, { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create Track')
@@ -127,15 +187,16 @@ export function NewTrackPage() {
             1. Select a Template
           </label>
           <div className="template-grid">
-            {DEFAULT_TRACK_TEMPLATES.map((t) => {
-              const isSelected = selectedTemplate === t.template_type
+            {(templates.length > 0 ? templates : DEFAULT_TRACK_TEMPLATES).map((t) => {
+              const tKey = (t.key || t.template_type) as TemplateType
+              const isSelected = selectedTemplate === tKey
               return (
                 <button
-                  key={t.template_type}
+                  key={tKey}
                   type="button"
                   className="template"
                   aria-pressed={isSelected}
-                  onClick={() => handleSelectTemplate(t.template_type as TemplateType)}
+                  onClick={() => handleSelectTemplate(tKey)}
                 >
                   <div className="row" style={{ justifyContent: 'space-between', width: '100%' }}>
                     <div
@@ -204,6 +265,34 @@ export function NewTrackPage() {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
+
+          {selectedTemplate !== 'custom' && (
+            <div
+              className="row"
+              style={{
+                gap: 'var(--space-2)',
+                alignItems: 'center',
+                padding: 'var(--space-3)',
+                background: 'var(--bg-secondary)',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border)',
+              }}
+            >
+              <input
+                type="checkbox"
+                id="seedStarterPlan"
+                checked={seedStarterPlan}
+                onChange={(e) => setSeedStarterPlan(e.target.checked)}
+                style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+              />
+              <label
+                htmlFor="seedStarterPlan"
+                style={{ cursor: 'pointer', fontSize: 'var(--text-body)', fontWeight: 500 }}
+              >
+                Seed starter plan and initial execution items from this template
+              </label>
+            </div>
+          )}
 
           {suggestedAreas.length > 0 && (
             <div>

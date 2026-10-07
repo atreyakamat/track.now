@@ -49,14 +49,16 @@ async function runJourney() {
   console.log('Admin Client Available:', Boolean(adminClient));
 
   const timestamp = Date.now();
-  const testEmail = `test.runner.${timestamp}@tracknow.internal`;
-  const testPassword = `TrackPass!${timestamp}`;
+  const testEmail = env.TEST_USER_EMAIL || `testrunner${timestamp}@gmail.com`;
+  const testPassword = env.TEST_USER_PASSWORD || `TrackPass!${timestamp}`;
   const displayName = `Test Athlete ${timestamp}`;
 
   let userId;
 
   // 1. SIGN UP / CREATE USER
-  if (adminClient) {
+  if (env.TEST_USER_EMAIL) {
+    console.log('\n[1/10] Using configured test user:', testEmail);
+  } else if (adminClient) {
     console.log('\n[1/10] Creating confirmed test user via admin API:', testEmail);
     const { data: createUserData, error: createErr } = await adminClient.auth.admin.createUser({
       email: testEmail,
@@ -90,6 +92,7 @@ async function runJourney() {
     password: testPassword
   });
   if (signInErr) throw new Error('SignIn failed: ' + signInErr.message);
+  userId = userId || signInData.user?.id;
   
   const userClient = createClient(url, anonKey, {
     auth: { persistSession: false },

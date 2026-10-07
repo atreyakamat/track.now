@@ -82,6 +82,7 @@ export interface ExecutionItem {
   unit?: string | null
   position?: number
   metadata?: Record<string, unknown>
+  schedule?: ItemSchedule | null
   created_at: string
   updated_at: string
 }
@@ -135,6 +136,13 @@ export interface NewPlanInput {
   end_date: string | null
 }
 
+export interface NewItemScheduleInput {
+  frequency: 'daily' | 'weekly' | 'monthly' | 'custom'
+  days_of_week?: number[] | null
+  time_of_day?: 'morning' | 'afternoon' | 'evening' | 'anytime' | null
+  reminder_time?: string | null
+}
+
 export interface NewExecutionItemInput {
   plan_id: string
   track_id?: string
@@ -145,6 +153,7 @@ export interface NewExecutionItemInput {
   due_date?: string | null
   start_date?: string | null
   status?: ItemStatus
+  schedule?: NewItemScheduleInput | null
 }
 
 export interface Progress {

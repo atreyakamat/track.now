@@ -48,6 +48,13 @@ export const authService = {
     if (error) throw new Error(friendlyAuthError(error.message))
   },
 
+  async resetPasswordForEmail(email: string): Promise<void> {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/login`,
+    })
+    if (error) throw new Error(friendlyAuthError(error.message))
+  },
+
   onAuthStateChange(callback: (event: string, session: Session | null) => void): () => void {
     const { data } = supabase.auth.onAuthStateChange((event, session) => callback(event, session))
     return () => data.subscription.unsubscribe()

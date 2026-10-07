@@ -23,9 +23,18 @@ export function CreateItemModal({
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState<ItemPriority>('medium')
+  const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'custom'>('daily')
+  const [daysOfWeek, setDaysOfWeek] = useState<number[]>([1, 2, 3, 4, 5])
+  const [timeOfDay, setTimeOfDay] = useState<'anytime' | 'morning' | 'afternoon' | 'evening'>('anytime')
   const [dueDate, setDueDate] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+
+  const toggleDay = (dayIndex: number) => {
+    setDaysOfWeek((prev) =>
+      prev.includes(dayIndex) ? prev.filter((d) => d !== dayIndex) : [...prev, dayIndex].sort(),
+    )
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -45,6 +54,14 @@ export function CreateItemModal({
         description: description.trim() || null,
         priority,
         due_date: dueDate || null,
+        schedule:
+          type === 'habit'
+            ? {
+                frequency,
+                days_of_week: frequency === 'daily' ? null : daysOfWeek,
+                time_of_day: timeOfDay,
+              }
+            : null,
       })
       setName('')
       setDescription('')
@@ -56,6 +73,16 @@ export function CreateItemModal({
       setBusy(false)
     }
   }
+
+  const DAYS = [
+    { label: 'Sun', value: 0 },
+    { label: 'Mon', value: 1 },
+    { label: 'Tue', value: 2 },
+    { label: 'Wed', value: 3 },
+    { label: 'Thu', value: 4 },
+    { label: 'Fri', value: 5 },
+    { label: 'Sat', value: 6 },
+  ]
 
   return (
     <Modal
@@ -104,6 +131,75 @@ export function CreateItemModal({
           onChange={(e) => setDescription(e.target.value)}
         />
 
+        {type === 'habit' && (
+          <div
+            className="stack"
+            style={{
+              padding: 'var(--space-3)',
+              background: 'var(--bg-secondary)',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--border)',
+              gap: 'var(--space-3)',
+            }}
+          >
+            <span className="t-meta" style={{ fontWeight: 600 }}>
+              Habit Recurrence Schedule
+            </span>
+            <div className="grid grid--2" style={{ gap: 'var(--space-3)' }}>
+              <Select
+                label="Frequency"
+                value={frequency}
+                onChange={(e) => setFrequency(e.target.value as 'daily' | 'weekly' | 'custom')}
+              >
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="custom">Custom Days</option>
+              </Select>
+
+              <Select
+                label="Time of Day"
+                value={timeOfDay}
+                onChange={(e) =>
+                  setTimeOfDay(e.target.value as 'anytime' | 'morning' | 'afternoon' | 'evening')
+                }
+              >
+                <option value="anytime">Anytime</option>
+                <option value="morning">Morning</option>
+                <option value="afternoon">Afternoon</option>
+                <option value="evening">Evening</option>
+              </Select>
+            </div>
+
+            {frequency !== 'daily' && (
+              <div>
+                <label className="field__label" style={{ display: 'block', marginBottom: '6px' }}>
+                  Active Days
+                </label>
+                <div className="row" style={{ gap: '6px', flexWrap: 'wrap' }}>
+                  {DAYS.map((day) => {
+                    const selected = daysOfWeek.includes(day.value)
+                    return (
+                      <button
+                        key={day.value}
+                        type="button"
+                        onClick={() => toggleDay(day.value)}
+                        className={`btn btn--sm ${selected ? 'btn--primary' : 'btn--ghost'}`}
+                        style={{
+                          minWidth: '42px',
+                          padding: '4px 8px',
+                          fontSize: 'var(--text-caption)',
+                        }}
+                      >
+                        {day.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="grid grid--2" style={{ gap: 'var(--space-3)' }}>
           <Select
             label="Priority"
@@ -113,6 +209,7 @@ export function CreateItemModal({
             <option value="low">Low</option>
             <option value="medium">Medium</option>
             <option value="high">High</option>
+            <option value="urgent">Urgent</option>
           </Select>
 
           <Input

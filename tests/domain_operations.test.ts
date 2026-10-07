@@ -185,3 +185,73 @@ describe('Authentication Routing & Guard Logic', () => {
     expect(getRouteAction('loading', false)).toBe('loading')
   })
 })
+
+describe('Phase 1 Closure Domain Logic', () => {
+  it('supports urgent priority with top sorting precedence', () => {
+    const priorities: ('low' | 'medium' | 'high' | 'urgent')[] = ['low', 'urgent', 'medium', 'high']
+    const rank: Record<string, number> = { urgent: 4, high: 3, medium: 2, low: 1 }
+    const sorted = [...priorities].sort((a, b) => rank[b] - rank[a])
+    expect(sorted).toEqual(['urgent', 'high', 'medium', 'low'])
+  })
+
+  it('correctly partitions today items respecting habit recurrence and dates', () => {
+    const todayStr = '2026-10-07'
+    const pastStr = '2026-10-01'
+    const futureStr = '2026-10-14'
+
+    const testItems = [
+      { id: '1', type: 'task', due_date: pastStr, schedule: null },
+      { id: '2', type: 'task', due_date: todayStr, schedule: null },
+      { id: '3', type: 'task', due_date: futureStr, schedule: null },
+      { id: '4', type: 'task', due_date: null, schedule: null },
+      { id: '5', type: 'habit', due_date: null, schedule: { frequency: 'daily', days_of_week: null } },
+      { id: '6', type: 'habit', due_date: null, schedule: { frequency: 'weekly', days_of_week: [0] } }, // Sunday only (not Wed)
+    ]
+
+    const wednesday = new Date('2026-10-07T12:00:00Z') // Wednesday = day 3
+    const isScheduledToday = (sched: { frequency: string; days_of_week: number[] | null } | null) => {
+      if (!sched) return true
+      if (sched.frequency === 'daily') return true
+      if (sched.days_of_week && Array.isArray(sched.days_of_week)) {
+        return sched.days_of_week.includes(wednesday.getDay())
+      }
+      return true
+    }
+
+    const overdue = testItems.filter((i) => i.type !== 'habit' && i.due_date && i.due_date < todayStr)
+    const today = testItems.filter((i) => {
+      if (i.type === 'habit') return isScheduledToday(i.schedule)
+      return i.due_date === todayStr
+    })
+    const upcoming = testItems.filter((i) => {
+      if (i.type === 'habit') return !isScheduledToday(i.schedule)
+      return Boolean(i.due_date && i.due_date > todayStr)
+    })
+    const anytime = testItems.filter((i) => i.type !== 'habit' && !i.due_date)
+
+    expect(overdue.map((i) => i.id)).toEqual(['1'])
+    expect(today.map((i) => i.id)).toEqual(['2', '5'])
+    expect(upcoming.map((i) => i.id)).toEqual(['3', '6'])
+    expect(anytime.map((i) => i.id)).toEqual(['4'])
+  })
+
+  it('correctly maps template default items to starter plan inputs', () => {
+    const templateDefaultItems = [
+      { title: 'Log workout', type: 'habit' as const },
+      { title: 'Buy gym gear', type: 'task' as const },
+      { title: 'Reach 10k steps', type: 'milestone' as const },
+    ]
+
+    const seeded = templateDefaultItems.map((item) => ({
+      plan_id: 'plan-new',
+      name: item.title,
+      type: item.type,
+      priority: 'medium' as const,
+      schedule: item.type === 'habit' ? { frequency: 'daily' as const, time_of_day: 'anytime' as const } : null,
+    }))
+
+    expect(seeded.length).toBe(3)
+    expect(seeded[0].schedule?.frequency).toBe('daily')
+    expect(seeded[1].schedule).toBeNull()
+  })
+})

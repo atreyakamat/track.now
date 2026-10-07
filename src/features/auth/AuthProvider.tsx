@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
-import { ensureProfile } from '@/services/tracksService'
+import { ensureProfile, getProfile } from '@/services/tracksService'
 import type { Profile } from '@/types/domain'
 import { authService, type SignUpResult } from './authService'
 
@@ -18,6 +18,7 @@ interface AuthContextValue {
   signIn: (email: string, password: string) => Promise<void>
   signUp: (email: string, password: string, displayName: string) => Promise<SignUpResult>
   signOut: () => Promise<void>
+  refreshProfile: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -76,6 +77,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [userId, metaName])
 
+  const refreshProfile = useCallback(async () => {
+    if (!userId) return
+    try {
+      const p = await getProfile(userId)
+      if (p) setProfile(p)
+    } catch {
+      // ignore
+    }
+  }, [userId])
+
   const value = useMemo<AuthContextValue>(() => {
     const user = session?.user ?? null
     return {
@@ -91,8 +102,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         manualSignOut.current = true
         await authService.signOut()
       },
+      refreshProfile,
     }
-  }, [status, session, profile, metaName, notice])
+  }, [status, session, profile, metaName, notice, refreshProfile])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
