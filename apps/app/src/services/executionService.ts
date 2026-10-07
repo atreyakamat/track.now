@@ -10,6 +10,9 @@ function mapExecutionItemRow(row: any): ExecutionItem {
   const { track_now_item_schedules: _t, schedule: _s, ...clean } = row
   return {
     ...clean,
+    target_count: clean.target_count ?? 1,
+    current_count: clean.current_count ?? 0,
+    unit: clean.unit ?? null,
     schedule,
   } as ExecutionItem
 }
@@ -100,26 +103,38 @@ export async function createExecutionItem(
   }
 
   const { schedule: scheduleInput, ...itemFields } = input
+  const targetCount = Math.max(1, input.target_count ?? 1)
+  const currentCount = Math.max(0, input.current_count ?? 0)
+  const initialStatus =
+    itemFields.status || (currentCount >= targetCount && targetCount > 0 ? 'done' : 'todo')
 
-  const item = unwrap(
+  const row = unwrap(
     await supabase
       .from('track_now_execution_items')
       .insert({
         ...itemFields,
         user_id: userId,
-        status: itemFields.status || 'todo',
+        target_count: targetCount,
+        current_count: currentCount,
+        unit: input.unit?.trim() || null,
+        status: initialStatus,
         priority: itemFields.priority || 'medium',
       })
-      .select()
+      .select('*, track_now_item_schedules(*)')
       .single(),
-  ) as ExecutionItem
+  )
+  const item = mapExecutionItemRow(row)
 
   // Persist schedule if provided or if type is habit
   if (scheduleInput || input.type === 'habit') {
     const schedPayload = {
       item_id: item.id,
       frequency: scheduleInput?.frequency || 'daily',
-      days_of_week: scheduleInput?.days_of_week ?? (scheduleInput?.frequency === 'daily' || !scheduleInput?.frequency ? [0, 1, 2, 3, 4, 5, 6] : null),
+      days_of_week:
+        scheduleInput?.days_of_week ??
+        (scheduleInput?.frequency === 'daily' || !scheduleInput?.frequency
+          ? [0, 1, 2, 3, 4, 5, 6]
+          : null),
       time_of_day: scheduleInput?.time_of_day || 'anytime',
       reminder_time: scheduleInput?.reminder_time || null,
     }
@@ -179,14 +194,47 @@ export async function updateExecutionItem(
   itemId: string,
   updates: Partial<ExecutionItem>,
 ): Promise<ExecutionItem> {
-  return unwrap(
+  const row = unwrap(
     await supabase
       .from('track_now_execution_items')
       .update(updates)
       .eq('id', itemId)
-      .select()
+      .select('*, track_now_item_schedules(*)')
       .single(),
-  ) as ExecutionItem
+  )
+  return mapExecutionItemRow(row)
+}
+
+export async function updateItemProgress(
+  itemId: string,
+  newCount: number,
+  userId?: string,
+): Promise<ExecutionItem> {
+  const currentItem = await getExecutionItem(itemId)
+  const targetCount = Math.max(1, currentItem.target_count ?? 1)
+  const clampedCount = Math.max(0, newCount)
+  const willBeDone = clampedCount >= targetCount
+  const nextStatus: ItemStatus = willBeDone ? 'done' : 'todo'
+  const wasDone = currentItem.status === 'done'
+
+  const updated = await updateExecutionItem(itemId, {
+    current_count: clampedCount,
+    status: nextStatus,
+  })
+
+  if (userId) {
+    if (willBeDone && !wasDone) {
+      await recordCompletion(userId, itemId).catch((err) => {
+        console.warn('Could not record completion log on progress completion:', err)
+      })
+    } else if (!willBeDone && wasDone) {
+      await deleteCompletionForDate(itemId).catch((err) => {
+        console.warn('Could not remove completion log on progress regress:', err)
+      })
+    }
+  }
+
+  return updated
 }
 
 export async function recordCompletion(
@@ -251,7 +299,14 @@ export async function toggleItemStatus(
   userId?: string,
 ): Promise<ExecutionItem> {
   const nextStatus: ItemStatus = currentStatus === 'done' ? 'todo' : 'done'
-  const updated = await updateExecutionItem(itemId, { status: nextStatus })
+  const currentItem = await getExecutionItem(itemId)
+  const targetCount = Math.max(1, currentItem.target_count ?? 1)
+  const nextCount = nextStatus === 'done' ? Math.max(targetCount, currentItem.current_count ?? 0) : 0
+
+  const updated = await updateExecutionItem(itemId, {
+    status: nextStatus,
+    current_count: nextCount,
+  })
 
   if (userId) {
     if (nextStatus === 'done') {

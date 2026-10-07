@@ -4,6 +4,7 @@ import { useAuth } from '@/features/auth/AuthProvider'
 import {
   listTodayExecutionItems,
   toggleItemStatus,
+  updateItemProgress,
 } from '@/services/executionService'
 import { isDueToday, isHabitScheduledForToday, isOverdue, isUpcoming } from '@/domain/dates'
 import type { ExecutionItem } from '@/types/domain'
@@ -41,6 +42,18 @@ export function TodayPage() {
       setItems((prev) => prev.map((item) => (item.id === itemId ? updated : item)))
     } catch (err) {
       console.error('Failed to toggle status:', err)
+    } finally {
+      setBusyItemId(null)
+    }
+  }
+
+  const handleUpdateCount = async (itemId: string, newCount: number) => {
+    try {
+      setBusyItemId(itemId)
+      const updated = await updateItemProgress(itemId, newCount, user?.id)
+      setItems((prev) => prev.map((item) => (item.id === itemId ? updated : item)))
+    } catch (err) {
+      console.error('Failed to update item count:', err)
     } finally {
       setBusyItemId(null)
     }
@@ -111,6 +124,7 @@ export function TodayPage() {
                     key={item.id}
                     item={item}
                     onToggleStatus={handleToggleStatus}
+                    onUpdateCount={handleUpdateCount}
                     busy={busyItemId === item.id}
                   />
                 ))}
@@ -130,6 +144,7 @@ export function TodayPage() {
                     key={item.id}
                     item={item}
                     onToggleStatus={handleToggleStatus}
+                    onUpdateCount={handleUpdateCount}
                     busy={busyItemId === item.id}
                   />
                 ))}
@@ -149,6 +164,7 @@ export function TodayPage() {
                     key={item.id}
                     item={item}
                     onToggleStatus={handleToggleStatus}
+                    onUpdateCount={handleUpdateCount}
                     busy={busyItemId === item.id}
                   />
                 ))}
@@ -170,6 +186,7 @@ export function TodayPage() {
                     key={item.id}
                     item={item}
                     onToggleStatus={handleToggleStatus}
+                    onUpdateCount={handleUpdateCount}
                     busy={busyItemId === item.id}
                   />
                 ))}
@@ -191,6 +208,7 @@ export function TodayPage() {
                     key={item.id}
                     item={item}
                     onToggleStatus={handleToggleStatus}
+                    onUpdateCount={handleUpdateCount}
                     busy={busyItemId === item.id}
                   />
                 ))}

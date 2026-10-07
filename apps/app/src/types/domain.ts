@@ -153,6 +153,9 @@ export interface NewExecutionItemInput {
   due_date?: string | null
   start_date?: string | null
   status?: ItemStatus
+  target_count?: number
+  current_count?: number
+  unit?: string | null
   schedule?: NewItemScheduleInput | null
 }
 

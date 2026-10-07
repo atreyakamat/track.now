@@ -20,6 +20,7 @@ import {
   deleteExecutionItem,
   listExecutionItems,
   toggleItemStatus,
+  updateItemProgress,
 } from '@/services/executionService'
 import { summarizePlan } from '@/domain/progress'
 import { formatDateRange } from '@/utils/format'
@@ -165,6 +166,18 @@ export function PlanDetailPage() {
       setItems((prev) => prev.map((item) => (item.id === itemId ? updated : item)))
     } catch (err) {
       console.error('Failed to update item status:', err)
+    } finally {
+      setBusyItemId(null)
+    }
+  }
+
+  const handleUpdateItemCount = async (itemId: string, newCount: number) => {
+    try {
+      setBusyItemId(itemId)
+      const updated = await updateItemProgress(itemId, newCount, user?.id)
+      setItems((prev) => prev.map((item) => (item.id === itemId ? updated : item)))
+    } catch (err) {
+      console.error('Failed to update item count:', err)
     } finally {
       setBusyItemId(null)
     }
@@ -348,6 +361,7 @@ export function PlanDetailPage() {
                     key={item.id}
                     item={item}
                     onToggleStatus={handleToggleItemStatus}
+                    onUpdateCount={handleUpdateItemCount}
                     onDelete={handleDeleteItem}
                     busy={busyItemId === item.id}
                   />
@@ -384,6 +398,7 @@ export function PlanDetailPage() {
                   key={item.id}
                   item={item}
                   onToggleStatus={handleToggleItemStatus}
+                  onUpdateCount={handleUpdateItemCount}
                   onDelete={handleDeleteItem}
                   busy={busyItemId === item.id}
                 />
@@ -420,6 +435,7 @@ export function PlanDetailPage() {
                   key={item.id}
                   item={item}
                   onToggleStatus={handleToggleItemStatus}
+                  onUpdateCount={handleUpdateItemCount}
                   onDelete={handleDeleteItem}
                   busy={busyItemId === item.id}
                 />
@@ -456,6 +472,7 @@ export function PlanDetailPage() {
                   key={item.id}
                   item={item}
                   onToggleStatus={handleToggleItemStatus}
+                  onUpdateCount={handleUpdateItemCount}
                   onDelete={handleDeleteItem}
                   busy={busyItemId === item.id}
                 />
@@ -492,6 +509,7 @@ export function PlanDetailPage() {
                   key={item.id}
                   item={item}
                   onToggleStatus={handleToggleItemStatus}
+                  onUpdateCount={handleUpdateItemCount}
                   onDelete={handleDeleteItem}
                   busy={busyItemId === item.id}
                 />
@@ -528,6 +546,7 @@ export function PlanDetailPage() {
                   key={item.id}
                   item={item}
                   onToggleStatus={handleToggleItemStatus}
+                  onUpdateCount={handleUpdateItemCount}
                   onDelete={handleDeleteItem}
                   busy={busyItemId === item.id}
                 />

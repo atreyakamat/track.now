@@ -27,6 +27,8 @@ export function CreateItemModal({
   const [daysOfWeek, setDaysOfWeek] = useState<number[]>([1, 2, 3, 4, 5])
   const [timeOfDay, setTimeOfDay] = useState<'anytime' | 'morning' | 'afternoon' | 'evening'>('anytime')
   const [dueDate, setDueDate] = useState('')
+  const [targetCount, setTargetCount] = useState<number>(1)
+  const [unit, setUnit] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -54,6 +56,9 @@ export function CreateItemModal({
         description: description.trim() || null,
         priority,
         due_date: dueDate || null,
+        target_count: targetCount,
+        current_count: 0,
+        unit: unit.trim() || null,
         schedule:
           type === 'habit'
             ? {
@@ -66,6 +71,8 @@ export function CreateItemModal({
       setName('')
       setDescription('')
       setDueDate('')
+      setTargetCount(1)
+      setUnit('')
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create item')
@@ -199,6 +206,26 @@ export function CreateItemModal({
             )}
           </div>
         )}
+
+        <div className="grid grid--2" style={{ gap: 'var(--space-3)' }}>
+          <Input
+            label="Target Quantity"
+            type="number"
+            min="1"
+            step="1"
+            value={targetCount}
+            onChange={(e) => setTargetCount(Math.max(1, parseInt(e.target.value, 10) || 1))}
+            hint="Amount to complete (default 1)"
+          />
+
+          <Input
+            label="Unit (Optional)"
+            placeholder="e.g. reps, pages, km, min, glasses"
+            value={unit}
+            onChange={(e) => setUnit(e.target.value)}
+            hint="Measurement unit"
+          />
+        </div>
 
         <div className="grid grid--2" style={{ gap: 'var(--space-3)' }}>
           <Select
