@@ -159,6 +159,19 @@ export interface NewExecutionItemInput {
   schedule?: NewItemScheduleInput | null
 }
 
+export interface UpdateExecutionItemInput {
+  name?: string
+  description?: string | null
+  type?: ItemType
+  priority?: ItemPriority
+  due_date?: string | null
+  start_date?: string | null
+  target_count?: number
+  current_count?: number
+  unit?: string | null
+  schedule?: NewItemScheduleInput | null
+}
+
 export interface Progress {
   total: number
   done: number

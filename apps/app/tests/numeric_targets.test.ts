@@ -378,11 +378,183 @@ describe('Phase 2 — Feature 01: Numeric Targets & Target Quantities', () => {
         Math.min(100, Math.round((Math.max(0, current) / Math.max(1, target)) * 100))
 
       expect(calcPercent(0, 10)).toBe(0)
-      expect(calcPercent(3, 10)).toBe(30)
+      expect(calcPercent(1, 10)).toBe(10)
       expect(calcPercent(5, 10)).toBe(50)
       expect(calcPercent(10, 10)).toBe(100)
       expect(calcPercent(15, 10)).toBe(100) // Clamped at 100%
       expect(calcPercent(-2, 10)).toBe(0) // Clamped at 0%
+    })
+  })
+
+  describe('Editing, Conversions & Boundary Invariants (S.1 & SDE.1)', () => {
+    function applyItemEdit(
+      current: ExecutionItem,
+      updates: {
+        name?: string
+        target_count?: number
+        current_count?: number
+        unit?: string | null
+      },
+    ): { item: ExecutionItem; transition: 'completed' | 'regressed' | 'none' } {
+      const targetCount =
+        updates.target_count !== undefined
+          ? Math.max(1, updates.target_count)
+          : Math.max(1, current.target_count ?? 1)
+      const currentCount =
+        updates.current_count !== undefined
+          ? Math.max(0, updates.current_count)
+          : Math.max(0, current.current_count ?? 0)
+      const unit =
+        updates.unit !== undefined ? (updates.unit?.trim() || null) : current.unit
+
+      const willBeDone = currentCount >= targetCount
+      const wasDone = current.status === 'done'
+      const nextStatus: ItemStatus = willBeDone ? 'done' : 'todo'
+
+      let transition: 'completed' | 'regressed' | 'none' = 'none'
+      if (willBeDone && !wasDone) transition = 'completed'
+      else if (!willBeDone && wasDone) transition = 'regressed'
+
+      return {
+        item: {
+          ...current,
+          name: updates.name ? updates.name.trim() : current.name,
+          target_count: targetCount,
+          current_count: currentCount,
+          unit,
+          status: nextStatus,
+        },
+        transition,
+      }
+    }
+
+    const testItem: ExecutionItem = {
+      id: 'item-edit-test',
+      plan_id: 'plan-1',
+      user_id: 'user-1',
+      type: 'task',
+      name: 'Write Pages',
+      status: 'todo',
+      priority: 'medium',
+      start_date: null,
+      due_date: null,
+      target_count: 20,
+      current_count: 10,
+      unit: 'pages',
+      created_at: '2026-10-01T00:00:00Z',
+      updated_at: '2026-10-01T00:00:00Z',
+    }
+
+    it('correctly calculates progression for 0/10, 1/10, 5/10, 10/10, 15/10', () => {
+      const getProgressMetrics = (curr: number, tgt: number) => {
+        const percent = Math.min(100, Math.round((Math.max(0, curr) / Math.max(1, tgt)) * 100))
+        const isComplete = curr >= tgt
+        return { percent, isComplete }
+      }
+
+      expect(getProgressMetrics(0, 10)).toEqual({ percent: 0, isComplete: false })
+      expect(getProgressMetrics(1, 10)).toEqual({ percent: 10, isComplete: false })
+      expect(getProgressMetrics(5, 10)).toEqual({ percent: 50, isComplete: false })
+      expect(getProgressMetrics(10, 10)).toEqual({ percent: 100, isComplete: true })
+      expect(getProgressMetrics(15, 10)).toEqual({ percent: 100, isComplete: true })
+    })
+
+    it('handles target increases: 10/20 target -> 30 results in 10/30 (incomplete, ~33%)', () => {
+      const done20Item: ExecutionItem = {
+        ...testItem,
+        current_count: 20,
+        status: 'done',
+      }
+      const { item, transition } = applyItemEdit(done20Item, { target_count: 30 })
+
+      expect(item.target_count).toBe(30)
+      expect(item.current_count).toBe(20)
+      expect(item.status).toBe('todo')
+      expect(transition).toBe('regressed') // Must uncomplete and remove completion log
+    })
+
+    it('handles target decreases: 10/20 target -> 5 results in 10/5 (complete, 100%)', () => {
+      const { item, transition } = applyItemEdit(testItem, { target_count: 5 })
+
+      expect(item.target_count).toBe(5)
+      expect(item.current_count).toBe(10)
+      expect(item.status).toBe('done')
+      expect(transition).toBe('completed') // Must complete and record completion log
+    })
+
+    it('safely converts normal item to numeric item without invalid state', () => {
+      const normalItem: ExecutionItem = {
+        id: 'normal-1',
+        plan_id: 'plan-1',
+        user_id: 'user-1',
+        type: 'task',
+        name: 'Single Task',
+        status: 'todo',
+        priority: 'medium',
+        start_date: null,
+        due_date: null,
+        target_count: 1,
+        current_count: 0,
+        unit: null,
+        created_at: '2026-10-01T00:00:00Z',
+        updated_at: '2026-10-01T00:00:00Z',
+      }
+
+      const { item } = applyItemEdit(normalItem, {
+        target_count: 10,
+        unit: 'reps',
+      })
+
+      expect(item.target_count).toBe(10)
+      expect(item.unit).toBe('reps')
+      expect(item.current_count).toBe(0)
+      expect(item.status).toBe('todo')
+    })
+
+    it('safely converts numeric item to normal item', () => {
+      const numericItem: ExecutionItem = {
+        id: 'numeric-1',
+        plan_id: 'plan-1',
+        user_id: 'user-1',
+        type: 'habit',
+        name: 'Pushups',
+        status: 'done',
+        priority: 'medium',
+        start_date: null,
+        due_date: null,
+        target_count: 10,
+        current_count: 10,
+        unit: 'reps',
+        created_at: '2026-10-01T00:00:00Z',
+        updated_at: '2026-10-01T00:00:00Z',
+      }
+
+      const { item } = applyItemEdit(numericItem, {
+        target_count: 1,
+        unit: null,
+      })
+
+      expect(item.target_count).toBe(1)
+      expect(item.unit).toBeNull()
+      expect(item.current_count).toBe(10)
+      expect(item.status).toBe('done')
+    })
+
+    it('edits and clears unit string cleanly', () => {
+      const editedUnit = applyItemEdit(testItem, { unit: 'chapters' })
+      expect(editedUnit.item.unit).toBe('chapters')
+
+      const clearedUnit = applyItemEdit(testItem, { unit: '' })
+      expect(clearedUnit.item.unit).toBeNull()
+    })
+
+    it('edits current_count directly and clamps negative values to 0', () => {
+      const directEdit = applyItemEdit(testItem, { current_count: 15 })
+      expect(directEdit.item.current_count).toBe(15)
+      expect(directEdit.item.status).toBe('todo')
+
+      const negativeEdit = applyItemEdit(testItem, { current_count: -8 })
+      expect(negativeEdit.item.current_count).toBe(0)
     })
   })
 })

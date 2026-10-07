@@ -1,4 +1,4 @@
-import { Calendar, Check, Repeat, Trash2 } from 'lucide-react'
+import { Calendar, Check, Edit2, Repeat, Trash2 } from 'lucide-react'
 import type { ExecutionItem } from '@/types/domain'
 import { Badge, Button } from '@/components/ui'
 import { isOverdue } from '@/domain/dates'
@@ -7,6 +7,7 @@ interface ExecutionItemCardProps {
   item: ExecutionItem
   onToggleStatus: (itemId: string, currentStatus: ExecutionItem['status']) => void
   onUpdateCount?: (itemId: string, newCount: number) => void
+  onEdit?: (item: ExecutionItem) => void
   onDelete?: (itemId: string) => void
   busy?: boolean
 }
@@ -15,6 +16,7 @@ export function ExecutionItemCard({
   item,
   onToggleStatus,
   onUpdateCount,
+  onEdit,
   onDelete,
   busy,
 }: ExecutionItemCardProps) {
@@ -226,6 +228,19 @@ export function ExecutionItemCard({
             +
           </button>
         </div>
+      )}
+
+      {onEdit && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onEdit(item)}
+          disabled={busy}
+          title="Edit item"
+          aria-label={`Edit ${item.name}`}
+        >
+          <Edit2 size={14} />
+        </Button>
       )}
 
       {onDelete && (

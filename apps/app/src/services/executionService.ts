@@ -1,5 +1,12 @@
 import { supabase } from '@/lib/supabase/client'
-import type { ExecutionItem, ItemSchedule, ItemStatus, NewExecutionItemInput, NewItemScheduleInput } from '@/types/domain'
+import type {
+  ExecutionItem,
+  ItemSchedule,
+  ItemStatus,
+  NewExecutionItemInput,
+  NewItemScheduleInput,
+  UpdateExecutionItemInput,
+} from '@/types/domain'
 import { unwrap } from './helpers'
 
 function mapExecutionItemRow(row: any): ExecutionItem {
@@ -230,6 +237,69 @@ export async function updateItemProgress(
     } else if (!willBeDone && wasDone) {
       await deleteCompletionForDate(itemId).catch((err) => {
         console.warn('Could not remove completion log on progress regress:', err)
+      })
+    }
+  }
+
+  return updated
+}
+
+export async function editExecutionItem(
+  itemId: string,
+  input: UpdateExecutionItemInput,
+  userId?: string,
+): Promise<ExecutionItem> {
+  const currentItem = await getExecutionItem(itemId)
+
+  // Determine updated fields
+  const targetCount =
+    input.target_count !== undefined
+      ? Math.max(1, input.target_count)
+      : Math.max(1, currentItem.target_count ?? 1)
+
+  const currentCount =
+    input.current_count !== undefined
+      ? Math.max(0, input.current_count)
+      : Math.max(0, currentItem.current_count ?? 0)
+
+  const unit =
+    input.unit !== undefined ? (input.unit?.trim() || null) : currentItem.unit
+
+  // Canonical completion: current_count >= target_count
+  const willBeDone = currentCount >= targetCount
+  const wasDone = currentItem.status === 'done'
+  const nextStatus: ItemStatus = willBeDone ? 'done' : 'todo'
+
+  const updates: Partial<ExecutionItem> = {
+    target_count: targetCount,
+    current_count: currentCount,
+    unit,
+    status: nextStatus,
+  }
+
+  if (input.name !== undefined) updates.name = input.name.trim()
+  if (input.description !== undefined) updates.description = input.description?.trim() || null
+  if (input.priority !== undefined) updates.priority = input.priority
+  if (input.type !== undefined) updates.type = input.type
+  if (input.due_date !== undefined) updates.due_date = input.due_date || null
+  if (input.start_date !== undefined) updates.start_date = input.start_date || null
+
+  const updated = await updateExecutionItem(itemId, updates)
+
+  // Persist schedule if provided
+  if (input.schedule) {
+    const savedSchedule = await saveItemSchedule(itemId, input.schedule)
+    updated.schedule = savedSchedule
+  }
+
+  if (userId) {
+    if (willBeDone && !wasDone) {
+      await recordCompletion(userId, itemId).catch((err) => {
+        console.warn('Could not record completion log on edit completion:', err)
+      })
+    } else if (!willBeDone && wasDone) {
+      await deleteCompletionForDate(itemId).catch((err) => {
+        console.warn('Could not remove completion log on edit regress:', err)
       })
     }
   }

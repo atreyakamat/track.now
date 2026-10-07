@@ -2,20 +2,23 @@ import { useEffect, useState } from 'react'
 import { CheckCircle2, Clock } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthProvider'
 import {
+  editExecutionItem,
   listTodayExecutionItems,
   toggleItemStatus,
   updateItemProgress,
 } from '@/services/executionService'
 import { isDueToday, isHabitScheduledForToday, isOverdue, isUpcoming } from '@/domain/dates'
-import type { ExecutionItem } from '@/types/domain'
+import type { ExecutionItem, UpdateExecutionItemInput } from '@/types/domain'
 import { EmptyState, ErrorState, LoadingState, PageHeader } from '@/components/ui'
 import { ExecutionItemCard } from '@/components/execution/ExecutionItemCard'
+import { EditItemModal } from '@/components/execution/EditItemModal'
 
 export function TodayPage() {
   const { user } = useAuth()
   const [items, setItems] = useState<ExecutionItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [editingItem, setEditingItem] = useState<ExecutionItem | null>(null)
   const [busyItemId, setBusyItemId] = useState<string | null>(null)
 
   const loadData = async () => {
@@ -54,6 +57,21 @@ export function TodayPage() {
       setItems((prev) => prev.map((item) => (item.id === itemId ? updated : item)))
     } catch (err) {
       console.error('Failed to update item count:', err)
+    } finally {
+      setBusyItemId(null)
+    }
+  }
+
+  const handleSaveEditItem = async (itemId: string, input: UpdateExecutionItemInput) => {
+    if (!user) return
+    try {
+      setBusyItemId(itemId)
+      const updated = await editExecutionItem(itemId, input, user.id)
+      setItems((prev) => prev.map((item) => (item.id === itemId ? updated : item)))
+      setEditingItem(null)
+    } catch (err) {
+      console.error('Failed to update execution item:', err)
+      throw err
     } finally {
       setBusyItemId(null)
     }
@@ -125,6 +143,7 @@ export function TodayPage() {
                     item={item}
                     onToggleStatus={handleToggleStatus}
                     onUpdateCount={handleUpdateCount}
+                    onEdit={(item) => setEditingItem(item)}
                     busy={busyItemId === item.id}
                   />
                 ))}
@@ -145,6 +164,7 @@ export function TodayPage() {
                     item={item}
                     onToggleStatus={handleToggleStatus}
                     onUpdateCount={handleUpdateCount}
+                    onEdit={(item) => setEditingItem(item)}
                     busy={busyItemId === item.id}
                   />
                 ))}
@@ -165,6 +185,7 @@ export function TodayPage() {
                     item={item}
                     onToggleStatus={handleToggleStatus}
                     onUpdateCount={handleUpdateCount}
+                    onEdit={(item) => setEditingItem(item)}
                     busy={busyItemId === item.id}
                   />
                 ))}
@@ -187,6 +208,7 @@ export function TodayPage() {
                     item={item}
                     onToggleStatus={handleToggleStatus}
                     onUpdateCount={handleUpdateCount}
+                    onEdit={(item) => setEditingItem(item)}
                     busy={busyItemId === item.id}
                   />
                 ))}
@@ -209,6 +231,7 @@ export function TodayPage() {
                     item={item}
                     onToggleStatus={handleToggleStatus}
                     onUpdateCount={handleUpdateCount}
+                    onEdit={(item) => setEditingItem(item)}
                     busy={busyItemId === item.id}
                   />
                 ))}
@@ -217,6 +240,14 @@ export function TodayPage() {
           )}
         </div>
       )}
+
+      {/* Edit Item Modal */}
+      <EditItemModal
+        open={Boolean(editingItem)}
+        onClose={() => setEditingItem(null)}
+        item={editingItem}
+        onSubmit={handleSaveEditItem}
+      />
     </div>
   )
 }

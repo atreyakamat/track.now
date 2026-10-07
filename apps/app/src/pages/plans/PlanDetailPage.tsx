@@ -18,13 +18,21 @@ import { deletePlan, getPlan, setPlanArchived, updatePlan } from '@/services/pla
 import {
   createExecutionItem,
   deleteExecutionItem,
+  editExecutionItem,
   listExecutionItems,
   toggleItemStatus,
   updateItemProgress,
 } from '@/services/executionService'
 import { summarizePlan } from '@/domain/progress'
 import { formatDateRange } from '@/utils/format'
-import type { ExecutionItem, ItemType, NewExecutionItemInput, Plan, Track } from '@/types/domain'
+import type {
+  ExecutionItem,
+  ItemType,
+  NewExecutionItemInput,
+  Plan,
+  Track,
+  UpdateExecutionItemInput,
+} from '@/types/domain'
 import {
   Badge,
   Button,
@@ -43,6 +51,7 @@ import {
 } from '@/components/ui'
 import { ExecutionItemCard } from '@/components/execution/ExecutionItemCard'
 import { CreateItemModal } from '@/components/execution/CreateItemModal'
+import { EditItemModal } from '@/components/execution/EditItemModal'
 
 export function PlanDetailPage() {
   const { trackId, planId } = useParams<{ trackId?: string; planId?: string }>()
@@ -61,6 +70,7 @@ export function PlanDetailPage() {
   // Item creation modal
   const [modalOpen, setModalOpen] = useState(false)
   const [modalDefaultType, setModalDefaultType] = useState<ItemType>('task')
+  const [editingItem, setEditingItem] = useState<ExecutionItem | null>(null)
   const [busyItemId, setBusyItemId] = useState<string | null>(null)
 
   // Plan editing modal
@@ -190,6 +200,21 @@ export function PlanDetailPage() {
       setItems((prev) => prev.filter((item) => item.id !== itemId))
     } catch (err) {
       console.error('Failed to delete item:', err)
+    } finally {
+      setBusyItemId(null)
+    }
+  }
+
+  const handleSaveEditItem = async (itemId: string, input: UpdateExecutionItemInput) => {
+    if (!user) return
+    try {
+      setBusyItemId(itemId)
+      const updated = await editExecutionItem(itemId, input, user.id)
+      setItems((prev) => prev.map((item) => (item.id === itemId ? updated : item)))
+      setEditingItem(null)
+    } catch (err) {
+      console.error('Failed to update execution item:', err)
+      throw err
     } finally {
       setBusyItemId(null)
     }
@@ -362,6 +387,7 @@ export function PlanDetailPage() {
                     item={item}
                     onToggleStatus={handleToggleItemStatus}
                     onUpdateCount={handleUpdateItemCount}
+                    onEdit={(item) => setEditingItem(item)}
                     onDelete={handleDeleteItem}
                     busy={busyItemId === item.id}
                   />
@@ -399,6 +425,7 @@ export function PlanDetailPage() {
                   item={item}
                   onToggleStatus={handleToggleItemStatus}
                   onUpdateCount={handleUpdateItemCount}
+                  onEdit={(item) => setEditingItem(item)}
                   onDelete={handleDeleteItem}
                   busy={busyItemId === item.id}
                 />
@@ -436,6 +463,7 @@ export function PlanDetailPage() {
                   item={item}
                   onToggleStatus={handleToggleItemStatus}
                   onUpdateCount={handleUpdateItemCount}
+                  onEdit={(item) => setEditingItem(item)}
                   onDelete={handleDeleteItem}
                   busy={busyItemId === item.id}
                 />
@@ -473,6 +501,7 @@ export function PlanDetailPage() {
                   item={item}
                   onToggleStatus={handleToggleItemStatus}
                   onUpdateCount={handleUpdateItemCount}
+                  onEdit={(item) => setEditingItem(item)}
                   onDelete={handleDeleteItem}
                   busy={busyItemId === item.id}
                 />
@@ -510,6 +539,7 @@ export function PlanDetailPage() {
                   item={item}
                   onToggleStatus={handleToggleItemStatus}
                   onUpdateCount={handleUpdateItemCount}
+                  onEdit={(item) => setEditingItem(item)}
                   onDelete={handleDeleteItem}
                   busy={busyItemId === item.id}
                 />
@@ -547,6 +577,7 @@ export function PlanDetailPage() {
                   item={item}
                   onToggleStatus={handleToggleItemStatus}
                   onUpdateCount={handleUpdateItemCount}
+                  onEdit={(item) => setEditingItem(item)}
                   onDelete={handleDeleteItem}
                   busy={busyItemId === item.id}
                 />
@@ -591,6 +622,14 @@ export function PlanDetailPage() {
         trackId={track.id}
         defaultType={modalDefaultType}
         onSubmit={handleCreateItem}
+      />
+
+      {/* Edit Item Modal */}
+      <EditItemModal
+        open={Boolean(editingItem)}
+        onClose={() => setEditingItem(null)}
+        item={editingItem}
+        onSubmit={handleSaveEditItem}
       />
 
       {/* Edit Plan Modal */}
