@@ -22,9 +22,9 @@ This document lays out the phased development roadmap for **Track.now**, from th
 - [x] Database-level duplicate completion prevention via unique index `(item_id, completed_date)` and idempotent conflict resolution.
 - [x] Full responsive design verified across viewports (320px–1920px) with mobile bottom nav and dialog overflow protection.
 - [x] Security audited: zero hard-coded secrets or service_role keys in source code or client bundles.
-- [x] 100% passing Vitest test suite (25/25 unit tests) for domain math, date scheduling, and domain invariants.
+- [x] 100% passing Vitest test suite (75/75 unit/integration tests) for domain math, date scheduling, auth routing, numeric targets, and invariants.
 - [x] Zero-error TypeScript compilation and production build (`dist/`).
-- [x] Live Supabase E2E full user journey and RLS tenant isolation verified.
+- [ ] Live Supabase E2E multi-user journey and cross-tenant RLS isolation (BLOCKED pending remote execution of hardening migration `20261008000000_harden_constraints_and_rls.sql` and rotated administrative credential provisioning).
 
 ---
 
