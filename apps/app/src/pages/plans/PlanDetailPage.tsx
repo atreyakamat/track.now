@@ -20,6 +20,7 @@ import {
   deleteExecutionItem,
   editExecutionItem,
   listCompletionsForDate,
+  listCompletionsForItems,
   listExecutionItems,
   stepItemCount,
   toggleHabitTodayCompletion,
@@ -27,6 +28,8 @@ import {
   updateItemProgress,
 } from '@/services/executionService'
 import { getTodayDateString } from '@/domain/dates'
+import { calcHabitStreak, type HabitStreakSummary } from '@/domain/streaks'
+import { CalendarHeatmap } from '@/components/analytics/CalendarHeatmap'
 import { summarizePlan } from '@/domain/progress'
 import { formatDateRange } from '@/utils/format'
 import type {
@@ -90,6 +93,8 @@ export function PlanDetailPage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [deleteBusy, setDeleteBusy] = useState(false)
   const [todayCompletedIds, setTodayCompletedIds] = useState<string[]>([])
+  const [streakSummaries, setStreakSummaries] = useState<Record<string, HabitStreakSummary>>({})
+  const [habitDailyCounts, setHabitDailyCounts] = useState<Record<string, number>>({})
 
   const loadData = async () => {
     if (!planId) return
@@ -107,6 +112,26 @@ export function PlanDetailPage() {
       setPlan(p)
       setItems(itemList)
       setTodayCompletedIds(completions)
+
+      // Calculate streaks and heatmap for habit items in this plan
+      const planHabits = itemList.filter((i) => i.type === 'habit')
+      if (planHabits.length > 0) {
+        const completionsMap: Record<string, string[]> = await listCompletionsForItems(planHabits.map((h) => h.id)).catch((): Record<string, string[]> => ({}))
+        const streaks: Record<string, HabitStreakSummary> = {}
+        const dailyCounts: Record<string, number> = {}
+        planHabits.forEach((h) => {
+          const dates = completionsMap[h.id] || []
+          streaks[h.id] = calcHabitStreak(h.id, h.schedule, dates)
+          dates.forEach((d: string) => {
+            dailyCounts[d] = (dailyCounts[d] || 0) + 1
+          })
+        })
+        setStreakSummaries(streaks)
+        setHabitDailyCounts(dailyCounts)
+      } else {
+        setStreakSummaries({})
+        setHabitDailyCounts({})
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load plan')
     } finally {
@@ -445,6 +470,7 @@ export function PlanDetailPage() {
                     key={item.id}
                     item={item}
                     isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
+                    streakSummary={item.type === 'habit' ? streakSummaries[item.id] : undefined}
                     onToggleStatus={handleToggleItemStatus}
                     onUpdateCount={handleUpdateItemCount}
                     onStepCount={handleStepItemCount}
@@ -507,6 +533,16 @@ export function PlanDetailPage() {
               <Plus size={14} /> Add Habit
             </Button>
           </div>
+
+          {habits.length > 0 && (
+            <CalendarHeatmap
+              dailyCounts={habitDailyCounts}
+              title="Habit Execution Matrix"
+              subtitle="Daily consistency across all habits in this plan over the past 12 weeks."
+              weeksCount={12}
+            />
+          )}
+
           {habits.length === 0 ? (
             <EmptyState
               icon={<Repeat size={24} />}
@@ -525,6 +561,7 @@ export function PlanDetailPage() {
                   key={item.id}
                   item={item}
                   isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
+                  streakSummary={streakSummaries[item.id]}
                   onToggleStatus={handleToggleItemStatus}
                   onUpdateCount={handleUpdateItemCount}
                   onStepCount={handleStepItemCount}

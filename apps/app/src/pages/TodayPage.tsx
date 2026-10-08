@@ -4,6 +4,7 @@ import { useAuth } from '@/features/auth/AuthProvider'
 import {
   editExecutionItem,
   listCompletionsForDate,
+  listCompletionsForItems,
   listTodayExecutionItems,
   stepItemCount,
   toggleHabitTodayCompletion,
@@ -17,6 +18,7 @@ import {
   isOverdue,
   isUpcoming,
 } from '@/domain/dates'
+import { calcHabitStreak, type HabitStreakSummary } from '@/domain/streaks'
 import type { ExecutionItem, UpdateExecutionItemInput } from '@/types/domain'
 import { EmptyState, ErrorState, LoadingState, PageHeader } from '@/components/ui'
 import { ExecutionItemCard } from '@/components/execution/ExecutionItemCard'
@@ -26,6 +28,7 @@ export function TodayPage() {
   const { user } = useAuth()
   const [items, setItems] = useState<ExecutionItem[]>([])
   const [todayCompletedIds, setTodayCompletedIds] = useState<string[]>([])
+  const [streakSummaries, setStreakSummaries] = useState<Record<string, HabitStreakSummary>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [editingItem, setEditingItem] = useState<ExecutionItem | null>(null)
@@ -41,6 +44,19 @@ export function TodayPage() {
         const todayDate = getTodayDateString()
         const completedIds = await listCompletionsForDate(user.id, todayDate)
         setTodayCompletedIds(completedIds)
+      }
+
+      // Compute streak metrics for all habit items
+      const habitItems = allItems.filter((i) => i.type === 'habit')
+      if (habitItems.length > 0) {
+        const completionsMap: Record<string, string[]> = await listCompletionsForItems(habitItems.map((h) => h.id)).catch((): Record<string, string[]> => ({}))
+        const streaks: Record<string, HabitStreakSummary> = {}
+        habitItems.forEach((h) => {
+          streaks[h.id] = calcHabitStreak(h.id, h.schedule, completionsMap[h.id] || [])
+        })
+        setStreakSummaries(streaks)
+      } else {
+        setStreakSummaries({})
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load today items')
@@ -216,6 +232,7 @@ export function TodayPage() {
                     key={item.id}
                     item={item}
                     isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
+                    streakSummary={item.type === 'habit' ? streakSummaries[item.id] : undefined}
                     onToggleStatus={handleToggleStatus}
                     onUpdateCount={handleUpdateCount}
                     onStepCount={handleStepCount}
@@ -239,6 +256,7 @@ export function TodayPage() {
                     key={item.id}
                     item={item}
                     isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
+                    streakSummary={item.type === 'habit' ? streakSummaries[item.id] : undefined}
                     onToggleStatus={handleToggleStatus}
                     onUpdateCount={handleUpdateCount}
                     onStepCount={handleStepCount}
@@ -262,6 +280,7 @@ export function TodayPage() {
                     key={item.id}
                     item={item}
                     isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
+                    streakSummary={item.type === 'habit' ? streakSummaries[item.id] : undefined}
                     onToggleStatus={handleToggleStatus}
                     onUpdateCount={handleUpdateCount}
                     onStepCount={handleStepCount}
@@ -287,6 +306,7 @@ export function TodayPage() {
                     key={item.id}
                     item={item}
                     isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
+                    streakSummary={item.type === 'habit' ? streakSummaries[item.id] : undefined}
                     onToggleStatus={handleToggleStatus}
                     onUpdateCount={handleUpdateCount}
                     onStepCount={handleStepCount}
@@ -312,6 +332,7 @@ export function TodayPage() {
                     key={item.id}
                     item={item}
                     isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
+                    streakSummary={item.type === 'habit' ? streakSummaries[item.id] : undefined}
                     onToggleStatus={handleToggleStatus}
                     onUpdateCount={handleUpdateCount}
                     onStepCount={handleStepCount}

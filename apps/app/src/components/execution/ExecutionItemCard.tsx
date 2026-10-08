@@ -1,7 +1,8 @@
-import { Calendar, Check, Edit2, Repeat, Trash2 } from 'lucide-react'
+import { Calendar, Check, Edit2, Flame, Repeat, Trash2 } from 'lucide-react'
 import type { ExecutionItem } from '@/types/domain'
 import { Badge, Button } from '@/components/ui'
 import { getTodayDateString, isOverdue } from '@/domain/dates'
+import type { HabitStreakSummary } from '@/domain/streaks'
 
 interface ExecutionItemCardProps {
   item: ExecutionItem
@@ -12,6 +13,7 @@ interface ExecutionItemCardProps {
   onDelete?: (itemId: string) => void
   busy?: boolean
   isCompletedOverride?: boolean
+  streakSummary?: HabitStreakSummary | null
 }
 
 export function ExecutionItemCard({
@@ -23,6 +25,7 @@ export function ExecutionItemCard({
   onDelete,
   busy,
   isCompletedOverride,
+  streakSummary,
 }: ExecutionItemCardProps) {
   const isDone = isCompletedOverride !== undefined ? isCompletedOverride : item.status === 'done'
   const overdue = !isDone && isOverdue(item.due_date)
@@ -93,6 +96,26 @@ export function ExecutionItemCard({
             {item.name}
           </span>
           <Badge>{item.type}</Badge>
+          {item.type === 'habit' && streakSummary && (
+            <div
+              className="row"
+              title={`Current Streak: ${streakSummary.currentStreak} day${streakSummary.currentStreak === 1 ? '' : 's'} · Best: ${streakSummary.longestStreak} · Consistency: ${streakSummary.consistencyRate}%`}
+              style={{
+                alignItems: 'center',
+                gap: '3px',
+                fontSize: '11px',
+                fontWeight: 600,
+                color: streakSummary.isActiveStreak ? 'var(--accent-primary, #c8f169)' : 'var(--text-secondary)',
+                background: streakSummary.isActiveStreak ? 'rgba(200, 241, 105, 0.12)' : 'var(--surface-muted, rgba(255, 255, 255, 0.05))',
+                padding: '2px 8px',
+                borderRadius: '999px',
+                border: '1px solid ' + (streakSummary.isActiveStreak ? 'rgba(200, 241, 105, 0.3)' : 'transparent'),
+              }}
+            >
+              <Flame size={12} fill={streakSummary.isActiveStreak ? 'currentColor' : 'none'} />
+              <span>{streakSummary.currentStreak}d streak</span>
+            </div>
+          )}
           {item.priority !== 'medium' && (
             <span
               className="t-meta"

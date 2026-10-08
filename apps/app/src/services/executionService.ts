@@ -8,6 +8,7 @@ import type {
   UpdateExecutionItemInput,
 } from '@/types/domain'
 import { getTodayDateString } from '@/domain/dates'
+import { calcHabitStreak, type HabitStreakSummary } from '@/domain/streaks'
 import { unwrap } from './helpers'
 
 export function mapExecutionItemRow(row: any): ExecutionItem {
@@ -472,3 +473,88 @@ export async function deleteExecutionItem(itemId: string): Promise<void> {
     await supabase.from('track_now_execution_items').delete().eq('id', itemId).select('id').single(),
   )
 }
+
+/**
+ * Fetches completed dates for a list of execution item IDs.
+ */
+export async function listCompletionsForItems(
+  itemIds: string[],
+  startDate?: string,
+): Promise<Record<string, string[]>> {
+  const result: Record<string, string[]> = {}
+  if (!itemIds || itemIds.length === 0) return result
+  itemIds.forEach((id) => {
+    result[id] = []
+  })
+
+  let query = supabase
+    .from('track_now_item_completions')
+    .select('item_id, completed_date')
+    .in('item_id', itemIds)
+
+  if (startDate) {
+    query = query.gte('completed_date', startDate)
+  }
+
+  const { data, error } = await query
+  if (error) throw new Error(error.message)
+
+  ;(data || []).forEach((row: { item_id: string; completed_date: string }) => {
+    if (!result[row.item_id]) result[row.item_id] = []
+    result[row.item_id].push(row.completed_date)
+  })
+
+  return result
+}
+
+/**
+ * Computes deterministic streak summaries for a given list of habit items.
+ */
+export async function getHabitStreakSummaries(
+  _userId: string,
+  habits: ExecutionItem[],
+  now = new Date(),
+): Promise<Record<string, HabitStreakSummary>> {
+  const eligibleHabits = habits.filter((h) => h.type === 'habit')
+  const result: Record<string, HabitStreakSummary> = {}
+  if (eligibleHabits.length === 0) return result
+
+  const itemIds = eligibleHabits.map((h) => h.id)
+  const completionsMap = await listCompletionsForItems(itemIds)
+
+  eligibleHabits.forEach((habit) => {
+    const dates = completionsMap[habit.id] || []
+    result[habit.id] = calcHabitStreak(habit.id, habit.schedule, dates, now)
+  })
+
+  return result
+}
+
+/**
+ * Fetches daily completion counts across all items for a given user.
+ * Useful for aggregate consistency calendar heatmaps.
+ */
+export async function listUserDailyCompletionCounts(
+  userId: string,
+  startDate?: string,
+): Promise<Record<string, number>> {
+  let query = supabase
+    .from('track_now_item_completions')
+    .select('completed_date')
+    .eq('user_id', userId)
+
+  if (startDate) {
+    query = query.gte('completed_date', startDate)
+  }
+
+  const { data, error } = await query
+  if (error) throw new Error(error.message)
+
+  const counts: Record<string, number> = {}
+  ;(data || []).forEach((row: { completed_date: string }) => {
+    counts[row.completed_date] = (counts[row.completed_date] || 0) + 1
+  })
+
+  return counts
+}
+

@@ -4,14 +4,17 @@ import { ArrowRight, Calendar, Clock, Plus, Target } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { listTracks, setTrackArchived } from '@/services/tracksService'
 import { listItemSummaries, listPlans } from '@/services/plansService'
+import { listUserDailyCompletionCounts } from '@/services/executionService'
 import { summarizeTrack, type TrackSummary } from '@/domain/progress'
 import { greeting } from '@/domain/dates'
 import { ButtonLink, EmptyState, ErrorState, LoadingState, PageHeader } from '@/components/ui'
 import { TrackCard } from '@/components/tracks/TrackCard'
+import { CalendarHeatmap } from '@/components/analytics/CalendarHeatmap'
 
 export function DashboardPage() {
-  const { displayName } = useAuth()
+  const { user, displayName } = useAuth()
   const [summaries, setSummaries] = useState<TrackSummary[]>([])
+  const [dailyCompletionCounts, setDailyCompletionCounts] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busyTrackId, setBusyTrackId] = useState<string | null>(null)
@@ -20,14 +23,16 @@ export function DashboardPage() {
     try {
       setLoading(true)
       setError(null)
-      const [tracks, plans, items] = await Promise.all([
+      const [tracks, plans, items, dailyCounts] = await Promise.all([
         listTracks(),
         listPlans(),
         listItemSummaries(),
+        user ? listUserDailyCompletionCounts(user.id).catch(() => ({})) : Promise.resolve({}),
       ])
 
       const trackSummaries = tracks.map((track) => summarizeTrack(track, plans, items))
       setSummaries(trackSummaries)
+      setDailyCompletionCounts(dailyCounts)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load dashboard data')
     } finally {
@@ -37,7 +42,7 @@ export function DashboardPage() {
 
   useEffect(() => {
     loadData()
-  }, [])
+  }, [user?.id])
 
   const handleToggleArchive = async (trackId: string, currentStatus: string) => {
     try {
@@ -131,6 +136,16 @@ export function DashboardPage() {
                 ))}
               </div>
             )}
+          </section>
+
+          {/* Consistency & Habit Heatmap */}
+          <section className="section" style={{ marginTop: 0 }}>
+            <CalendarHeatmap
+              dailyCounts={dailyCompletionCounts}
+              title="Execution & Habit Consistency"
+              subtitle="Rolling 12-week consistency heatmap across all your life tracks."
+              weeksCount={12}
+            />
           </section>
 
           {/* Today & Execution Highlights */}
