@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { authService } from '@/features/auth/authService'
@@ -14,18 +14,23 @@ export function LoginPage() {
   const [busy, setBusy] = useState(false)
   const [isResetMode, setIsResetMode] = useState(false)
   const [resetSuccess, setResetSuccess] = useState<string | null>(null)
+  const isSubmittingRef = useRef(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    if (isSubmittingRef.current || busy) return
+
     if (!email.trim() || !password) {
       setError('Please provide both email and password.')
       return
     }
 
+    isSubmittingRef.current = true
+    setBusy(true)
+    setError(null)
+    clearNotice()
+
     try {
-      setBusy(true)
-      setError(null)
-      clearNotice()
       if (document.activeElement instanceof HTMLElement) {
         document.activeElement.blur()
       }
@@ -34,26 +39,32 @@ export function LoginPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to sign in')
     } finally {
+      isSubmittingRef.current = false
       setBusy(false)
     }
   }
 
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleResetPassword = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    if (isSubmittingRef.current || busy) return
+
     if (!email.trim()) {
       setError('Please enter your email address.')
       return
     }
 
+    isSubmittingRef.current = true
+    setBusy(true)
+    setError(null)
+    setResetSuccess(null)
+
     try {
-      setBusy(true)
-      setError(null)
-      setResetSuccess(null)
       await authService.resetPasswordForEmail(email.trim())
       setResetSuccess('Password reset instructions have been sent to your email.')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send reset link')
     } finally {
+      isSubmittingRef.current = false
       setBusy(false)
     }
   }

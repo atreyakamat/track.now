@@ -73,11 +73,16 @@ textarea.control { resize: vertical; min-height: 84px; }
 .tabs__tab[aria-selected='true'] { color: var(--text-primary); border-bottom-color: var(--text-primary); }
 
 /* Overlay: modal / drawer */
-.overlay { position: fixed; inset: 0; z-index: 50; background: rgb(10 10 8 / 45%); display: flex; align-items: center; justify-content: center; padding: var(--space-3); animation: fade 0.15s ease; }
+.overlay { position: fixed; inset: 0; z-index: 50; background: rgb(10 10 8 / 45%); display: flex; align-items: center; justify-content: center; padding: var(--space-3); animation: fade 0.15s ease; overscroll-behavior: contain; }
 .overlay--drawer { justify-content: flex-start; align-items: stretch; padding: 0; }
-.modal { width: min(480px, 100%); max-height: calc(100vh - var(--space-6)); overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-md); padding: var(--space-5); display: flex; flex-direction: column; gap: var(--space-4); box-sizing: border-box; }
+.modal { width: min(480px, 100%); max-height: calc(100vh - var(--space-6)); overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-md); padding: var(--space-5); display: flex; flex-direction: column; gap: var(--space-4); box-sizing: border-box; overscroll-behavior: contain; }
 .modal__actions { display: flex; justify-content: flex-end; gap: var(--space-2); flex-wrap: wrap; }
-.drawer { width: min(300px, 86vw); background: var(--surface); border-right: 1px solid var(--border); box-shadow: var(--shadow-md); animation: slide 0.2s ease; }
+.drawer {
+  width: min(320px, 86vw); height: 100%; height: 100dvh; max-height: 100dvh;
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--surface); border-right: 1px solid var(--border); box-shadow: var(--shadow-md);
+  animation: slide 0.2s ease; overscroll-behavior: contain; box-sizing: border-box;
+}
 @keyframes fade { from { opacity: 0; } }
 @keyframes slide { from { transform: translateX(-24px); opacity: 0; } }
 

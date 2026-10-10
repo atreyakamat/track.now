@@ -46,7 +46,7 @@ export function MobileNav({ drawerOpen, onToggleDrawer, onCloseDrawer }: MobileN
       </header>
 
       <Drawer open={drawerOpen} onClose={onCloseDrawer} label="Navigation Menu">
-        <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <Sidebar onNavigate={onCloseDrawer} isDrawer />
         </div>
       </Drawer>

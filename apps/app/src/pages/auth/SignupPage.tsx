@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { Button, Input } from '@/components/ui'
@@ -14,9 +14,17 @@ export function SignupPage() {
   const [error, setError] = useState<string | null>(null)
   const [successNotice, setSuccessNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const isSubmittingRef = useRef(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) {
+      e.preventDefault()
+    }
+    // Prevent duplicate in-flight requests from rapid clicks or Enter key repeats
+    if (isSubmittingRef.current || busy) {
+      return
+    }
+
     if (!email.trim() || !password) {
       setError('Email and password are required.')
       return
@@ -30,9 +38,11 @@ export function SignupPage() {
       return
     }
 
+    isSubmittingRef.current = true
+    setBusy(true)
+    setError(null)
+
     try {
-      setBusy(true)
-      setError(null)
       // Dismiss any open browser autofill/password suggestion popups cleanly
       if (document.activeElement instanceof HTMLElement) {
         document.activeElement.blur()
@@ -54,6 +64,7 @@ export function SignupPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create account')
     } finally {
+      isSubmittingRef.current = false
       setBusy(false)
     }
   }
@@ -80,7 +91,16 @@ export function SignupPage() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="auth__form" noValidate>
+        <form
+          onSubmit={handleSubmit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (isSubmittingRef.current || busy)) {
+              e.preventDefault()
+            }
+          }}
+          className="auth__form"
+          noValidate
+        >
           {successNotice ? (
             <div className="alert alert--info" style={{ textAlign: 'center' }}>
               <p>{successNotice}</p>
@@ -101,6 +121,7 @@ export function SignupPage() {
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 autoComplete="name"
+                disabled={busy}
                 autoFocus
               />
 
@@ -112,6 +133,7 @@ export function SignupPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
+                disabled={busy}
                 required
               />
 
@@ -123,6 +145,7 @@ export function SignupPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="new-password"
+                disabled={busy}
                 required
               />
 
@@ -134,10 +157,17 @@ export function SignupPage() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 autoComplete="new-password"
+                disabled={busy}
                 required
               />
 
-              <Button type="submit" variant="primary" block disabled={busy}>
+              <Button
+                type="submit"
+                variant="primary"
+                block
+                disabled={busy}
+                aria-busy={busy}
+              >
                 {busy ? 'Creating Account…' : 'Sign Up'}
               </Button>
             </>

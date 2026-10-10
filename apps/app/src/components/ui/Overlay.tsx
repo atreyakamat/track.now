@@ -57,6 +57,11 @@ export function Overlay({ open, onClose, label, variant, children }: OverlayProp
     <div
       className={`overlay${variant === 'drawer' ? ' overlay--drawer' : ''}`}
       onMouseDown={(event) => event.target === event.currentTarget && onCloseRef.current()}
+      onTouchMove={(event) => {
+        if (event.target === event.currentTarget) {
+          event.preventDefault()
+        }
+      }}
     >
       <div
         ref={panelRef}

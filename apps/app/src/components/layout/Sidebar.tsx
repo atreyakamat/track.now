@@ -10,6 +10,7 @@ import {
   Settings,
   Sun,
   Target,
+  X,
 } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useTheme } from '@/hooks/useTheme'
@@ -41,41 +42,58 @@ export function Sidebar({ onNavigate, isDrawer }: SidebarProps) {
   }
 
   return (
-    <aside className={`sidebar ${isDrawer ? 'sidebar--drawer' : ''}`}>
+    <aside
+      className={`sidebar ${isDrawer ? 'sidebar--drawer' : ''}`}
+      aria-label={isDrawer ? 'Navigation Menu' : 'Main Sidebar'}
+    >
       <div className="brand">
         <span className="brand__mark" aria-hidden="true">
           T
         </span>
         <span>Track.now</span>
+        {isDrawer && (
+          <button
+            type="button"
+            className="btn btn--ghost btn--sm btn--icon drawer__close"
+            onClick={onNavigate}
+            title="Close menu"
+            aria-label="Close menu drawer"
+            style={{ marginLeft: 'auto' }}
+          >
+            <X size={18} />
+          </button>
+        )}
       </div>
 
-      <nav className="nav" aria-label="Main Navigation">
-        {links.map((link) => {
-          const Icon = link.icon
-          return (
-            <NavLink
-              key={link.to}
-              to={link.to}
-              className="nav__link"
-              onClick={onNavigate}
-            >
-              <Icon size={18} aria-hidden="true" />
-              <span>{link.label}</span>
-            </NavLink>
-          )
-        })}
-      </nav>
+      <div className="sidebar__nav-wrapper">
+        <nav className="nav" aria-label="Main Navigation">
+          {links.map((link) => {
+            const Icon = link.icon
+            return (
+              <NavLink
+                key={link.to}
+                to={link.to}
+                className="nav__link"
+                onClick={onNavigate}
+              >
+                <Icon size={18} aria-hidden="true" />
+                <span>{link.label}</span>
+              </NavLink>
+            )
+          })}
+        </nav>
 
-      <div style={{ padding: '0 var(--space-2)' }}>
-        <NavLink
-          to="/tracks/new"
-          className="btn btn--secondary btn--sm btn--block"
-          onClick={onNavigate}
-          style={{ textDecoration: 'none', justifyContent: 'flex-start' }}
-        >
-          <Plus size={16} />
-          <span>New Track</span>
-        </NavLink>
+        <div className="sidebar__action">
+          <NavLink
+            to="/tracks/new"
+            className="btn btn--secondary btn--sm btn--block"
+            onClick={onNavigate}
+            style={{ textDecoration: 'none', justifyContent: 'flex-start' }}
+          >
+            <Plus size={16} />
+            <span>New Track</span>
+          </NavLink>
+        </div>
       </div>
 
       <div className="profile">
