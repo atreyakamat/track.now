@@ -31,6 +31,7 @@ import {
 } from '@/components/ui'
 import { TrackIcon } from '@/components/tracks/TrackIcon'
 import { PlanCard } from '@/components/plans/PlanCard'
+import { pluralize } from '@/utils/format'
 
 export function TrackDetailPage() {
   const { trackId } = useParams<{ trackId: string }>()
@@ -235,7 +236,7 @@ export function TrackDetailPage() {
           <h2 className="t-h2">{summary.progress.percent}% Overall Progress</h2>
           <p className="t-caption" style={{ marginTop: '4px' }}>
             {summary.progress.total > 0
-              ? `Derived from ${summary.progress.done} completed items across ${summary.activePlans.length} active plans.`
+              ? `Derived from ${pluralize(summary.progress.done, 'completed item')} across ${pluralize(summary.activePlans.length, 'active plan')}.`
               : 'Add execution items (habits, tasks, milestones) to your Plans to start tracking real progress.'}
           </p>
         </div>

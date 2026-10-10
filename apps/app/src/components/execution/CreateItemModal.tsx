@@ -143,7 +143,7 @@ export function CreateItemModal({
             className="stack"
             style={{
               padding: 'var(--space-3)',
-              background: 'var(--bg-secondary)',
+              background: 'var(--surface-muted)',
               borderRadius: 'var(--radius-md)',
               border: '1px solid var(--border)',
               gap: 'var(--space-3)',

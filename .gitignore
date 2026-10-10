@@ -12,3 +12,5 @@ scratch/
 scratch_chrome_user_data/
 *.log
 *.dmp
+audit_screenshots/
+audit_findings.json

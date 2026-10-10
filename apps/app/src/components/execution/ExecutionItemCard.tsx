@@ -66,9 +66,10 @@ export function ExecutionItemCard({
         className="btn btn--icon btn--sm"
         style={{
           borderRadius: '50%',
-          width: '28px',
-          height: '28px',
-          minHeight: '28px',
+          width: '30px',
+          minWidth: '30px',
+          height: '30px',
+          minHeight: '30px',
           padding: 0,
           background: isDone ? 'var(--control-bg)' : 'transparent',
           color: isDone ? 'var(--control-text)' : 'transparent',
@@ -200,101 +201,115 @@ export function ExecutionItemCard({
         )}
       </div>
 
-      {hasNumericTarget && (
-        <div
-          className="row"
-          style={{
-            alignItems: 'center',
-            gap: '4px',
-            background: 'var(--surface-muted)',
-            padding: '2px 6px',
-            borderRadius: 'var(--radius-md)',
-            border: '1px solid var(--border)',
-            flexShrink: 0,
-          }}
-        >
-          <button
-            type="button"
-            className="btn btn--ghost btn--sm"
+      <div
+        className="execution-card__actions"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 'var(--space-2)',
+          flexShrink: 0,
+          marginLeft: 'auto',
+          flexWrap: 'wrap',
+        }}
+      >
+        {hasNumericTarget && (
+          <div
+            className="row"
             style={{
-              padding: 0,
-              width: '24px',
-              minHeight: '24px',
-              height: '24px',
-              fontSize: '15px',
-              fontWeight: 700,
-              lineHeight: 1,
-            }}
-            onClick={() =>
-              onStepCount
-                ? onStepCount(item.id, -1)
-                : onUpdateCount?.(item.id, Math.max(0, currentCount - 1))
-            }
-            disabled={busy || currentCount <= 0 || (!onUpdateCount && !onStepCount)}
-            aria-label={`Decrease ${item.name} count`}
-          >
-            –
-          </button>
-          <span
-            style={{
-              fontSize: 'var(--text-caption)',
-              fontWeight: 600,
-              fontVariantNumeric: 'tabular-nums',
-              whiteSpace: 'nowrap',
-              minWidth: '40px',
-              textAlign: 'center',
+              alignItems: 'center',
+              gap: '4px',
+              background: 'var(--surface-muted)',
+              padding: '2px 6px',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--border)',
+              flexShrink: 0,
             }}
           >
-            {currentCount} / {targetCount} {item.unit || ''}
-          </span>
-          <button
-            type="button"
-            className="btn btn--ghost btn--sm"
-            style={{
-              padding: 0,
-              width: '24px',
-              minHeight: '24px',
-              height: '24px',
-              fontSize: '15px',
-              fontWeight: 700,
-              lineHeight: 1,
-            }}
-            onClick={() =>
-              onStepCount ? onStepCount(item.id, 1) : onUpdateCount?.(item.id, currentCount + 1)
-            }
-            disabled={busy || (!onUpdateCount && !onStepCount)}
-            aria-label={`Increase ${item.name} count`}
-          >
-            +
-          </button>
-        </div>
-      )}
+            <button
+              type="button"
+              className="btn btn--ghost btn--sm"
+              style={{
+                padding: 0,
+                width: '28px',
+                minWidth: '28px',
+                minHeight: '28px',
+                height: '28px',
+                fontSize: '16px',
+                fontWeight: 700,
+                lineHeight: 1,
+              }}
+              onClick={() =>
+                onStepCount
+                  ? onStepCount(item.id, -1)
+                  : onUpdateCount?.(item.id, Math.max(0, currentCount - 1))
+              }
+              disabled={busy || currentCount <= 0 || (!onUpdateCount && !onStepCount)}
+              aria-label={`Decrease ${item.name} count`}
+            >
+              –
+            </button>
+            <span
+              style={{
+                fontSize: 'var(--text-caption)',
+                fontWeight: 600,
+                fontVariantNumeric: 'tabular-nums',
+                whiteSpace: 'nowrap',
+                minWidth: '40px',
+                textAlign: 'center',
+              }}
+            >
+              {currentCount} / {targetCount} {item.unit || ''}
+            </span>
+            <button
+              type="button"
+              className="btn btn--ghost btn--sm"
+              style={{
+                padding: 0,
+                width: '28px',
+                minWidth: '28px',
+                minHeight: '28px',
+                height: '28px',
+                fontSize: '16px',
+                fontWeight: 700,
+                lineHeight: 1,
+              }}
+              onClick={() =>
+                onStepCount ? onStepCount(item.id, 1) : onUpdateCount?.(item.id, currentCount + 1)
+              }
+              disabled={busy || (!onUpdateCount && !onStepCount)}
+              aria-label={`Increase ${item.name} count`}
+            >
+              +
+            </button>
+          </div>
+        )}
 
-      {onEdit && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => onEdit(item)}
-          disabled={busy}
-          title="Edit item"
-          aria-label={`Edit ${item.name}`}
-        >
-          <Edit2 size={14} />
-        </Button>
-      )}
+        {onEdit && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onEdit(item)}
+            disabled={busy}
+            title="Edit item"
+            aria-label={`Edit ${item.name}`}
+          >
+            <Edit2 size={14} />
+          </Button>
+        )}
 
-      {onDelete && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => onDelete(item.id)}
-          disabled={busy}
-          title="Delete item"
-          aria-label={`Delete ${item.name}`}
-        >
-          <Trash2 size={14} />
-        </Button>
-      )}
+        {onDelete && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onDelete(item.id)}
+            disabled={busy}
+            title="Delete item"
+            aria-label={`Delete ${item.name}`}
+          >
+            <Trash2 size={14} />
+          </Button>
+        )}
+      </div>
     </div>
   )
 }

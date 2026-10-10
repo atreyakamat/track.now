@@ -29,13 +29,13 @@ export function CalendarHeatmap({
     if (isFuture) return 'transparent'
     switch (level) {
       case 0:
-        return 'var(--surface-muted, rgba(255, 255, 255, 0.06))'
+        return 'var(--surface-muted)'
       case 1:
-        return 'var(--accent-subtle, rgba(200, 241, 105, 0.25))'
+        return 'rgba(200, 241, 105, 0.35)'
       case 2:
-        return 'rgba(200, 241, 105, 0.50)'
+        return 'rgba(200, 241, 105, 0.60)'
       case 3:
-        return 'rgba(200, 241, 105, 0.75)'
+        return 'rgba(200, 241, 105, 0.85)'
       case 4:
         return 'var(--accent-primary, #c8f169)'
     }
@@ -59,8 +59,8 @@ export function CalendarHeatmap({
       className="card heatmap-container"
       style={{
         padding: 'var(--space-4)',
-        background: 'var(--surface-card, #14171d)',
-        border: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.08))',
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
         borderRadius: 'var(--radius-lg, 12px)',
         overflow: 'hidden',
       }}
@@ -203,7 +203,7 @@ export function CalendarHeatmap({
           alignItems: 'center',
           marginTop: 'var(--space-3)',
           paddingTop: 'var(--space-2)',
-          borderTop: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.05))',
+          borderTop: '1px solid var(--border)',
           fontSize: '11px',
           color: 'var(--text-secondary)',
           flexWrap: 'wrap',

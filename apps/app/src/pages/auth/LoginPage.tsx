@@ -148,7 +148,7 @@ export function LoginPage() {
               <button
                 type="button"
                 className="btn btn--ghost btn--sm"
-                style={{ padding: 0, height: 'auto', minHeight: 0, fontSize: 'var(--text-caption)' }}
+                style={{ padding: '4px 6px', height: 'auto', minHeight: '32px', fontSize: 'var(--text-caption)' }}
                 onClick={() => {
                   setIsResetMode(true)
                   setError(null)

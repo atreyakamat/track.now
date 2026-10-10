@@ -68,7 +68,7 @@ export function DashboardPage() {
         title={displayName}
         description="What matters right now? Focus your day on execution across your active life tracks."
         actions={
-          <ButtonLink to="/tracks/new" variant="primary" icon>
+          <ButtonLink to="/tracks/new" variant="primary">
             <Plus size={16} />
             <span>Create Track</span>
           </ButtonLink>
@@ -98,7 +98,7 @@ export function DashboardPage() {
             </div>
             <div className="stat">
               <span className="t-meta">Overall Execution</span>
-              <span className="stat__value" style={{ color: 'var(--accent-primary-text)' }}>
+              <span className="stat__value">
                 {overallPercent}%
               </span>
             </div>
@@ -156,7 +156,7 @@ export function DashboardPage() {
                   <Calendar size={18} />
                   <span>Today's Execution</span>
                 </h3>
-                <Link to="/today" className="t-caption" style={{ textDecoration: 'none' }}>
+                <Link to="/today" className="t-caption" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px', minHeight: '32px', padding: '4px 0' }}>
                   Open Today <ArrowRight size={12} />
                 </Link>
               </div>
@@ -176,7 +176,7 @@ export function DashboardPage() {
                   <Clock size={18} />
                   <span>Upcoming & Reviews</span>
                 </h3>
-                <Link to="/reviews" className="t-caption" style={{ textDecoration: 'none' }}>
+                <Link to="/reviews" className="t-caption" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px', minHeight: '32px', padding: '4px 0' }}>
                   Open Reviews <ArrowRight size={12} />
                 </Link>
               </div>

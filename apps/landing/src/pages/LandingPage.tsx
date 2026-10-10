@@ -125,10 +125,10 @@ export function LandingPage() {
               {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
             </button>
 
-            <a href={LOGIN_URL} className="btn btn--ghost btn--sm">
+            <a href={LOGIN_URL} className="btn btn--ghost btn--sm landing__nav-signin">
               Sign In
             </a>
-            <a href={SIGNUP_URL} className="btn btn--primary btn--sm">
+            <a href={SIGNUP_URL} className="btn btn--primary btn--sm landing__nav-cta">
               <span>Get Started</span>
               <ArrowRight size={14} />
             </a>
@@ -246,7 +246,7 @@ export function LandingPage() {
               <span className="landing__preview-dot" />
               <span className="landing__preview-dot" />
             </div>
-            <span className="t-meta" style={{ letterSpacing: '0.04em' }}>
+            <span className="landing__preview-url">
               trackapp.atreyakamat.dev/dashboard
             </span>
             <div style={{ width: '42px' }} />
@@ -1028,9 +1028,9 @@ export function LandingPage() {
                       className="btn btn--icon btn--sm"
                       style={{
                         borderRadius: '50%',
-                        width: '26px',
-                        height: '26px',
-                        minHeight: '26px',
+                        width: '28px',
+                        height: '28px',
+                        minHeight: '28px',
                         padding: 0,
                         background: item.done ? 'var(--control-bg)' : 'transparent',
                         color: item.done ? 'var(--control-text)' : 'transparent',
