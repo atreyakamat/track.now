@@ -276,22 +276,45 @@ export function CreateItemModal({
             gap: 'var(--space-3)',
           }}
         >
-          <span className="t-meta" style={{ fontWeight: 600 }}>
-            Smart Reminders
-          </span>
+          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+            <span className="t-meta" style={{ fontWeight: 600 }}>
+              Smart Reminders
+            </span>
+            <span className="t-caption" style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+              Client-side / device-local
+            </span>
+          </div>
+
           <div className="grid grid--2" style={{ gap: 'var(--space-3)' }}>
             <Select
-              label="Reminder Preset"
+              label="Reminder Timing"
               value={reminderPreset}
               onChange={(e) => setReminderPreset(e.target.value as ReminderPreset)}
+              hint={
+                reminderPreset.endsWith('_before') && !dueDate && type !== 'habit'
+                  ? 'Set a due date so Track.now knows when to alert you before.'
+                  : reminderPreset.endsWith('_in')
+                  ? 'Alert triggers countdown relative to right now.'
+                  : undefined
+              }
             >
-              <option value="none">No reminder</option>
-              <option value="10m">10 minutes before</option>
-              <option value="30m">30 minutes before</option>
-              <option value="1h">1 hour before</option>
-              <option value="2h">2 hours before</option>
-              <option value="scheduled_time">At scheduled time</option>
-              <option value="exact_time">Custom date & time</option>
+              <option value="none">No reminder (Default)</option>
+              <optgroup label="From Now (Countdown)">
+                <option value="10m_in">In 10 minutes</option>
+                <option value="30m_in">In 30 minutes</option>
+                <option value="1h_in">In 1 hour</option>
+                <option value="2h_in">In 2 hours</option>
+              </optgroup>
+              <optgroup label="Relative to Due / Scheduled Time">
+                <option value="scheduled_time">At scheduled time</option>
+                <option value="10m_before">10 minutes before due time</option>
+                <option value="30m_before">30 minutes before due time</option>
+                <option value="1h_before">1 hour before due time</option>
+                <option value="2h_before">2 hours before due time</option>
+              </optgroup>
+              <optgroup label="Custom">
+                <option value="exact_time">Custom date & time…</option>
+              </optgroup>
             </Select>
 
             {reminderPreset === 'exact_time' && (
@@ -306,7 +329,7 @@ export function CreateItemModal({
 
             {type === 'habit' && reminderPreset === 'scheduled_time' && (
               <Input
-                label="Scheduled Reminder Time"
+                label="Scheduled Habit Time"
                 type="time"
                 value={habitReminderTime}
                 onChange={(e) => setHabitReminderTime(e.target.value)}

@@ -4,10 +4,18 @@
 
 export type ReminderPreset =
   | 'none'
-  | '10m'
-  | '30m'
-  | '1h'
-  | '2h'
+  | '10m' // legacy alias
+  | '30m' // legacy alias
+  | '1h' // legacy alias
+  | '2h' // legacy alias
+  | '10m_before'
+  | '30m_before'
+  | '1h_before'
+  | '2h_before'
+  | '10m_in'
+  | '30m_in'
+  | '1h_in'
+  | '2h_in'
   | 'scheduled_time'
   | 'exact_time'
 

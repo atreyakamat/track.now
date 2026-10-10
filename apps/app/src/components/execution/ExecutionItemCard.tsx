@@ -1,9 +1,15 @@
+import { useEffect, useState } from 'react'
 import { Bell, Calendar, Check, Edit2, Flame, Repeat, Trash2 } from 'lucide-react'
 import type { ExecutionItem } from '@/types/domain'
 import { Badge, Button } from '@/components/ui'
 import { getTodayDateString, isOverdue } from '@/domain/dates'
 import type { HabitStreakSummary } from '@/domain/streaks'
-import { getReminderForItem } from '@/services/reminderService'
+import {
+  cancelReminderForItem,
+  formatReminderLabel,
+  getReminderForItem,
+  snoozeReminder,
+} from '@/services/reminderService'
 
 interface ExecutionItemCardProps {
   item: ExecutionItem
@@ -12,6 +18,8 @@ interface ExecutionItemCardProps {
   onStepCount?: (itemId: string, delta: number) => void
   onEdit?: (item: ExecutionItem) => void
   onDelete?: (itemId: string) => void
+  onSnoozeReminder?: (itemId: string, minutes?: number) => void
+  onRemoveReminder?: (itemId: string) => void
   busy?: boolean
   isCompletedOverride?: boolean
   streakSummary?: HabitStreakSummary | null
@@ -24,6 +32,8 @@ export function ExecutionItemCard({
   onStepCount,
   onEdit,
   onDelete,
+  onSnoozeReminder,
+  onRemoveReminder,
   busy,
   isCompletedOverride,
   streakSummary,
@@ -41,6 +51,19 @@ export function ExecutionItemCard({
     : Math.max(0, item.current_count ?? 0)
   const hasNumericTarget = targetCount > 1 || Boolean(item.unit)
   const progressPercent = Math.min(100, Math.round((currentCount / targetCount) * 100))
+
+  const [, setReminderRev] = useState(0)
+  useEffect(() => {
+    const handleUpdate = () => setReminderRev((v) => v + 1)
+    if (typeof window !== 'undefined') {
+      window.addEventListener('tracknow:reminders-updated', handleUpdate)
+      window.addEventListener('tracknow:reminder-fired', handleUpdate)
+      return () => {
+        window.removeEventListener('tracknow:reminders-updated', handleUpdate)
+        window.removeEventListener('tracknow:reminder-fired', handleUpdate)
+      }
+    }
+  }, [])
 
   const activeReminder =
     item.user_id && !isDone
@@ -186,19 +209,103 @@ export function ExecutionItemCard({
           {activeReminder && (
             <div
               className="row"
-              title={`Reminder scheduled: ${new Date(activeReminder.remindAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} (${activeReminder.preset})`}
+              title={`Smart reminder: ${new Date(activeReminder.remindAt).toLocaleString()} (${activeReminder.preset})`}
               style={{
+                alignItems: 'center',
                 gap: '4px',
+                background:
+                  activeReminder.status === 'snoozed'
+                    ? 'rgba(230, 126, 34, 0.12)'
+                    : 'var(--surface-muted)',
+                padding: '2px 8px',
+                borderRadius: '999px',
+                border:
+                  '1px solid ' +
+                  (activeReminder.status === 'snoozed'
+                    ? 'rgba(230, 126, 34, 0.3)'
+                    : 'var(--border)'),
                 fontSize: 'var(--text-meta)',
-                color: activeReminder.status === 'snoozed' ? 'var(--warning, #e67e22)' : 'var(--text-secondary)',
               }}
             >
-              <Bell size={12} />
-              <span>
-                {activeReminder.status === 'snoozed'
-                  ? `Snoozed (${new Date(activeReminder.remindAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`
-                  : new Date(activeReminder.remindAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </span>
+              <Bell
+                size={12}
+                style={{
+                  color:
+                    activeReminder.status === 'snoozed'
+                      ? 'var(--warning, #e67e22)'
+                      : 'var(--accent-primary, #c8f169)',
+                  flexShrink: 0,
+                }}
+              />
+              <button
+                type="button"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  cursor: 'pointer',
+                  color:
+                    activeReminder.status === 'snoozed'
+                      ? 'var(--warning, #e67e22)'
+                      : 'var(--text-primary)',
+                  fontWeight: 600,
+                  fontSize: 'inherit',
+                }}
+                onClick={() => onEdit?.(item)}
+                title="Click to edit reminder"
+                aria-label={`Edit reminder for ${item.name}`}
+              >
+                {formatReminderLabel(activeReminder)}
+              </button>
+              <button
+                type="button"
+                className="btn btn--ghost btn--sm"
+                style={{
+                  padding: '0 4px',
+                  height: '18px',
+                  lineHeight: '18px',
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  borderRadius: '4px',
+                }}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (onSnoozeReminder) {
+                    onSnoozeReminder(item.id, 10)
+                  } else if (item.user_id) {
+                    snoozeReminder(item.user_id, activeReminder.id, 10)
+                  }
+                }}
+                title="Snooze reminder by 10 minutes"
+                aria-label={`Snooze reminder for ${item.name} by 10 minutes`}
+              >
+                +10m
+              </button>
+              <button
+                type="button"
+                className="btn btn--ghost btn--sm"
+                style={{
+                  padding: '0 4px',
+                  height: '18px',
+                  lineHeight: '18px',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  borderRadius: '4px',
+                  color: 'var(--text-tertiary)',
+                }}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (onRemoveReminder) {
+                    onRemoveReminder(item.id)
+                  } else if (item.user_id) {
+                    cancelReminderForItem(item.user_id, item.id)
+                  }
+                }}
+                title="Remove reminder"
+                aria-label={`Remove reminder for ${item.name}`}
+              >
+                ×
+              </button>
             </div>
           )}
 
@@ -215,6 +322,28 @@ export function ExecutionItemCard({
               <Bell size={12} />
               <span>{item.schedule.reminder_time.slice(0, 5)}</span>
             </div>
+          )}
+
+          {!activeReminder && !isDone && (
+            <button
+              type="button"
+              className="btn btn--ghost btn--sm"
+              style={{
+                padding: '0 6px',
+                height: '20px',
+                fontSize: '11px',
+                gap: '4px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                color: 'var(--text-tertiary)',
+              }}
+              onClick={() => onEdit?.(item)}
+              title="Set a smart reminder for this task"
+              aria-label={`Set reminder for ${item.name}`}
+            >
+              <Bell size={11} />
+              <span>Remind</span>
+            </button>
           )}
         </div>
 

@@ -24,7 +24,7 @@ import { EmptyState, ErrorState, LoadingState, PageHeader } from '@/components/u
 import { ExecutionItemCard } from '@/components/execution/ExecutionItemCard'
 import { EditItemModal } from '@/components/execution/EditItemModal'
 import { useToast } from '@/features/notifications/ToastContext'
-import { cancelReminderForItem } from '@/services/reminderService'
+import { cancelReminderForItem, getReminderForItem, snoozeReminder } from '@/services/reminderService'
 import { buildWidgetDataPayload, saveWidgetData } from '@/services/widgetDataService'
 import { loadNotificationPreferences } from '@/services/notificationPreferences'
 
@@ -213,6 +213,30 @@ export function TodayPage() {
     }
   }
 
+  const handleSnoozeReminder = (itemId: string, minutes = 10) => {
+    if (!user) return
+    const reminder = getReminderForItem(user.id, itemId)
+    if (!reminder) return
+    snoozeReminder(user.id, reminder.id, minutes)
+    showToast({
+      id: `snooze-${itemId}`,
+      title: 'Reminder Snoozed',
+      message: `Snoozed for ${minutes} minutes.`,
+      type: 'info',
+    })
+  }
+
+  const handleRemoveReminder = (itemId: string) => {
+    if (!user) return
+    cancelReminderForItem(user.id, itemId)
+    showToast({
+      id: `remove-rem-${itemId}`,
+      title: 'Reminder Removed',
+      message: 'Reminder cancelled for this task.',
+      type: 'info',
+    })
+  }
+
   if (loading) return <LoadingState label="Preparing today's queue…" />
   if (error) return <ErrorState message={error} onRetry={loadData} />
 
@@ -284,6 +308,8 @@ export function TodayPage() {
                     onUpdateCount={handleUpdateCount}
                     onStepCount={handleStepCount}
                     onEdit={(item) => setEditingItem(item)}
+                    onSnoozeReminder={handleSnoozeReminder}
+                    onRemoveReminder={handleRemoveReminder}
                     busy={busyItemId === item.id}
                   />
                 ))}
@@ -308,6 +334,8 @@ export function TodayPage() {
                     onUpdateCount={handleUpdateCount}
                     onStepCount={handleStepCount}
                     onEdit={(item) => setEditingItem(item)}
+                    onSnoozeReminder={handleSnoozeReminder}
+                    onRemoveReminder={handleRemoveReminder}
                     busy={busyItemId === item.id}
                   />
                 ))}
@@ -332,6 +360,8 @@ export function TodayPage() {
                     onUpdateCount={handleUpdateCount}
                     onStepCount={handleStepCount}
                     onEdit={(item) => setEditingItem(item)}
+                    onSnoozeReminder={handleSnoozeReminder}
+                    onRemoveReminder={handleRemoveReminder}
                     busy={busyItemId === item.id}
                   />
                 ))}
@@ -358,6 +388,8 @@ export function TodayPage() {
                     onUpdateCount={handleUpdateCount}
                     onStepCount={handleStepCount}
                     onEdit={(item) => setEditingItem(item)}
+                    onSnoozeReminder={handleSnoozeReminder}
+                    onRemoveReminder={handleRemoveReminder}
                     busy={busyItemId === item.id}
                   />
                 ))}
@@ -384,6 +416,8 @@ export function TodayPage() {
                     onUpdateCount={handleUpdateCount}
                     onStepCount={handleStepCount}
                     onEdit={(item) => setEditingItem(item)}
+                    onSnoozeReminder={handleSnoozeReminder}
+                    onRemoveReminder={handleRemoveReminder}
                     busy={busyItemId === item.id}
                   />
                 ))}

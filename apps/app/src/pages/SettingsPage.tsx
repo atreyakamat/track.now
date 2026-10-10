@@ -311,13 +311,22 @@ export function SettingsPage() {
                   label="Default Reminder Preset for New Items"
                   value={prefs.defaultPreset}
                   onChange={(e) => updatePref('defaultPreset', e.target.value as ReminderPreset)}
+                  hint="Device-local smart reminders will use this default when creating new tasks."
                 >
                   <option value="none">None (manual)</option>
-                  <option value="10m">10 minutes before</option>
-                  <option value="30m">30 minutes before</option>
-                  <option value="1h">1 hour before</option>
-                  <option value="2h">2 hours before</option>
-                  <option value="scheduled_time">At scheduled habit time</option>
+                  <optgroup label="Relative to Due / Scheduled Time">
+                    <option value="scheduled_time">At scheduled time</option>
+                    <option value="10m_before">10 minutes before</option>
+                    <option value="30m_before">30 minutes before</option>
+                    <option value="1h_before">1 hour before</option>
+                    <option value="2h_before">2 hours before</option>
+                  </optgroup>
+                  <optgroup label="From Now (Countdown)">
+                    <option value="10m_in">In 10 minutes</option>
+                    <option value="30m_in">In 30 minutes</option>
+                    <option value="1h_in">In 1 hour</option>
+                    <option value="2h_in">In 2 hours</option>
+                  </optgroup>
                 </Select>
 
                 <label className="row" style={{ alignItems: 'center', gap: 'var(--space-2)', cursor: 'pointer' }}>

@@ -60,7 +60,13 @@ import { ExecutionItemCard } from '@/components/execution/ExecutionItemCard'
 import { CreateItemModal } from '@/components/execution/CreateItemModal'
 import { EditItemModal } from '@/components/execution/EditItemModal'
 import { useToast } from '@/features/notifications/ToastContext'
-import { cancelReminderForItem, setReminderForItem } from '@/services/reminderService'
+import {
+  cancelReminderForItem,
+  cancelRemindersForPlan,
+  getReminderForItem,
+  setReminderForItem,
+  snoozeReminder,
+} from '@/services/reminderService'
 import { buildWidgetDataPayload, saveWidgetData } from '@/services/widgetDataService'
 import { loadNotificationPreferences } from '@/services/notificationPreferences'
 import type { ReminderPreset } from '@/types/notifications'
@@ -152,7 +158,11 @@ export function PlanDetailPage() {
   const handleTogglePlanArchive = async () => {
     if (!plan) return
     try {
-      await setPlanArchived(plan.id, plan.status !== 'archived')
+      const willArchive = plan.status !== 'archived'
+      await setPlanArchived(plan.id, willArchive)
+      if (willArchive && user) {
+        cancelRemindersForPlan(user.id, plan.id)
+      }
       await loadData()
     } catch (err) {
       console.error('Failed to toggle plan archive:', err)
@@ -359,6 +369,30 @@ export function PlanDetailPage() {
     }
   }
 
+  const handleSnoozeReminder = (itemId: string, minutes = 10) => {
+    if (!user) return
+    const reminder = getReminderForItem(user.id, itemId)
+    if (!reminder) return
+    snoozeReminder(user.id, reminder.id, minutes)
+    showToast({
+      id: `snooze-${itemId}`,
+      title: 'Reminder Snoozed',
+      message: `Snoozed for ${minutes} minutes.`,
+      type: 'info',
+    })
+  }
+
+  const handleRemoveReminder = (itemId: string) => {
+    if (!user) return
+    cancelReminderForItem(user.id, itemId)
+    showToast({
+      id: `remove-rem-${itemId}`,
+      title: 'Reminder Removed',
+      message: 'Reminder cancelled for this task.',
+      type: 'info',
+    })
+  }
+
   const handleCreateItem = async (
     input: NewExecutionItemInput,
     reminderOptions?: { preset: ReminderPreset; exactTime?: string },
@@ -539,6 +573,8 @@ export function PlanDetailPage() {
                     onStepCount={handleStepItemCount}
                     onEdit={(item) => setEditingItem(item)}
                     onDelete={handleDeleteItem}
+                    onSnoozeReminder={handleSnoozeReminder}
+                    onRemoveReminder={handleRemoveReminder}
                     busy={busyItemId === item.id}
                   />
                 ))}
@@ -579,6 +615,8 @@ export function PlanDetailPage() {
                   onStepCount={handleStepItemCount}
                   onEdit={(item) => setEditingItem(item)}
                   onDelete={handleDeleteItem}
+                  onSnoozeReminder={handleSnoozeReminder}
+                  onRemoveReminder={handleRemoveReminder}
                   busy={busyItemId === item.id}
                 />
               ))}
@@ -630,6 +668,8 @@ export function PlanDetailPage() {
                   onStepCount={handleStepItemCount}
                   onEdit={(item) => setEditingItem(item)}
                   onDelete={handleDeleteItem}
+                  onSnoozeReminder={handleSnoozeReminder}
+                  onRemoveReminder={handleRemoveReminder}
                   busy={busyItemId === item.id}
                 />
               ))}
@@ -670,6 +710,8 @@ export function PlanDetailPage() {
                   onStepCount={handleStepItemCount}
                   onEdit={(item) => setEditingItem(item)}
                   onDelete={handleDeleteItem}
+                  onSnoozeReminder={handleSnoozeReminder}
+                  onRemoveReminder={handleRemoveReminder}
                   busy={busyItemId === item.id}
                 />
               ))}
@@ -710,6 +752,8 @@ export function PlanDetailPage() {
                   onStepCount={handleStepItemCount}
                   onEdit={(item) => setEditingItem(item)}
                   onDelete={handleDeleteItem}
+                  onSnoozeReminder={handleSnoozeReminder}
+                  onRemoveReminder={handleRemoveReminder}
                   busy={busyItemId === item.id}
                 />
               ))}
@@ -750,6 +794,8 @@ export function PlanDetailPage() {
                   onStepCount={handleStepItemCount}
                   onEdit={(item) => setEditingItem(item)}
                   onDelete={handleDeleteItem}
+                  onSnoozeReminder={handleSnoozeReminder}
+                  onRemoveReminder={handleRemoveReminder}
                   busy={busyItemId === item.id}
                 />
               ))}

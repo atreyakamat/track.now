@@ -36,6 +36,120 @@ export function saveUserReminders(userId: string, reminders: ItemReminder[]): vo
 }
 
 /**
+ * Resolves the target scheduled or due Date for an item.
+ * Supports due dates, habit schedules with reminder_time or time_of_day, and recurring day filters.
+ */
+export function getItemTargetTime(
+  item?: Partial<ExecutionItem> | null,
+  now = new Date(),
+): Date | null {
+  if (!item) return null
+
+  // 1. Task/Milestone/Item with due_date
+  if (item.due_date) {
+    const parts = item.due_date.split('-')
+    if (parts.length === 3) {
+      let hours = 9
+      let minutes = 0
+      if (item.schedule?.reminder_time) {
+        const timeParts = item.schedule.reminder_time.split(':')
+        if (timeParts.length >= 2) {
+          hours = parseInt(timeParts[0], 10)
+          minutes = parseInt(timeParts[1], 10)
+        }
+      } else if (item.schedule?.time_of_day) {
+        switch (item.schedule.time_of_day) {
+          case 'morning':
+            hours = 8
+            minutes = 30
+            break
+          case 'afternoon':
+            hours = 13
+            minutes = 30
+            break
+          case 'evening':
+            hours = 19
+            minutes = 0
+            break
+          default:
+            hours = 9
+            minutes = 0
+            break
+        }
+      }
+      return new Date(
+        parseInt(parts[0], 10),
+        parseInt(parts[1], 10) - 1,
+        parseInt(parts[2], 10),
+        hours,
+        minutes,
+        0,
+        0,
+      )
+    }
+  }
+
+  // 2. Habit or recurring schedule without explicit due_date
+  if (item.schedule || item.type === 'habit') {
+    let hours = 9
+    let minutes = 0
+    if (item.schedule?.reminder_time) {
+      const parts = item.schedule.reminder_time.split(':')
+      if (parts.length >= 2) {
+        hours = parseInt(parts[0], 10)
+        minutes = parseInt(parts[1], 10)
+      }
+    } else if (item.schedule?.time_of_day) {
+      switch (item.schedule.time_of_day) {
+        case 'morning':
+          hours = 8
+          minutes = 30
+          break
+        case 'afternoon':
+          hours = 13
+          minutes = 30
+          break
+        case 'evening':
+          hours = 19
+          minutes = 0
+          break
+        default:
+          hours = 9
+          minutes = 0
+          break
+      }
+    }
+
+    const schedule = item.schedule
+    const isDayActive = (date: Date) => {
+      if (!schedule || schedule.frequency === 'daily' || !schedule.days_of_week) return true
+      return schedule.days_of_week.includes(date.getDay())
+    }
+
+    // Check today
+    const candidateToday = new Date(now)
+    candidateToday.setHours(hours, minutes, 0, 0)
+    if (candidateToday.getTime() > now.getTime() && isDayActive(candidateToday)) {
+      return candidateToday
+    }
+
+    // Look for next active day (up to 7 days)
+    for (let i = 1; i <= 7; i++) {
+      const nextDate = new Date(now)
+      nextDate.setDate(nextDate.getDate() + i)
+      nextDate.setHours(hours, minutes, 0, 0)
+      if (isDayActive(nextDate)) {
+        return nextDate
+      }
+    }
+
+    return candidateToday
+  }
+
+  return null
+}
+
+/**
  * Calculates the exact target ISO timestamp for a given preset and item context.
  */
 export function calculateReminderTime(
@@ -52,81 +166,83 @@ export function calculateReminderTime(
     return isNaN(parsed.getTime()) ? null : parsed.toISOString()
   }
 
-  if (preset === '10m') {
+  // In X minutes/hours from NOW
+  if (preset === '10m_in') {
+    return new Date(now.getTime() + 10 * 60 * 1000).toISOString()
+  }
+  if (preset === '30m_in') {
+    return new Date(now.getTime() + 30 * 60 * 1000).toISOString()
+  }
+  if (preset === '1h_in') {
+    return new Date(now.getTime() + 60 * 60 * 1000).toISOString()
+  }
+  if (preset === '2h_in') {
+    return new Date(now.getTime() + 2 * 60 * 60 * 1000).toISOString()
+  }
+
+  // Relative to target DUE / SCHEDULED TIME
+  const target = getItemTargetTime(item, now)
+
+  if (preset === '10m_before') {
+    if (target) {
+      return new Date(target.getTime() - 10 * 60 * 1000).toISOString()
+    }
     return new Date(now.getTime() + 10 * 60 * 1000).toISOString()
   }
 
-  if (preset === '30m') {
+  if (preset === '30m_before') {
+    if (target) {
+      return new Date(target.getTime() - 30 * 60 * 1000).toISOString()
+    }
     return new Date(now.getTime() + 30 * 60 * 1000).toISOString()
   }
 
-  if (preset === '1h') {
+  if (preset === '1h_before') {
+    if (target) {
+      return new Date(target.getTime() - 60 * 60 * 1000).toISOString()
+    }
     return new Date(now.getTime() + 60 * 60 * 1000).toISOString()
   }
 
+  if (preset === '2h_before') {
+    if (target) {
+      return new Date(target.getTime() - 2 * 60 * 60 * 1000).toISOString()
+    }
+    return new Date(now.getTime() + 2 * 60 * 60 * 1000).toISOString()
+  }
+
+  // Legacy preset compatibility
+  if (preset === '10m') {
+    return new Date(now.getTime() + 10 * 60 * 1000).toISOString()
+  }
+  if (preset === '30m') {
+    return new Date(now.getTime() + 30 * 60 * 1000).toISOString()
+  }
+  if (preset === '1h') {
+    return new Date(now.getTime() + 60 * 60 * 1000).toISOString()
+  }
   if (preset === '2h') {
     return new Date(now.getTime() + 2 * 60 * 60 * 1000).toISOString()
   }
 
   if (preset === 'scheduled_time') {
-    // Attempt schedule reminder_time first, or fall back to time_of_day defaults
-    const reminderTimeStr = item?.schedule?.reminder_time
-    let targetHours = 9
-    let targetMinutes = 0
-
-    if (reminderTimeStr) {
-      const parts = reminderTimeStr.split(':')
-      if (parts.length >= 2) {
-        targetHours = parseInt(parts[0], 10)
-        targetMinutes = parseInt(parts[1], 10)
+    if (target) {
+      // If target time is today and has already passed, advance to tomorrow/next occurrence
+      if (target.getTime() <= now.getTime()) {
+        const next = new Date(target)
+        next.setDate(next.getDate() + 1)
+        return next.toISOString()
       }
-    } else if (item?.schedule?.time_of_day) {
-      switch (item.schedule.time_of_day) {
-        case 'morning':
-          targetHours = 8
-          targetMinutes = 30
-          break
-        case 'afternoon':
-          targetHours = 13
-          targetMinutes = 30
-          break
-        case 'evening':
-          targetHours = 19
-          targetMinutes = 0
-          break
-        default:
-          targetHours = 9
-          targetMinutes = 0
-          break
-      }
-    } else if (item?.due_date) {
-      // If task has a due date, set reminder for 09:00 AM on due date
-      const dueDateParts = item.due_date.split('-')
-      if (dueDateParts.length === 3) {
-        const d = new Date(
-          parseInt(dueDateParts[0], 10),
-          parseInt(dueDateParts[1], 10) - 1,
-          parseInt(dueDateParts[2], 10),
-          9,
-          0,
-          0,
-        )
-        if (d.getTime() > now.getTime()) {
-          return d.toISOString()
-        }
-      }
+      return target.toISOString()
     }
 
-    // Schedule for today at targetHours:targetMinutes
-    const target = new Date(now)
-    target.setHours(targetHours, targetMinutes, 0, 0)
-
-    // If target has already passed today, advance to tomorrow
-    if (target.getTime() <= now.getTime()) {
-      target.setDate(target.getDate() + 1)
+    // Schedule for today at 09:00 fallback
+    const fallback = new Date(now)
+    fallback.setHours(9, 0, 0, 0)
+    if (fallback.getTime() <= now.getTime()) {
+      fallback.setDate(fallback.getDate() + 1)
     }
-
-    return target.toISOString()
+    return fallback.toISOString()
   }
 
   return null
@@ -275,3 +391,120 @@ export function clearRemindersForUser(userId: string): void {
   if (!userId || typeof localStorage === 'undefined') return
   localStorage.removeItem(getRemindersKey(userId))
 }
+
+/**
+ * Cancels all active reminders belonging to a specific plan (e.g. when plan is archived).
+ */
+export function cancelRemindersForPlan(userId: string, planId: string): void {
+  if (!userId || !planId) return
+  const all = loadUserReminders(userId)
+  const updated = all.map((r) =>
+    r.planId === planId && (r.status === 'upcoming' || r.status === 'snoozed')
+      ? { ...r, status: 'cancelled' as const, updatedAt: new Date().toISOString() }
+      : r,
+  )
+  saveUserReminders(userId, updated)
+}
+
+/**
+ * Recalculates reminder time for an item if its reminder preset is schedule/due-relative.
+ * Preserves the reminder if item is rescheduled.
+ */
+export function rescheduleReminderForItem(
+  userId: string,
+  item: ExecutionItem,
+  now = new Date(),
+): ItemReminder | null {
+  if (!userId || !item?.id) return null
+  const existing = getReminderForItem(userId, item.id)
+  if (!existing) return null
+
+  const isScheduleRelative =
+    existing.preset === 'scheduled_time' ||
+    existing.preset === '10m_before' ||
+    existing.preset === '30m_before' ||
+    existing.preset === '1h_before' ||
+    existing.preset === '2h_before'
+
+  if (isScheduleRelative) {
+    return setReminderForItem(userId, item, existing.preset, undefined, now)
+  }
+
+  return existing
+}
+
+/**
+ * Advances a recurring habit reminder to its next scheduled occurrence day.
+ */
+export function advanceHabitReminderToNextOccurrence(
+  userId: string,
+  item: ExecutionItem,
+  now = new Date(),
+): ItemReminder | null {
+  if (!userId || !item?.id || item.type !== 'habit') return null
+  const all = loadUserReminders(userId)
+  const existing = all.find((r) => r.itemId === item.id)
+  if (!existing) return null
+
+  // Calculate starting from tomorrow
+  const tomorrow = new Date(now)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  tomorrow.setHours(0, 0, 0, 0)
+
+  const nextRemindAt = calculateReminderTime(existing.preset, item, undefined, tomorrow)
+  if (!nextRemindAt) return null
+
+  const updated = all.filter((r) => r.itemId !== item.id)
+  const nextReminder: ItemReminder = {
+    ...existing,
+    id: `rem-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    remindAt: nextRemindAt,
+    status: 'upcoming',
+    snoozedUntil: null,
+    deliveredAt: null,
+    updatedAt: new Date().toISOString(),
+  }
+  updated.push(nextReminder)
+  saveUserReminders(userId, updated)
+  return nextReminder
+}
+
+/**
+ * Formats a reminder's target time into a user-friendly label.
+ */
+export function formatReminderLabel(reminder: ItemReminder, now = new Date()): string {
+  const targetDate =
+    reminder.status === 'snoozed' && reminder.snoozedUntil
+      ? new Date(reminder.snoozedUntil)
+      : new Date(reminder.remindAt)
+
+  const isToday =
+    targetDate.getFullYear() === now.getFullYear() &&
+    targetDate.getMonth() === now.getMonth() &&
+    targetDate.getDate() === now.getDate()
+
+  const tomorrow = new Date(now)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  const isTomorrow =
+    targetDate.getFullYear() === tomorrow.getFullYear() &&
+    targetDate.getMonth() === tomorrow.getMonth() &&
+    targetDate.getDate() === tomorrow.getDate()
+
+  const timeStr = targetDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+
+  if (reminder.status === 'snoozed') {
+    return `Snoozed (${timeStr})`
+  }
+
+  if (isToday) {
+    return `Today ${timeStr}`
+  }
+
+  if (isTomorrow) {
+    return `Tomorrow ${timeStr}`
+  }
+
+  const monthStr = targetDate.toLocaleDateString([], { month: 'short', day: 'numeric' })
+  return `${monthStr}, ${timeStr}`
+}
+
