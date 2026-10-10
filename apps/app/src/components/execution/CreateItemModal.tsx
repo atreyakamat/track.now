@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { ItemPriority, ItemType, NewExecutionItemInput } from '@/types/domain'
+import type { ReminderPreset } from '@/types/notifications'
 import { Button, Input, Modal, Select, Textarea } from '@/components/ui'
 
 interface CreateItemModalProps {
@@ -8,7 +9,10 @@ interface CreateItemModalProps {
   planId: string
   trackId: string
   defaultType?: ItemType
-  onSubmit: (input: NewExecutionItemInput) => Promise<void>
+  onSubmit: (
+    input: NewExecutionItemInput,
+    reminderOptions?: { preset: ReminderPreset; exactTime?: string },
+  ) => Promise<void>
 }
 
 export function CreateItemModal({
@@ -29,6 +33,9 @@ export function CreateItemModal({
   const [dueDate, setDueDate] = useState('')
   const [targetCount, setTargetCount] = useState<number>(1)
   const [unit, setUnit] = useState<string>('')
+  const [reminderPreset, setReminderPreset] = useState<ReminderPreset>('none')
+  const [exactReminderTime, setExactReminderTime] = useState<string>('')
+  const [habitReminderTime, setHabitReminderTime] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -48,31 +55,43 @@ export function CreateItemModal({
     try {
       setBusy(true)
       setError(null)
-      await onSubmit({
-        plan_id: planId,
-        track_id: trackId,
-        type,
-        name: name.trim(),
-        description: description.trim() || null,
-        priority,
-        due_date: dueDate || null,
-        target_count: targetCount,
-        current_count: 0,
-        unit: unit.trim() || null,
-        schedule:
-          type === 'habit'
-            ? {
-                frequency,
-                days_of_week: frequency === 'daily' ? null : daysOfWeek,
-                time_of_day: timeOfDay,
-              }
-            : null,
-      })
+      await onSubmit(
+        {
+          plan_id: planId,
+          track_id: trackId,
+          type,
+          name: name.trim(),
+          description: description.trim() || null,
+          priority,
+          due_date: dueDate || null,
+          target_count: targetCount,
+          current_count: 0,
+          unit: unit.trim() || null,
+          schedule:
+            type === 'habit'
+              ? {
+                  frequency,
+                  days_of_week: frequency === 'daily' ? null : daysOfWeek,
+                  time_of_day: timeOfDay,
+                  reminder_time: habitReminderTime || null,
+                }
+              : null,
+        },
+        reminderPreset !== 'none'
+          ? {
+              preset: reminderPreset,
+              exactTime: reminderPreset === 'exact_time' ? exactReminderTime : undefined,
+            }
+          : undefined,
+      )
       setName('')
       setDescription('')
       setDueDate('')
       setTargetCount(1)
       setUnit('')
+      setReminderPreset('none')
+      setExactReminderTime('')
+      setHabitReminderTime('')
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create item')
@@ -245,6 +264,55 @@ export function CreateItemModal({
             value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}
           />
+        </div>
+
+        <div
+          className="stack"
+          style={{
+            padding: 'var(--space-3)',
+            background: 'var(--surface-muted)',
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--border)',
+            gap: 'var(--space-3)',
+          }}
+        >
+          <span className="t-meta" style={{ fontWeight: 600 }}>
+            Smart Reminders
+          </span>
+          <div className="grid grid--2" style={{ gap: 'var(--space-3)' }}>
+            <Select
+              label="Reminder Preset"
+              value={reminderPreset}
+              onChange={(e) => setReminderPreset(e.target.value as ReminderPreset)}
+            >
+              <option value="none">No reminder</option>
+              <option value="10m">10 minutes before</option>
+              <option value="30m">30 minutes before</option>
+              <option value="1h">1 hour before</option>
+              <option value="2h">2 hours before</option>
+              <option value="scheduled_time">At scheduled time</option>
+              <option value="exact_time">Custom date & time</option>
+            </Select>
+
+            {reminderPreset === 'exact_time' && (
+              <Input
+                label="Reminder Date & Time"
+                type="datetime-local"
+                value={exactReminderTime}
+                onChange={(e) => setExactReminderTime(e.target.value)}
+                required
+              />
+            )}
+
+            {type === 'habit' && reminderPreset === 'scheduled_time' && (
+              <Input
+                label="Scheduled Reminder Time"
+                type="time"
+                value={habitReminderTime}
+                onChange={(e) => setHabitReminderTime(e.target.value)}
+              />
+            )}
+          </div>
         </div>
       </form>
     </Modal>

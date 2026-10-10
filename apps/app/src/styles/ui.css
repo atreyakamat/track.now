@@ -96,3 +96,14 @@ textarea.control { resize: vertical; min-height: 84px; }
 .alert { padding: 10px 12px; border-radius: var(--radius-md); font-size: var(--text-caption); border: 1px solid var(--border-strong); background: var(--surface-muted); }
 .alert--error { border-color: var(--danger); color: var(--danger); background: transparent; }
 .alert--info { border-color: var(--border-strong); }
+
+@keyframes slideUp {
+  from {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}

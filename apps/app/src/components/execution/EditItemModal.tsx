@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ExecutionItem, ItemPriority, ItemType, UpdateExecutionItemInput } from '@/types/domain'
+import type { ReminderPreset } from '@/types/notifications'
+import { getReminderForItem, setReminderForItem, cancelReminderForItem } from '@/services/reminderService'
 import { Button, Input, Modal, Select, Textarea } from '@/components/ui'
 
 interface EditItemModalProps {
@@ -26,6 +28,9 @@ export function EditItemModal({
   const [targetCount, setTargetCount] = useState<number>(1)
   const [currentCount, setCurrentCount] = useState<number>(0)
   const [unit, setUnit] = useState<string>('')
+  const [reminderPreset, setReminderPreset] = useState<ReminderPreset>('none')
+  const [exactReminderTime, setExactReminderTime] = useState<string>('')
+  const [habitReminderTime, setHabitReminderTime] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -43,11 +48,28 @@ export function EditItemModal({
         setFrequency(item.schedule.frequency === 'monthly' ? 'custom' : item.schedule.frequency)
         setDaysOfWeek(item.schedule.days_of_week || [1, 2, 3, 4, 5])
         setTimeOfDay((item.schedule.time_of_day as any) || 'anytime')
+        setHabitReminderTime(item.schedule.reminder_time?.slice(0, 5) || '')
       } else {
         setFrequency('daily')
         setDaysOfWeek([1, 2, 3, 4, 5])
         setTimeOfDay('anytime')
+        setHabitReminderTime('')
       }
+
+      if (item.user_id) {
+        const existingRem = getReminderForItem(item.user_id, item.id)
+        if (existingRem) {
+          setReminderPreset(existingRem.preset)
+          setExactReminderTime(existingRem.preset === 'exact_time' ? existingRem.remindAt.slice(0, 16) : '')
+        } else if (item.schedule?.reminder_time) {
+          setReminderPreset('scheduled_time')
+          setExactReminderTime('')
+        } else {
+          setReminderPreset('none')
+          setExactReminderTime('')
+        }
+      }
+
       setError(null)
     }
   }, [item, open])
@@ -70,6 +92,16 @@ export function EditItemModal({
     try {
       setBusy(true)
       setError(null)
+      const scheduleInput =
+        type === 'habit'
+          ? {
+              frequency,
+              days_of_week: frequency === 'daily' ? null : daysOfWeek,
+              time_of_day: timeOfDay,
+              reminder_time: habitReminderTime || null,
+            }
+          : null
+
       await onSubmit(item.id, {
         name: name.trim(),
         description: description.trim() || null,
@@ -79,15 +111,28 @@ export function EditItemModal({
         target_count: Math.max(1, targetCount),
         current_count: Math.max(0, currentCount),
         unit: unit.trim() || null,
-        schedule:
-          type === 'habit'
-            ? {
-                frequency,
-                days_of_week: frequency === 'daily' ? null : daysOfWeek,
-                time_of_day: timeOfDay,
-              }
-            : null,
+        schedule: scheduleInput,
       })
+
+      if (item.user_id) {
+        if (reminderPreset !== 'none') {
+          const updatedItem = {
+            ...item,
+            name: name.trim(),
+            due_date: dueDate || null,
+            schedule: scheduleInput ? ({ ...item.schedule, ...scheduleInput } as any) : null,
+          }
+          setReminderForItem(
+            item.user_id,
+            updatedItem,
+            reminderPreset,
+            reminderPreset === 'exact_time' ? exactReminderTime : undefined,
+          )
+        } else {
+          cancelReminderForItem(item.user_id, item.id)
+        }
+      }
+
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update item')
@@ -272,6 +317,55 @@ export function EditItemModal({
             value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}
           />
+        </div>
+
+        <div
+          className="stack"
+          style={{
+            padding: 'var(--space-3)',
+            background: 'var(--surface-muted)',
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--border)',
+            gap: 'var(--space-3)',
+          }}
+        >
+          <span className="t-meta" style={{ fontWeight: 600 }}>
+            Smart Reminders
+          </span>
+          <div className="grid grid--2" style={{ gap: 'var(--space-3)' }}>
+            <Select
+              label="Reminder Preset"
+              value={reminderPreset}
+              onChange={(e) => setReminderPreset(e.target.value as ReminderPreset)}
+            >
+              <option value="none">No reminder</option>
+              <option value="10m">10 minutes before</option>
+              <option value="30m">30 minutes before</option>
+              <option value="1h">1 hour before</option>
+              <option value="2h">2 hours before</option>
+              <option value="scheduled_time">At scheduled time</option>
+              <option value="exact_time">Custom date & time</option>
+            </Select>
+
+            {reminderPreset === 'exact_time' && (
+              <Input
+                label="Reminder Date & Time"
+                type="datetime-local"
+                value={exactReminderTime}
+                onChange={(e) => setExactReminderTime(e.target.value)}
+                required
+              />
+            )}
+
+            {type === 'habit' && reminderPreset === 'scheduled_time' && (
+              <Input
+                label="Scheduled Reminder Time"
+                type="time"
+                value={habitReminderTime}
+                onChange={(e) => setHabitReminderTime(e.target.value)}
+              />
+            )}
+          </div>
         </div>
       </form>
     </Modal>

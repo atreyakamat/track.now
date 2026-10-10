@@ -23,9 +23,14 @@ import type { ExecutionItem, UpdateExecutionItemInput } from '@/types/domain'
 import { EmptyState, ErrorState, LoadingState, PageHeader } from '@/components/ui'
 import { ExecutionItemCard } from '@/components/execution/ExecutionItemCard'
 import { EditItemModal } from '@/components/execution/EditItemModal'
+import { useToast } from '@/features/notifications/ToastContext'
+import { cancelReminderForItem } from '@/services/reminderService'
+import { buildWidgetDataPayload, saveWidgetData } from '@/services/widgetDataService'
+import { loadNotificationPreferences } from '@/services/notificationPreferences'
 
 export function TodayPage() {
   const { user } = useAuth()
+  const { showToast } = useToast()
   const [items, setItems] = useState<ExecutionItem[]>([])
   const [todayCompletedIds, setTodayCompletedIds] = useState<string[]>([])
   const [streakSummaries, setStreakSummaries] = useState<Record<string, HabitStreakSummary>>({})
@@ -33,6 +38,34 @@ export function TodayPage() {
   const [error, setError] = useState<string | null>(null)
   const [editingItem, setEditingItem] = useState<ExecutionItem | null>(null)
   const [busyItemId, setBusyItemId] = useState<string | null>(null)
+
+  const isItemCompleted = (i: ExecutionItem, completedIds = todayCompletedIds) => {
+    if (i.type === 'habit') {
+      return completedIds.includes(i.id)
+    }
+    return i.status === 'done'
+  }
+
+  const triggerCompletionFeedback = (completedItem: ExecutionItem, currentItems: ExecutionItem[], completedIds: string[]) => {
+    if (!user) return
+    cancelReminderForItem(user.id, completedItem.id)
+
+    const prefs = loadNotificationPreferences(user.id)
+    if (prefs.masterEnabled && prefs.completionAcknowledgement) {
+      const nextItem = currentItems.find(
+        (it) => it.id !== completedItem.id && !isItemCompleted(it, completedIds) && it.status !== 'archived',
+      )
+      showToast({
+        id: `completion-${completedItem.id}`,
+        title: `Completed: ${completedItem.name}`,
+        message: 'Consistency protected.',
+        nextUp: nextItem?.name,
+        type: 'success',
+      })
+    }
+
+    buildWidgetDataPayload(user.id, currentItems, streakSummaries).then(saveWidgetData).catch(() => undefined)
+  }
 
   const loadData = async () => {
     try {
@@ -55,8 +88,14 @@ export function TodayPage() {
           streaks[h.id] = calcHabitStreak(h.id, h.schedule, completionsMap[h.id] || [])
         })
         setStreakSummaries(streaks)
+        if (user) {
+          buildWidgetDataPayload(user.id, allItems, streaks).then(saveWidgetData).catch(() => undefined)
+        }
       } else {
         setStreakSummaries({})
+        if (user) {
+          buildWidgetDataPayload(user.id, allItems, {}).then(saveWidgetData).catch(() => undefined)
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load today items')
@@ -78,14 +117,16 @@ export function TodayPage() {
         const isDoneToday = todayCompletedIds.includes(itemId)
         if (user) {
           const nextDone = await toggleHabitTodayCompletion(user.id, itemId, isDoneToday)
-          setTodayCompletedIds((prev) =>
-            nextDone ? [...prev, itemId] : prev.filter((id) => id !== itemId),
-          )
+          const nextCompletedIds = nextDone ? [...todayCompletedIds, itemId] : todayCompletedIds.filter((id) => id !== itemId)
+          setTodayCompletedIds(nextCompletedIds)
           const target = Math.max(1, item.target_count ?? 1)
           const newCount = nextDone ? target : 0
           if ((item.current_count ?? 0) !== newCount) {
             const updated = await updateItemProgress(itemId, newCount, user.id)
             setItems((prev) => prev.map((it) => (it.id === itemId ? updated : it)))
+          }
+          if (nextDone) {
+            triggerCompletionFeedback(item, items, nextCompletedIds)
           }
         } else {
           setTodayCompletedIds((prev) =>
@@ -94,7 +135,11 @@ export function TodayPage() {
         }
       } else {
         const updated = await toggleItemStatus(itemId, currentStatus, user?.id)
-        setItems((prev) => prev.map((it) => (it.id === itemId ? updated : it)))
+        const updatedItems = items.map((it) => (it.id === itemId ? updated : it))
+        setItems(updatedItems)
+        if (updated.status === 'done') {
+          triggerCompletionFeedback(item, updatedItems, todayCompletedIds)
+        }
       }
     } catch (err) {
       console.error('Failed to toggle status:', err)
@@ -107,12 +152,14 @@ export function TodayPage() {
     try {
       setBusyItemId(itemId)
       const updated = await updateItemProgress(itemId, newCount, user?.id)
-      setItems((prev) => prev.map((item) => (item.id === itemId ? updated : item)))
+      const updatedItems = items.map((item) => (item.id === itemId ? updated : item))
+      setItems(updatedItems)
       const item = items.find((i) => i.id === itemId)
       if (item && item.type === 'habit') {
         const target = Math.max(1, updated.target_count ?? 1)
         if (newCount >= target) {
           setTodayCompletedIds((prev) => (prev.includes(itemId) ? prev : [...prev, itemId]))
+          triggerCompletionFeedback(item, updatedItems, [...todayCompletedIds, itemId])
         } else {
           setTodayCompletedIds((prev) => prev.filter((id) => id !== itemId))
         }
@@ -128,15 +175,19 @@ export function TodayPage() {
     try {
       setBusyItemId(itemId)
       const updated = await stepItemCount(itemId, delta, user?.id)
-      setItems((prev) => prev.map((item) => (item.id === itemId ? updated : item)))
+      const updatedItems = items.map((item) => (item.id === itemId ? updated : item))
+      setItems(updatedItems)
       const item = items.find((i) => i.id === itemId)
       if (item && item.type === 'habit') {
         const target = Math.max(1, updated.target_count ?? 1)
         if ((updated.current_count ?? 0) >= target) {
           setTodayCompletedIds((prev) => (prev.includes(itemId) ? prev : [...prev, itemId]))
+          triggerCompletionFeedback(item, updatedItems, [...todayCompletedIds, itemId])
         } else {
           setTodayCompletedIds((prev) => prev.filter((id) => id !== itemId))
         }
+      } else if (item && updated.status === 'done') {
+        triggerCompletionFeedback(item, updatedItems, todayCompletedIds)
       }
     } catch (err) {
       console.error('Failed to step item count:', err)
@@ -150,7 +201,9 @@ export function TodayPage() {
     try {
       setBusyItemId(itemId)
       const updated = await editExecutionItem(itemId, input, user.id)
-      setItems((prev) => prev.map((item) => (item.id === itemId ? updated : item)))
+      const updatedItems = items.map((item) => (item.id === itemId ? updated : item))
+      setItems(updatedItems)
+      buildWidgetDataPayload(user.id, updatedItems, streakSummaries).then(saveWidgetData).catch(() => undefined)
       setEditingItem(null)
     } catch (err) {
       console.error('Failed to update execution item:', err)
@@ -164,12 +217,6 @@ export function TodayPage() {
   if (error) return <ErrorState message={error} onRetry={loadData} />
 
   // Partition items into Overdue, Today, Upcoming, and Completed
-  const isItemCompleted = (i: ExecutionItem) => {
-    if (i.type === 'habit') {
-      return todayCompletedIds.includes(i.id)
-    }
-    return i.status === 'done'
-  }
 
   const uncompleted = items.filter((i) => !isItemCompleted(i) && i.status !== 'archived')
   const completed = items.filter((i) => isItemCompleted(i) && i.status !== 'archived')

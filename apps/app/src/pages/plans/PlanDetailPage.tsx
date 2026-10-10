@@ -59,11 +59,17 @@ import {
 import { ExecutionItemCard } from '@/components/execution/ExecutionItemCard'
 import { CreateItemModal } from '@/components/execution/CreateItemModal'
 import { EditItemModal } from '@/components/execution/EditItemModal'
+import { useToast } from '@/features/notifications/ToastContext'
+import { cancelReminderForItem, setReminderForItem } from '@/services/reminderService'
+import { buildWidgetDataPayload, saveWidgetData } from '@/services/widgetDataService'
+import { loadNotificationPreferences } from '@/services/notificationPreferences'
+import type { ReminderPreset } from '@/types/notifications'
 
 export function PlanDetailPage() {
   const { trackId, planId } = useParams<{ trackId?: string; planId?: string }>()
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { showToast } = useToast()
 
   const [track, setTrack] = useState<Track | null>(null)
   const [plan, setPlan] = useState<Plan | null>(null)
@@ -201,6 +207,34 @@ export function PlanDetailPage() {
     }
   }
 
+  const isItemCompleted = (i: ExecutionItem, completedIds = todayCompletedIds) => {
+    if (i.type === 'habit') {
+      return completedIds.includes(i.id)
+    }
+    return i.status === 'done'
+  }
+
+  const triggerCompletionFeedback = (completedItem: ExecutionItem, currentItems: ExecutionItem[], completedIds: string[]) => {
+    if (!user) return
+    cancelReminderForItem(user.id, completedItem.id)
+
+    const prefs = loadNotificationPreferences(user.id)
+    if (prefs.masterEnabled && prefs.completionAcknowledgement) {
+      const nextItem = currentItems.find(
+        (it) => it.id !== completedItem.id && !isItemCompleted(it, completedIds) && it.status !== 'archived',
+      )
+      showToast({
+        id: `completion-${completedItem.id}`,
+        title: `Completed: ${completedItem.name}`,
+        message: 'Consistency protected.',
+        nextUp: nextItem?.name,
+        type: 'success',
+      })
+    }
+
+    buildWidgetDataPayload(user.id, currentItems, streakSummaries).then(saveWidgetData).catch(() => undefined)
+  }
+
   const handleToggleItemStatus = async (itemId: string, currentStatus: ExecutionItem['status']) => {
     const item = items.find((i) => i.id === itemId)
     if (!item) return
@@ -210,14 +244,16 @@ export function PlanDetailPage() {
         const isDoneToday = todayCompletedIds.includes(itemId)
         if (user) {
           const nextDone = await toggleHabitTodayCompletion(user.id, itemId, isDoneToday)
-          setTodayCompletedIds((prev) =>
-            nextDone ? [...prev, itemId] : prev.filter((id) => id !== itemId),
-          )
+          const nextCompletedIds = nextDone ? [...todayCompletedIds, itemId] : todayCompletedIds.filter((id) => id !== itemId)
+          setTodayCompletedIds(nextCompletedIds)
           const target = Math.max(1, item.target_count ?? 1)
           const newCount = nextDone ? target : 0
           if ((item.current_count ?? 0) !== newCount) {
             const updated = await updateItemProgress(itemId, newCount, user.id)
             setItems((prev) => prev.map((it) => (it.id === itemId ? updated : it)))
+          }
+          if (nextDone) {
+            triggerCompletionFeedback(item, items, nextCompletedIds)
           }
         } else {
           setTodayCompletedIds((prev) =>
@@ -226,7 +262,11 @@ export function PlanDetailPage() {
         }
       } else {
         const updated = await toggleItemStatus(itemId, currentStatus, user?.id)
-        setItems((prev) => prev.map((item) => (item.id === itemId ? updated : item)))
+        const updatedItems = items.map((it) => (it.id === itemId ? updated : it))
+        setItems(updatedItems)
+        if (updated.status === 'done') {
+          triggerCompletionFeedback(item, updatedItems, todayCompletedIds)
+        }
       }
     } catch (err) {
       console.error('Failed to update item status:', err)
@@ -239,12 +279,14 @@ export function PlanDetailPage() {
     try {
       setBusyItemId(itemId)
       const updated = await updateItemProgress(itemId, newCount, user?.id)
-      setItems((prev) => prev.map((item) => (item.id === itemId ? updated : item)))
+      const updatedItems = items.map((item) => (item.id === itemId ? updated : item))
+      setItems(updatedItems)
       const item = items.find((i) => i.id === itemId)
       if (item && item.type === 'habit') {
         const target = Math.max(1, updated.target_count ?? 1)
         if (newCount >= target) {
           setTodayCompletedIds((prev) => (prev.includes(itemId) ? prev : [...prev, itemId]))
+          triggerCompletionFeedback(item, updatedItems, [...todayCompletedIds, itemId])
         } else {
           setTodayCompletedIds((prev) => prev.filter((id) => id !== itemId))
         }
@@ -260,15 +302,19 @@ export function PlanDetailPage() {
     try {
       setBusyItemId(itemId)
       const updated = await stepItemCount(itemId, delta, user?.id)
-      setItems((prev) => prev.map((item) => (item.id === itemId ? updated : item)))
+      const updatedItems = items.map((item) => (item.id === itemId ? updated : item))
+      setItems(updatedItems)
       const item = items.find((i) => i.id === itemId)
       if (item && item.type === 'habit') {
         const target = Math.max(1, updated.target_count ?? 1)
         if ((updated.current_count ?? 0) >= target) {
           setTodayCompletedIds((prev) => (prev.includes(itemId) ? prev : [...prev, itemId]))
+          triggerCompletionFeedback(item, updatedItems, [...todayCompletedIds, itemId])
         } else {
           setTodayCompletedIds((prev) => prev.filter((id) => id !== itemId))
         }
+      } else if (item && updated.status === 'done') {
+        triggerCompletionFeedback(item, updatedItems, todayCompletedIds)
       }
     } catch (err) {
       console.error('Failed to step item count:', err)
@@ -281,7 +327,14 @@ export function PlanDetailPage() {
     try {
       setBusyItemId(itemId)
       await deleteExecutionItem(itemId)
-      setItems((prev) => prev.filter((item) => item.id !== itemId))
+      if (user) {
+        cancelReminderForItem(user.id, itemId)
+      }
+      const remaining = items.filter((item) => item.id !== itemId)
+      setItems(remaining)
+      if (user) {
+        buildWidgetDataPayload(user.id, remaining, streakSummaries).then(saveWidgetData).catch(() => undefined)
+      }
     } catch (err) {
       console.error('Failed to delete item:', err)
     } finally {
@@ -294,7 +347,9 @@ export function PlanDetailPage() {
     try {
       setBusyItemId(itemId)
       const updated = await editExecutionItem(itemId, input, user.id)
-      setItems((prev) => prev.map((item) => (item.id === itemId ? updated : item)))
+      const updatedList = items.map((item) => (item.id === itemId ? updated : item))
+      setItems(updatedList)
+      buildWidgetDataPayload(user.id, updatedList, streakSummaries).then(saveWidgetData).catch(() => undefined)
       setEditingItem(null)
     } catch (err) {
       console.error('Failed to update execution item:', err)
@@ -304,10 +359,18 @@ export function PlanDetailPage() {
     }
   }
 
-  const handleCreateItem = async (input: NewExecutionItemInput) => {
+  const handleCreateItem = async (
+    input: NewExecutionItemInput,
+    reminderOptions?: { preset: ReminderPreset; exactTime?: string },
+  ) => {
     if (!user) return
     const created = await createExecutionItem(user.id, input)
-    setItems((prev) => [...prev, created])
+    if (reminderOptions && reminderOptions.preset !== 'none') {
+      setReminderForItem(user.id, created, reminderOptions.preset, reminderOptions.exactTime)
+    }
+    const updated = [...items, created]
+    setItems(updated)
+    buildWidgetDataPayload(user.id, updated, streakSummaries).then(saveWidgetData).catch(() => undefined)
   }
 
   const openCreateModalForType = (type: ItemType) => {

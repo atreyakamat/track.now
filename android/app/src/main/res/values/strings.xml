@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Track.now</string>
+    <string name="widget_small_desc">Glanceable 2x2 today progress and next activity.</string>
+    <string name="widget_medium_desc">Overview 4x2 today execution queue with active streaks.</string>
+</resources>

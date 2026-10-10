@@ -1,8 +1,9 @@
-import { Calendar, Check, Edit2, Flame, Repeat, Trash2 } from 'lucide-react'
+import { Bell, Calendar, Check, Edit2, Flame, Repeat, Trash2 } from 'lucide-react'
 import type { ExecutionItem } from '@/types/domain'
 import { Badge, Button } from '@/components/ui'
 import { getTodayDateString, isOverdue } from '@/domain/dates'
 import type { HabitStreakSummary } from '@/domain/streaks'
+import { getReminderForItem } from '@/services/reminderService'
 
 interface ExecutionItemCardProps {
   item: ExecutionItem
@@ -40,6 +41,11 @@ export function ExecutionItemCard({
     : Math.max(0, item.current_count ?? 0)
   const hasNumericTarget = targetCount > 1 || Boolean(item.unit)
   const progressPercent = Math.min(100, Math.round((currentCount / targetCount) * 100))
+
+  const activeReminder =
+    item.user_id && !isDone
+      ? getReminderForItem(item.user_id, item.id)
+      : null
 
   const priorityColor =
     item.priority === 'urgent'
@@ -174,6 +180,40 @@ export function ExecutionItemCard({
                   ? ` · ${item.schedule.time_of_day}`
                   : ''}
               </span>
+            </div>
+          )}
+
+          {activeReminder && (
+            <div
+              className="row"
+              title={`Reminder scheduled: ${new Date(activeReminder.remindAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} (${activeReminder.preset})`}
+              style={{
+                gap: '4px',
+                fontSize: 'var(--text-meta)',
+                color: activeReminder.status === 'snoozed' ? 'var(--warning, #e67e22)' : 'var(--text-secondary)',
+              }}
+            >
+              <Bell size={12} />
+              <span>
+                {activeReminder.status === 'snoozed'
+                  ? `Snoozed (${new Date(activeReminder.remindAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`
+                  : new Date(activeReminder.remindAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </div>
+          )}
+
+          {!activeReminder && item.schedule?.reminder_time && (
+            <div
+              className="row"
+              title={`Scheduled daily reminder at ${item.schedule.reminder_time.slice(0, 5)}`}
+              style={{
+                gap: '4px',
+                fontSize: 'var(--text-meta)',
+                color: 'var(--text-secondary)',
+              }}
+            >
+              <Bell size={12} />
+              <span>{item.schedule.reminder_time.slice(0, 5)}</span>
             </div>
           )}
         </div>

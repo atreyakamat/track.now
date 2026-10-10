@@ -2,6 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { Session, User } from '@supabase/supabase-js'
 import { ensureProfile, getProfile } from '@/services/tracksService'
 import type { Profile } from '@/types/domain'
+import { clearRemindersForUser } from '@/services/reminderService'
+import { clearWidgetData } from '@/services/widgetDataService'
 import { authService, type SignUpResult } from './authService'
 
 type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated'
@@ -100,6 +102,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signUp: (email, password, name) => authService.signUp(email, password, name),
       signOut: async () => {
         manualSignOut.current = true
+        if (session?.user?.id) {
+          clearRemindersForUser(session.user.id)
+        }
+        clearWidgetData()
         await authService.signOut()
       },
       refreshProfile,
