@@ -1,8 +1,19 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Navigate, Outlet } from 'react-router-dom'
 import { ProtectedRoute, PublicRoute } from '@/routes/ProtectedRoute'
 
 let mockStatus: 'loading' | 'authenticated' | 'unauthenticated' = 'loading'
+let mockLocation: { pathname: string; search: string; hash: string; state: unknown } = {
+  pathname: '/dashboard',
+  search: '',
+  hash: '',
+  state: null,
+}
+
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router-dom')>()
+  return { ...actual, useLocation: () => mockLocation }
+})
 
 vi.mock('@/features/auth/AuthProvider', () => ({
   useAuth: () => ({
@@ -12,6 +23,34 @@ vi.mock('@/features/auth/AuthProvider', () => ({
 }))
 
 describe('Auth Routing & Route Guards', () => {
+  beforeEach(() => {
+    mockLocation = { pathname: '/dashboard', search: '', hash: '', state: null }
+  })
+
+  it('remembers the intended destination when redirecting an unauthenticated deep link to /login', () => {
+    mockStatus = 'unauthenticated'
+    mockLocation = { pathname: '/plans/plan-42', search: '?tab=habits', hash: '', state: null }
+    const element = ProtectedRoute()
+    expect(element.type).toBe(Navigate)
+    expect(element.props.to).toBe('/login')
+    expect(element.props.state).toEqual({ from: '/plans/plan-42?tab=habits' })
+  })
+
+  it('sends an authenticated user back to the remembered destination from the public route', () => {
+    mockStatus = 'authenticated'
+    mockLocation = { pathname: '/login', search: '', hash: '', state: { from: '/today' } }
+    const element = PublicRoute()
+    expect(element.props.to).toBe('/today')
+  })
+
+  it('ignores off-site or malformed remembered destinations', () => {
+    mockStatus = 'authenticated'
+    for (const from of ['//evil.example', '/\\evil.example', 'https://evil.example', 'javascript:alert(1)', '/login']) {
+      mockLocation = { pathname: '/login', search: '', hash: '', state: { from } }
+      expect(PublicRoute().props.to).toBe('/dashboard')
+    }
+  })
+
   it('blocks unauthenticated user from protected routes and redirects to /login', () => {
     mockStatus = 'unauthenticated'
     const element = ProtectedRoute()

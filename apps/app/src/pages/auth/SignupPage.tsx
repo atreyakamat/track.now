@@ -102,7 +102,7 @@ export function SignupPage() {
           noValidate
         >
           {successNotice ? (
-            <div className="alert alert--info" style={{ textAlign: 'center' }}>
+            <div className="alert alert--info" role="status" style={{ textAlign: 'center' }}>
               <p>{successNotice}</p>
               <div style={{ marginTop: 'var(--space-3)' }}>
                 <Link to="/login" className="btn btn--primary btn--sm">
@@ -112,7 +112,11 @@ export function SignupPage() {
             </div>
           ) : (
             <>
-              {error && <div className="alert alert--error">{error}</div>}
+              {error && (
+                <div className="alert alert--error" role="alert">
+                  {error}
+                </div>
+              )}
 
               <Input
                 name="displayName"

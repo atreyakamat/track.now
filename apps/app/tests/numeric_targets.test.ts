@@ -6,7 +6,7 @@ import type {
   ItemStatus,
   NewExecutionItemInput,
 } from '@/types/domain'
-import { calcProgress, summarizePlan } from '@/domain/progress'
+import { calcProgress } from '@/domain/progress'
 
 /**
  * Pure domain stepper simulator matching executionService logic.
@@ -66,6 +66,7 @@ describe('Phase 2 — Feature 01: Numeric Targets & Target Quantities', () => {
         plan_id: 'plan-1',
         type: 'task',
         name: 'Standard single task',
+        description: null,
       }
       const targetCount = Math.max(1, input.target_count ?? 1)
       const currentCount = Math.max(0, input.current_count ?? 0)
@@ -79,12 +80,14 @@ describe('Phase 2 — Feature 01: Numeric Targets & Target Quantities', () => {
         plan_id: 'plan-1',
         type: 'task',
         name: 'Zero target task',
+        description: null,
         target_count: 0,
       }
       const inputNeg: NewExecutionItemInput = {
         plan_id: 'plan-1',
         type: 'task',
         name: 'Neg target task',
+        description: null,
         target_count: -5,
       }
 
@@ -97,6 +100,7 @@ describe('Phase 2 — Feature 01: Numeric Targets & Target Quantities', () => {
         plan_id: 'plan-1',
         type: 'habit',
         name: 'Hydration Routine',
+        description: null,
         target_count: 8,
         unit: 'glasses',
       }
@@ -122,6 +126,7 @@ describe('Phase 2 — Feature 01: Numeric Targets & Target Quantities', () => {
       user_id: 'user-1',
       type: 'habit',
       name: 'Pushups',
+      description: null,
       status: 'todo',
       priority: 'high',
       start_date: null,
@@ -206,6 +211,7 @@ describe('Phase 2 — Feature 01: Numeric Targets & Target Quantities', () => {
         user_id: 'user-1',
         type: 'task',
         name: 'Read Research Papers',
+        description: null,
         status: 'todo',
         priority: 'medium',
         start_date: null,
@@ -230,6 +236,7 @@ describe('Phase 2 — Feature 01: Numeric Targets & Target Quantities', () => {
         user_id: 'user-1',
         type: 'task',
         name: 'Read Research Papers',
+        description: null,
         status: 'done',
         priority: 'medium',
         start_date: null,
@@ -282,6 +289,7 @@ describe('Phase 2 — Feature 01: Numeric Targets & Target Quantities', () => {
         user_id: 'user-1',
         type: 'habit',
         name: 'Drink 8 glasses of water',
+        description: null,
         status: 'todo',
         priority: 'medium',
         start_date: null,
@@ -419,6 +427,7 @@ describe('Phase 2 — Feature 01: Numeric Targets & Target Quantities', () => {
         item: {
           ...current,
           name: updates.name ? updates.name.trim() : current.name,
+          description: null,
           target_count: targetCount,
           current_count: currentCount,
           unit,
@@ -434,6 +443,7 @@ describe('Phase 2 — Feature 01: Numeric Targets & Target Quantities', () => {
       user_id: 'user-1',
       type: 'task',
       name: 'Write Pages',
+      description: null,
       status: 'todo',
       priority: 'medium',
       start_date: null,
@@ -489,6 +499,7 @@ describe('Phase 2 — Feature 01: Numeric Targets & Target Quantities', () => {
         user_id: 'user-1',
         type: 'task',
         name: 'Single Task',
+        description: null,
         status: 'todo',
         priority: 'medium',
         start_date: null,
@@ -518,6 +529,7 @@ describe('Phase 2 — Feature 01: Numeric Targets & Target Quantities', () => {
         user_id: 'user-1',
         type: 'habit',
         name: 'Pushups',
+        description: null,
         status: 'done',
         priority: 'medium',
         start_date: null,
@@ -594,11 +606,13 @@ describe('Phase 2 — Feature 01: Numeric Targets & Target Quantities', () => {
 
   describe('Habit Multi-Day Recurrence & Stepper Reset Invariants', () => {
     const habitItem: ExecutionItem = {
+      due_date: null,
       id: 'habit-water',
       plan_id: 'plan-1',
       track_id: 'track-1',
       user_id: 'user-1',
       name: 'Hydration Target',
+      description: null,
       type: 'habit',
       status: 'done',
       priority: 'high',
@@ -636,7 +650,7 @@ describe('Phase 2 — Feature 01: Numeric Targets & Target Quantities', () => {
         Boolean(habitItem.updated_at) &&
         habitItem.updated_at.split('T')[0] < todayDate
 
-      const baseCount = isHabitUnfinishedNewDay ? 0 : habitItem.current_count
+      const baseCount = isHabitUnfinishedNewDay ? 0 : (habitItem.current_count ?? 0)
       const nextCount = baseCount + 1
 
       expect(nextCount).toBe(1)

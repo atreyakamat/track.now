@@ -45,6 +45,7 @@ describe('Duplicate Track Detection Business Logic', () => {
     const newTrack = {
       id: 'track-2',
       name: 'Fitness',
+      description: null,
       template_type: 'fitness' as const,
     }
     const combined = [...existingTracks, newTrack]
@@ -66,6 +67,7 @@ describe('Plan and Item Lifecycle Transitions', () => {
       id: 'track-1',
       user_id: 'user-1',
       name: 'Career',
+      description: null,
       icon: 'briefcase',
       color: '#3a86ff',
       status: 'active',
@@ -78,6 +80,7 @@ describe('Plan and Item Lifecycle Transitions', () => {
       track_id: 'track-1',
       user_id: 'user-1',
       name: 'Q4 Promotion Arc',
+      description: null,
       status: 'active',
       start_date: null,
       end_date: null,
@@ -90,6 +93,7 @@ describe('Plan and Item Lifecycle Transitions', () => {
       track_id: 'track-1',
       user_id: 'user-1',
       name: 'Old Deliverables',
+      description: null,
       status: 'archived',
       start_date: null,
       end_date: null,
@@ -245,6 +249,7 @@ describe('Phase 1 Closure Domain Logic', () => {
     const seeded = templateDefaultItems.map((item) => ({
       plan_id: 'plan-new',
       name: item.title,
+      description: null,
       type: item.type,
       priority: 'medium' as const,
       schedule: item.type === 'habit' ? { frequency: 'daily' as const, time_of_day: 'anytime' as const } : null,

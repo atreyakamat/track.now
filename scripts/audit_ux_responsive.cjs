@@ -1,3 +1,11 @@
+// Fail closed: only runs against a bundle built with a fake Supabase project (see scripts/lib/e2eMock.cjs).
+const E2E_MOCK = require('./lib/e2eMock.cjs');
+E2E_MOCK.assertMockBuild();
+// Screenshots go to a temporary directory outside the repository (override with TRACKNOW_SCREENSHOT_DIR).
+const __shotDir = process.env.TRACKNOW_SCREENSHOT_DIR || require('path').join(require('os').tmpdir(), 'tracknow-e2e-screenshots');
+require('fs').mkdirSync(__shotDir, { recursive: true });
+const shotPath = (name) => require('path').join(__shotDir, name);
+
 const { spawn } = require('child_process');
 const http = require('http');
 const fs = require('fs');
@@ -8,6 +16,8 @@ function createStaticServer(distDir, isSpa) {
   return http.createServer((req, res) => {
     let reqPath = req.url.split('?')[0];
     let filePath = path.join(distDir, reqPath);
+    // Confine to the build directory (no ../ path traversal out of dist).
+    if (!path.resolve(filePath).startsWith(path.resolve(distDir) + path.sep)) filePath = path.join(distDir, 'index.html');
     if (filePath.endsWith(path.sep) || reqPath === '/') {
       filePath = path.join(distDir, 'index.html');
     }
@@ -132,6 +142,7 @@ async function runAudit() {
     `--remote-debugging-port=${cdpPort}`,
     '--headless=new',
     `--user-data-dir=${tempDir}`,
+    '--host-resolver-rules=MAP *.supabase.co ~NOTFOUND, MAP *.supabase.in ~NOTFOUND',
     '--no-first-run',
     '--no-default-browser-check',
     '--disable-extensions',
@@ -166,7 +177,7 @@ async function runAudit() {
 
   const mockTracks = [
     {
-      id: 'track-1',
+      id: '11111111-1111-4111-8111-111111111111',
       user_id: 'usr-athlete-1',
       name: 'Athletic Excellence & Long Arc Endurance',
       description: 'Systematic endurance training, nutrition protocols, zone 2 baseline, recovery monitoring, and athletic performance.',
@@ -179,7 +190,7 @@ async function runAudit() {
       updated_at: new Date().toISOString(),
     },
     {
-      id: 'track-2',
+      id: '22222222-2222-4222-8222-222222222222',
       user_id: 'usr-athlete-1',
       name: 'Deep Work & Systems Architecture',
       description: 'Mastery of distributed systems, high-leverage architectural patterns, and systematic deep work cadence.',
@@ -192,7 +203,7 @@ async function runAudit() {
       updated_at: new Date().toISOString(),
     },
     {
-      id: 'track-3',
+      id: '33333333-3333-4333-8333-333333333333',
       user_id: 'usr-athlete-1',
       name: 'Mind & Classical Philosophy Arc',
       description: 'Stoic philosophy readings, journal reflections, meditation.',
@@ -209,7 +220,7 @@ async function runAudit() {
   const mockPlans = [
     {
       id: 'plan-1',
-      track_id: 'track-1',
+      track_id: '11111111-1111-4111-8111-111111111111',
       user_id: 'usr-athlete-1',
       name: 'Half Marathon Arc',
       description: '12-week progression program targeting sub-1:45 finish with progressive weekly mileage buildup.',
@@ -221,7 +232,7 @@ async function runAudit() {
     },
     {
       id: 'plan-2',
-      track_id: 'track-2',
+      track_id: '22222222-2222-4222-8222-222222222222',
       user_id: 'usr-athlete-1',
       name: 'Q4 Systems Architecture Sprint',
       description: 'Complete architecture design documents and production review checklists.',
@@ -237,7 +248,7 @@ async function runAudit() {
     {
       id: 'item-habit-1',
       plan_id: 'plan-1',
-      track_id: 'track-1',
+      track_id: '11111111-1111-4111-8111-111111111111',
       user_id: 'usr-athlete-1',
       name: 'Morning Hydration & Dynamic Mobility Stretch',
       description: '20 minutes hip and ankle mobility before running',
@@ -261,7 +272,7 @@ async function runAudit() {
     {
       id: 'item-habit-2',
       plan_id: 'plan-1',
-      track_id: 'track-1',
+      track_id: '11111111-1111-4111-8111-111111111111',
       user_id: 'usr-athlete-1',
       name: 'Zone-2 Base Aerobic Run',
       description: 'Keep heart rate in zone 2 (135-145 bpm)',
@@ -285,7 +296,7 @@ async function runAudit() {
     {
       id: 'item-task-1',
       plan_id: 'plan-1',
-      track_id: 'track-1',
+      track_id: '11111111-1111-4111-8111-111111111111',
       user_id: 'usr-athlete-1',
       name: 'Schedule Sports Physio Assessment',
       description: 'Biomechanical gait analysis and footwear recommendation',
@@ -302,7 +313,7 @@ async function runAudit() {
     {
       id: 'item-task-2',
       plan_id: 'plan-1',
-      track_id: 'track-1',
+      track_id: '11111111-1111-4111-8111-111111111111',
       user_id: 'usr-athlete-1',
       name: 'Order Electrolyte Replenishment Packets',
       description: 'High sodium formula for long weekend run',
@@ -319,7 +330,7 @@ async function runAudit() {
     {
       id: 'item-check-1',
       plan_id: 'plan-1',
-      track_id: 'track-1',
+      track_id: '11111111-1111-4111-8111-111111111111',
       user_id: 'usr-athlete-1',
       name: 'Inspect Running Shoe Outsole Wear',
       description: 'Ensure tread has adequate traction',
@@ -336,7 +347,7 @@ async function runAudit() {
     {
       id: 'item-proj-1',
       plan_id: 'plan-1',
-      track_id: 'track-1',
+      track_id: '11111111-1111-4111-8111-111111111111',
       user_id: 'usr-athlete-1',
       name: 'Race Day Nutrition & Pacing Blueprint',
       description: 'Kilometer-by-kilometer gel timing and target heart rates',
@@ -353,7 +364,7 @@ async function runAudit() {
     {
       id: 'item-mile-1',
       plan_id: 'plan-1',
-      track_id: 'track-1',
+      track_id: '11111111-1111-4111-8111-111111111111',
       user_id: 'usr-athlete-1',
       name: 'First 15km Continuous Long Run',
       description: 'Sub-90 minute benchmark without stopping',
@@ -463,11 +474,10 @@ async function runAudit() {
             bodyObj = bodyObj[0];
           }
         } else if (reqPath.includes('/rest/v1/track_now_tracks')) {
-          if (url.searchParams.get('id') === 'eq.track-1' && acceptHeader.includes('application/vnd.pgrst.object+json')) {
-            bodyObj = mockTracks[0];
-          } else {
-            bodyObj = mockTracks;
-          }
+          // Honour an id=eq.<id> filter like PostgREST (maybeSingle() expects at most one row).
+          const idFilter = url.searchParams.get('id');
+          const rows = idFilter && idFilter.startsWith('eq.') ? mockTracks.filter((r) => r.id === idFilter.slice(3)) : mockTracks;
+          bodyObj = acceptHeader.includes('application/vnd.pgrst.object+json') ? rows[0] : rows;
         } else if (reqPath.includes('/rest/v1/track_now_track_templates')) {
           bodyObj = [
             {
@@ -505,11 +515,10 @@ async function runAudit() {
             },
           ];
         } else if (reqPath.includes('/rest/v1/track_now_plans')) {
-          if (url.searchParams.get('id') === 'eq.plan-1' && acceptHeader.includes('application/vnd.pgrst.object+json')) {
-            bodyObj = mockPlans[0];
-          } else {
-            bodyObj = mockPlans;
-          }
+          // Honour an id=eq.<id> filter like PostgREST (maybeSingle() expects at most one row).
+          const idFilter = url.searchParams.get('id');
+          const rows = idFilter && idFilter.startsWith('eq.') ? mockPlans.filter((r) => r.id === idFilter.slice(3)) : mockPlans;
+          bodyObj = acceptHeader.includes('application/vnd.pgrst.object+json') ? rows[0] : rows;
         } else if (reqPath.includes('/rest/v1/track_now_execution_items')) {
           if (method === 'GET') {
             const single = acceptHeader.includes('application/vnd.pgrst.object+json');
@@ -583,9 +592,16 @@ async function runAudit() {
           
           // Check right edge overflow
           if (rect.right > winW + 1 && el.clientWidth > 0 && !['svg', 'path'].includes(el.tagName.toLowerCase())) {
-            const style = window.getComputedStyle(el);
-            const parentStyle = el.parentElement ? window.getComputedStyle(el.parentElement) : null;
-            if (style.overflowX !== 'auto' && style.overflowX !== 'scroll' && (!parentStyle || (parentStyle.overflowX !== 'auto' && parentStyle.overflowX !== 'scroll'))) {
+            // Content inside ANY horizontally scrollable ancestor (wide tables/charts) is intentional.
+            // Screen-reader-only content (.sr-only: 1px box, clip rect(0 0 0 0)) is never painted.
+            let inScroller = false;
+            for (let a = el; a && a !== document.documentElement; a = a.parentElement) {
+              const cs = window.getComputedStyle(a);
+              const ox = cs.overflowX;
+              if (ox === 'auto' || ox === 'scroll') { inScroller = true; break; }
+              if (a.classList.contains('sr-only') || cs.clip === 'rect(0px, 0px, 0px, 0px)') { inScroller = true; break; }
+            }
+            if (!inScroller) {
               issues.push({
                 type: 'ELEMENT_OVERFLOW',
                 tag: el.tagName,
@@ -637,8 +653,8 @@ async function runAudit() {
       { name: 'Dashboard', url: 'http://127.0.0.1:5184/dashboard' },
       { name: 'Tracks', url: 'http://127.0.0.1:5184/tracks' },
       { name: 'NewTrack', url: 'http://127.0.0.1:5184/tracks/new' },
-      { name: 'TrackDetail', url: 'http://127.0.0.1:5184/tracks/track-1' },
-      { name: 'NewPlan', url: 'http://127.0.0.1:5184/tracks/track-1/plans/new' },
+      { name: 'TrackDetail', url: 'http://127.0.0.1:5184/tracks/11111111-1111-4111-8111-111111111111' },
+      { name: 'NewPlan', url: 'http://127.0.0.1:5184/tracks/11111111-1111-4111-8111-111111111111/plans/new' },
       { name: 'PlanDetail_Overview', url: 'http://127.0.0.1:5184/plans/plan-1' },
       { name: 'Today', url: 'http://127.0.0.1:5184/today' },
       { name: 'Reviews', url: 'http://127.0.0.1:5184/reviews' },
@@ -652,7 +668,7 @@ async function runAudit() {
       inspected: [],
     };
 
-    const outDir = path.resolve(__dirname, '../audit_screenshots/after');
+    const outDir = shotPath('ux_audit');
     fs.mkdirSync(outDir, { recursive: true });
 
     for (const r of routesToTest) {
@@ -662,12 +678,12 @@ async function runAudit() {
 
       if (r.name === 'Login' || r.name === 'Signup') {
         await cdp.eval(`(() => {
-          localStorage.removeItem('sb-bjejovuayqtxqhevvvuu-auth-token');
+          localStorage.removeItem('${E2E_MOCK.AUTH_STORAGE_KEY}');
           localStorage.setItem('tracknow-theme', 'light');
         })()`);
       } else if (r.name !== 'Landing') {
         await cdp.eval(`(() => {
-          localStorage.setItem('sb-bjejovuayqtxqhevvvuu-auth-token', JSON.stringify(${JSON.stringify(testSession)}));
+          localStorage.setItem('${E2E_MOCK.AUTH_STORAGE_KEY}', JSON.stringify(${JSON.stringify(testSession)}));
           localStorage.setItem('tracknow-theme', 'light');
         })()`);
       }
@@ -755,7 +771,7 @@ async function runAudit() {
     console.log('AUDIT RUN COMPLETE. Total findings recorded:', report.findings.length);
     console.log('========================================');
 
-    fs.writeFileSync(path.resolve(__dirname, '../audit_findings.json'), JSON.stringify(report, null, 2));
+    fs.writeFileSync(path.join(outDir, 'audit_findings.json'), JSON.stringify(report, null, 2));
 
     cdp.close();
   } finally {

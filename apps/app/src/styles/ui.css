@@ -17,7 +17,7 @@
 .btn--secondary:hover:not(:disabled) { background: var(--surface-muted); }
 .btn--ghost { background: transparent; color: var(--text-secondary); }
 .btn--ghost:hover:not(:disabled) { background: var(--surface-muted); color: var(--text-primary); }
-.btn--danger { background: var(--danger); color: #fff; }
+.btn--danger { background: var(--danger); color: var(--danger-text, #fff); }
 .btn--sm { min-height: 32px; padding: 0 var(--space-3); font-size: var(--text-caption); border-radius: var(--radius-sm); }
 .btn--block { width: 100%; }
 .btn--icon { padding: 0; width: 40px; }
@@ -71,12 +71,15 @@ textarea.control { resize: vertical; min-height: 84px; }
 .tabs__tab { background: none; border: 0; padding: 10px 14px; color: var(--text-secondary); font-weight: 500; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
 .tabs__tab:hover { color: var(--text-primary); }
 .tabs__tab[aria-selected='true'] { color: var(--text-primary); border-bottom-color: var(--text-primary); }
+/* .tabs scrolls horizontally (overflow clips outside outlines), so draw the focus ring inside the tab. */
+.tabs__tab:focus-visible { outline-offset: -2px; }
 
 /* Overlay: modal / drawer */
 .overlay { position: fixed; inset: 0; z-index: 50; background: rgb(10 10 8 / 45%); display: flex; align-items: center; justify-content: center; padding: var(--space-3); animation: fade 0.15s ease; overscroll-behavior: contain; }
 .overlay--drawer { justify-content: flex-start; align-items: stretch; padding: 0; }
-.modal { width: min(480px, 100%); max-height: calc(100vh - var(--space-6)); overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-md); padding: var(--space-5); display: flex; flex-direction: column; gap: var(--space-4); box-sizing: border-box; overscroll-behavior: contain; }
+.modal { width: min(480px, 100%); max-height: calc(100vh - var(--space-6)); max-height: calc(100dvh - var(--space-6)); overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-md); padding: var(--space-5); display: flex; flex-direction: column; gap: var(--space-4); box-sizing: border-box; overscroll-behavior: contain; }
 .modal__actions { display: flex; justify-content: flex-end; gap: var(--space-2); flex-wrap: wrap; }
+.modal > .t-h2 { overflow-wrap: anywhere; }
 .drawer {
   width: min(320px, 86vw); height: 100%; height: 100dvh; max-height: 100dvh;
   display: flex; flex-direction: column; overflow: hidden;
@@ -92,7 +95,11 @@ textarea.control { resize: vertical; min-height: 84px; }
 
 /* Page header */
 .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-6); }
-.page-header__text { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.page-header__text { display: flex; flex-direction: column; gap: 6px; min-width: 0; max-width: 100%; }
+/* Long unbroken names (e.g. a 80-char Track name) must wrap instead of widening the page at 320px. */
+.page-header .t-h1, .page-header .t-muted, .breadcrumb { overflow-wrap: anywhere; min-width: 0; }
+.page-header__title-row { flex-wrap: wrap; min-width: 0; max-width: 100%; }
+.page-header__title-text { min-width: 0; overflow-wrap: anywhere; }
 .page-header__actions { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; }
 .breadcrumb { display: inline-flex; align-items: center; gap: 6px; font-size: var(--text-caption); color: var(--text-secondary); min-height: 32px; padding: 4px 0; }
 .breadcrumb:hover { color: var(--text-primary); }
@@ -112,3 +119,36 @@ textarea.control { resize: vertical; min-height: 84px; }
     opacity: 1;
   }
 }
+.alert--success { border-color: var(--success); color: var(--success); background: transparent; }
+
+/* Spinning icon (e.g. sync in progress) */
+.spin { animation: spin 0.9s linear infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .spin, .spinner { animation: none; }
+  .overlay, .drawer { animation: none; }
+  .btn, .progress__fill, .progress-circle__fg { transition: none; }
+  .btn:active:not(:disabled) { transform: none; }
+}
+
+/* Touch devices: primary controls get at least a 44px hit area (WCAG 2.5.5). */
+@media (pointer: coarse) {
+  .btn, .btn--sm { min-height: 44px; }
+  .btn--icon, .btn--icon.btn--sm { width: 44px; }
+  .control { min-height: 44px; }
+  .tabs__tab { min-height: 44px; }
+  .breadcrumb { min-height: 44px; }
+}
+
+@media (forced-colors: active) {
+  :focus-visible { outline-color: Highlight; }
+}
+
+/* Skip link: visible only when focused */
+.skip-link {
+  position: absolute; left: var(--space-3); top: -48px; z-index: 100;
+  padding: 8px 12px; border-radius: var(--radius-sm);
+  background: var(--control-bg); color: var(--control-text); font-weight: 600;
+}
+.skip-link:focus { top: var(--space-3); }
+.content:focus { outline: none; }

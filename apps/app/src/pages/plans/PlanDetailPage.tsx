@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   Archive,
@@ -17,18 +17,12 @@ import { getTrack } from '@/services/tracksService'
 import { deletePlan, getPlan, setPlanArchived, updatePlan } from '@/services/plansService'
 import {
   createExecutionItem,
-  deleteExecutionItem,
-  editExecutionItem,
   listCompletionsForDate,
   listCompletionsForItems,
   listExecutionItems,
-  stepItemCount,
-  toggleHabitTodayCompletion,
-  toggleItemStatus,
-  updateItemProgress,
 } from '@/services/executionService'
 import { getTodayDateString } from '@/domain/dates'
-import { calcHabitStreak, type HabitStreakSummary } from '@/domain/streaks'
+import { addDays } from '@/domain/streaks'
 import { CalendarHeatmap } from '@/components/analytics/CalendarHeatmap'
 import { summarizePlan } from '@/domain/progress'
 import { formatDateRange } from '@/utils/format'
@@ -38,7 +32,6 @@ import type {
   NewExecutionItemInput,
   Plan,
   Track,
-  UpdateExecutionItemInput,
 } from '@/types/domain'
 import {
   Badge,
@@ -60,21 +53,15 @@ import { ExecutionItemCard } from '@/components/execution/ExecutionItemCard'
 import { CreateItemModal } from '@/components/execution/CreateItemModal'
 import { EditItemModal } from '@/components/execution/EditItemModal'
 import { useToast } from '@/features/notifications/ToastContext'
-import {
-  cancelReminderForItem,
-  cancelRemindersForPlan,
-  getReminderForItem,
-  setReminderForItem,
-  snoozeReminder,
-} from '@/services/reminderService'
-import { buildWidgetDataPayload, saveWidgetData } from '@/services/widgetDataService'
-import { loadNotificationPreferences } from '@/services/notificationPreferences'
+import { cancelRemindersForPlan, setReminderForItem } from '@/services/reminderService'
+import { useExecutionItemActions } from '@/hooks/useExecutionItemActions'
 import type { ReminderPreset } from '@/types/notifications'
 
 export function PlanDetailPage() {
   const { trackId, planId } = useParams<{ trackId?: string; planId?: string }>()
   const navigate = useNavigate()
   const { user } = useAuth()
+  const userId = user?.id
   const { showToast } = useToast()
 
   const [track, setTrack] = useState<Track | null>(null)
@@ -82,15 +69,17 @@ export function PlanDetailPage() {
   const [items, setItems] = useState<ExecutionItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [notFound, setNotFound] = useState(false)
+  const requestRef = useRef(0)
 
   // Tabs
   const [activeTab, setActiveTab] = useState('overview')
 
-  // Item creation modal
+  // Item creation / editing / deletion
   const [modalOpen, setModalOpen] = useState(false)
   const [modalDefaultType, setModalDefaultType] = useState<ItemType>('task')
   const [editingItem, setEditingItem] = useState<ExecutionItem | null>(null)
-  const [busyItemId, setBusyItemId] = useState<string | null>(null)
+  const [pendingDeleteItem, setPendingDeleteItem] = useState<ExecutionItem | null>(null)
 
   // Plan editing modal
   const [editPlanOpen, setEditPlanOpen] = useState(false)
@@ -101,71 +90,112 @@ export function PlanDetailPage() {
   const [editPlanBusy, setEditPlanBusy] = useState(false)
   const [editPlanError, setEditPlanError] = useState<string | null>(null)
 
-  // Plan deletion
+  // Plan deletion / archive
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [deleteBusy, setDeleteBusy] = useState(false)
-  const [todayCompletedIds, setTodayCompletedIds] = useState<string[]>([])
-  const [streakSummaries, setStreakSummaries] = useState<Record<string, HabitStreakSummary>>({})
-  const [habitDailyCounts, setHabitDailyCounts] = useState<Record<string, number>>({})
+  const [archiveBusy, setArchiveBusy] = useState(false)
 
-  const loadData = async () => {
-    if (!planId) return
-    try {
-      setLoading(true)
-      setError(null)
-      const p = await getPlan(planId)
-      const targetTrackId = trackId || p.track_id
-      const [t, itemList, completions] = await Promise.all([
-        getTrack(targetTrackId),
-        listExecutionItems(planId),
-        user ? listCompletionsForDate(user.id, getTodayDateString()).catch(() => []) : Promise.resolve([]),
-      ])
-      setTrack(t)
-      setPlan(p)
-      setItems(itemList)
-      setTodayCompletedIds(completions)
+  const actionsRef = useRef<ReturnType<typeof useExecutionItemActions> | null>(null)
 
-      // Calculate streaks and heatmap for habit items in this plan
-      const planHabits = itemList.filter((i) => i.type === 'habit')
-      if (planHabits.length > 0) {
-        const completionsMap: Record<string, string[]> = await listCompletionsForItems(planHabits.map((h) => h.id)).catch((): Record<string, string[]> => ({}))
-        const streaks: Record<string, HabitStreakSummary> = {}
-        const dailyCounts: Record<string, number> = {}
-        planHabits.forEach((h) => {
-          const dates = completionsMap[h.id] || []
-          streaks[h.id] = calcHabitStreak(h.id, h.schedule, dates)
-          dates.forEach((d: string) => {
-            dailyCounts[d] = (dailyCounts[d] || 0) + 1
-          })
-        })
-        setStreakSummaries(streaks)
-        setHabitDailyCounts(dailyCounts)
-      } else {
-        setStreakSummaries({})
-        setHabitDailyCounts({})
+  const loadData = useCallback(
+    async (opts: { silent?: boolean } = {}) => {
+      if (!planId) return
+      const requestId = ++requestRef.current
+      try {
+        if (!opts.silent) setLoading(true)
+        setError(null)
+        setNotFound(false)
+        const p = await getPlan(planId)
+        if (!p) {
+          if (requestId !== requestRef.current) return
+          setPlan(null)
+          setNotFound(true)
+          return
+        }
+        // The plan's own track is authoritative. A URL naming a different track would show
+        // the wrong header and file new items under the wrong track: fix the URL instead.
+        if (trackId && trackId !== p.track_id) {
+          navigate(`/tracks/${p.track_id}/plans/${p.id}`, { replace: true })
+        }
+        const today = getTodayDateString()
+        const [t, itemList, todayIds] = await Promise.all([
+          getTrack(p.track_id),
+          listExecutionItems(planId),
+          userId ? listCompletionsForDate(userId, today) : Promise.resolve([] as string[]),
+        ])
+        const habitIds = itemList.filter((i) => i.type === 'habit').map((h) => h.id)
+        const history = habitIds.length ? await listCompletionsForItems(habitIds, addDays(today, -400)) : {}
+        if (requestId !== requestRef.current) return
+        if (!t) {
+          setPlan(null)
+          setNotFound(true)
+          return
+        }
+        setTrack(t)
+        setPlan(p)
+        setItems(itemList)
+        actionsRef.current?.setCompletionState(todayIds, history)
+      } catch (err) {
+        if (requestId !== requestRef.current) return
+        setError(err instanceof Error ? err.message : 'Failed to load plan')
+      } finally {
+        if (requestId === requestRef.current) setLoading(false)
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load plan')
-    } finally {
-      setLoading(false)
-    }
-  }
+    },
+    [planId, trackId, userId, navigate],
+  )
+
+  const actions = useExecutionItemActions({
+    userId,
+    items,
+    setItems,
+    reload: () => loadData({ silent: true }),
+  })
+  actionsRef.current = actions
 
   useEffect(() => {
-    loadData()
-  }, [trackId, planId, user?.id])
+    void loadData()
+  }, [loadData])
+
+  const habitDailyCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    items
+      .filter((i) => i.type === 'habit')
+      .forEach((h) => {
+        ;(actions.completionDates[h.id] || []).forEach((d) => {
+          counts[d] = (counts[d] || 0) + 1
+        })
+      })
+    return counts
+  }, [items, actions.completionDates])
+
+  const showError = (title: string, err: unknown) =>
+    showToast({
+      title,
+      message: err instanceof Error ? err.message : 'Please try again.',
+      type: 'warning',
+      duration: 8000,
+    })
 
   const handleTogglePlanArchive = async () => {
-    if (!plan) return
+    if (!plan || archiveBusy) return
+    const willArchive = plan.status !== 'archived'
     try {
-      const willArchive = plan.status !== 'archived'
+      setArchiveBusy(true)
       await setPlanArchived(plan.id, willArchive)
-      if (willArchive && user) {
-        cancelRemindersForPlan(user.id, plan.id)
-      }
-      await loadData()
+      if (willArchive && userId) cancelRemindersForPlan(userId, plan.id)
+      showToast({
+        title: willArchive ? 'Plan archived' : 'Plan restored',
+        message: willArchive
+          ? 'Its items are hidden from Today and its reminders were cancelled.'
+          : 'Its items are back in Today. Set reminders again if you need them.',
+        type: 'info',
+      })
+      await loadData({ silent: true })
     } catch (err) {
-      console.error('Failed to toggle plan archive:', err)
+      showError(willArchive ? 'Could not archive plan' : 'Could not restore plan', err)
+    } finally {
+      setArchiveBusy(false)
     }
   }
 
@@ -179,11 +209,16 @@ export function PlanDetailPage() {
     setEditPlanOpen(true)
   }
 
-  const handleSaveEditPlan = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!plan) return
-    if (!editPlanName.trim()) {
-      setEditPlanError('Plan name is required')
+  const handleSaveEditPlan = async (e?: React.FormEvent) => {
+    e?.preventDefault()
+    if (!plan || editPlanBusy) return
+    const trimmed = editPlanName.trim()
+    if (!trimmed) {
+      setEditPlanError('Plan name is required.')
+      return
+    }
+    if (editPlanStart && editPlanEnd && editPlanEnd < editPlanStart) {
+      setEditPlanError('The end date cannot be before the start date.')
       return
     }
 
@@ -191,7 +226,7 @@ export function PlanDetailPage() {
       setEditPlanBusy(true)
       setEditPlanError(null)
       const updated = await updatePlan(plan.id, {
-        name: editPlanName.trim(),
+        name: trimmed,
         description: editPlanDesc.trim() || null,
         start_date: editPlanStart || null,
         end_date: editPlanEnd || null,
@@ -210,201 +245,57 @@ export function PlanDetailPage() {
     try {
       setDeleteBusy(true)
       await deletePlan(plan.id)
+      if (userId) cancelRemindersForPlan(userId, plan.id)
+      showToast({ title: 'Plan deleted', message: `“${plan.name}” and its items were removed.`, type: 'info' })
       navigate(`/tracks/${plan.track_id}`)
     } catch (err) {
-      console.error('Failed to delete plan:', err)
       setDeleteBusy(false)
+      setDeleteConfirmOpen(false)
+      showError('Could not delete plan', err)
     }
   }
 
-  const isItemCompleted = (i: ExecutionItem, completedIds = todayCompletedIds) => {
-    if (i.type === 'habit') {
-      return completedIds.includes(i.id)
-    }
-    return i.status === 'done'
+  const findItem = (id: string) => items.find((i) => i.id === id)
+  const handleToggleItemStatus = (itemId: string) => {
+    const it = findItem(itemId)
+    if (it) void actions.toggle(it)
   }
-
-  const triggerCompletionFeedback = (completedItem: ExecutionItem, currentItems: ExecutionItem[], completedIds: string[]) => {
-    if (!user) return
-    cancelReminderForItem(user.id, completedItem.id)
-
-    const prefs = loadNotificationPreferences(user.id)
-    if (prefs.masterEnabled && prefs.completionAcknowledgement) {
-      const nextItem = currentItems.find(
-        (it) => it.id !== completedItem.id && !isItemCompleted(it, completedIds) && it.status !== 'archived',
-      )
-      showToast({
-        id: `completion-${completedItem.id}`,
-        title: `Completed: ${completedItem.name}`,
-        message: 'Consistency protected.',
-        nextUp: nextItem?.name,
-        type: 'success',
-      })
-    }
-
-    buildWidgetDataPayload(user.id, currentItems, streakSummaries).then(saveWidgetData).catch(() => undefined)
+  const handleUpdateItemCount = (itemId: string, newCount: number) => {
+    const it = findItem(itemId)
+    if (it) void actions.setCount(it, newCount)
   }
-
-  const handleToggleItemStatus = async (itemId: string, currentStatus: ExecutionItem['status']) => {
-    const item = items.find((i) => i.id === itemId)
-    if (!item) return
-    try {
-      setBusyItemId(itemId)
-      if (item.type === 'habit') {
-        const isDoneToday = todayCompletedIds.includes(itemId)
-        if (user) {
-          const nextDone = await toggleHabitTodayCompletion(user.id, itemId, isDoneToday)
-          const nextCompletedIds = nextDone ? [...todayCompletedIds, itemId] : todayCompletedIds.filter((id) => id !== itemId)
-          setTodayCompletedIds(nextCompletedIds)
-          const target = Math.max(1, item.target_count ?? 1)
-          const newCount = nextDone ? target : 0
-          if ((item.current_count ?? 0) !== newCount) {
-            const updated = await updateItemProgress(itemId, newCount, user.id)
-            setItems((prev) => prev.map((it) => (it.id === itemId ? updated : it)))
-          }
-          if (nextDone) {
-            triggerCompletionFeedback(item, items, nextCompletedIds)
-          }
-        } else {
-          setTodayCompletedIds((prev) =>
-            isDoneToday ? prev.filter((id) => id !== itemId) : [...prev, itemId],
-          )
-        }
-      } else {
-        const updated = await toggleItemStatus(itemId, currentStatus, user?.id)
-        const updatedItems = items.map((it) => (it.id === itemId ? updated : it))
-        setItems(updatedItems)
-        if (updated.status === 'done') {
-          triggerCompletionFeedback(item, updatedItems, todayCompletedIds)
-        }
-      }
-    } catch (err) {
-      console.error('Failed to update item status:', err)
-    } finally {
-      setBusyItemId(null)
-    }
+  const handleStepItemCount = (itemId: string, delta: number) => {
+    const it = findItem(itemId)
+    if (it) void actions.step(it, delta)
   }
-
-  const handleUpdateItemCount = async (itemId: string, newCount: number) => {
-    try {
-      setBusyItemId(itemId)
-      const updated = await updateItemProgress(itemId, newCount, user?.id)
-      const updatedItems = items.map((item) => (item.id === itemId ? updated : item))
-      setItems(updatedItems)
-      const item = items.find((i) => i.id === itemId)
-      if (item && item.type === 'habit') {
-        const target = Math.max(1, updated.target_count ?? 1)
-        if (newCount >= target) {
-          setTodayCompletedIds((prev) => (prev.includes(itemId) ? prev : [...prev, itemId]))
-          triggerCompletionFeedback(item, updatedItems, [...todayCompletedIds, itemId])
-        } else {
-          setTodayCompletedIds((prev) => prev.filter((id) => id !== itemId))
-        }
-      }
-    } catch (err) {
-      console.error('Failed to update item count:', err)
-    } finally {
-      setBusyItemId(null)
-    }
+  // Deleting cascades completion history, so it always asks first.
+  const handleDeleteItem = (itemId: string) => {
+    const it = findItem(itemId)
+    if (it) setPendingDeleteItem(it)
   }
-
-  const handleStepItemCount = async (itemId: string, delta: number) => {
-    try {
-      setBusyItemId(itemId)
-      const updated = await stepItemCount(itemId, delta, user?.id)
-      const updatedItems = items.map((item) => (item.id === itemId ? updated : item))
-      setItems(updatedItems)
-      const item = items.find((i) => i.id === itemId)
-      if (item && item.type === 'habit') {
-        const target = Math.max(1, updated.target_count ?? 1)
-        if ((updated.current_count ?? 0) >= target) {
-          setTodayCompletedIds((prev) => (prev.includes(itemId) ? prev : [...prev, itemId]))
-          triggerCompletionFeedback(item, updatedItems, [...todayCompletedIds, itemId])
-        } else {
-          setTodayCompletedIds((prev) => prev.filter((id) => id !== itemId))
-        }
-      } else if (item && updated.status === 'done') {
-        triggerCompletionFeedback(item, updatedItems, todayCompletedIds)
-      }
-    } catch (err) {
-      console.error('Failed to step item count:', err)
-    } finally {
-      setBusyItemId(null)
-    }
+  const confirmDeleteItem = async () => {
+    if (!pendingDeleteItem) return
+    const ok = await actions.remove(pendingDeleteItem)
+    if (ok) setPendingDeleteItem(null)
   }
-
-  const handleDeleteItem = async (itemId: string) => {
-    try {
-      setBusyItemId(itemId)
-      await deleteExecutionItem(itemId)
-      if (user) {
-        cancelReminderForItem(user.id, itemId)
-      }
-      const remaining = items.filter((item) => item.id !== itemId)
-      setItems(remaining)
-      if (user) {
-        buildWidgetDataPayload(user.id, remaining, streakSummaries).then(saveWidgetData).catch(() => undefined)
-      }
-    } catch (err) {
-      console.error('Failed to delete item:', err)
-    } finally {
-      setBusyItemId(null)
-    }
-  }
-
-  const handleSaveEditItem = async (itemId: string, input: UpdateExecutionItemInput) => {
-    if (!user) return
-    try {
-      setBusyItemId(itemId)
-      const updated = await editExecutionItem(itemId, input, user.id)
-      const updatedList = items.map((item) => (item.id === itemId ? updated : item))
-      setItems(updatedList)
-      buildWidgetDataPayload(user.id, updatedList, streakSummaries).then(saveWidgetData).catch(() => undefined)
-      setEditingItem(null)
-    } catch (err) {
-      console.error('Failed to update execution item:', err)
-      throw err
-    } finally {
-      setBusyItemId(null)
-    }
-  }
-
-  const handleSnoozeReminder = (itemId: string, minutes = 10) => {
-    if (!user) return
-    const reminder = getReminderForItem(user.id, itemId)
-    if (!reminder) return
-    snoozeReminder(user.id, reminder.id, minutes)
-    showToast({
-      id: `snooze-${itemId}`,
-      title: 'Reminder Snoozed',
-      message: `Snoozed for ${minutes} minutes.`,
-      type: 'info',
-    })
-  }
-
-  const handleRemoveReminder = (itemId: string) => {
-    if (!user) return
-    cancelReminderForItem(user.id, itemId)
-    showToast({
-      id: `remove-rem-${itemId}`,
-      title: 'Reminder Removed',
-      message: 'Reminder cancelled for this task.',
-      type: 'info',
-    })
-  }
+  const handleSnoozeReminder = actions.snooze
+  const handleRemoveReminder = actions.removeReminder
+  const handleSaveEditItem = actions.saveEdit
 
   const handleCreateItem = async (
     input: NewExecutionItemInput,
     reminderOptions?: { preset: ReminderPreset; exactTime?: string },
   ) => {
-    if (!user) return
-    const created = await createExecutionItem(user.id, input)
+    if (!userId) throw new Error('You are signed out.')
+    const created = await createExecutionItem(userId, input)
+    setItems((prev) => [...prev, created])
     if (reminderOptions && reminderOptions.preset !== 'none') {
-      setReminderForItem(user.id, created, reminderOptions.preset, reminderOptions.exactTime)
+      try {
+        setReminderForItem(userId, created, reminderOptions.preset, reminderOptions.exactTime)
+      } catch (err) {
+        showError('Item added, reminder not set', err)
+      }
     }
-    const updated = [...items, created]
-    setItems(updated)
-    buildWidgetDataPayload(user.id, updated, streakSummaries).then(saveWidgetData).catch(() => undefined)
   }
 
   const openCreateModalForType = (type: ItemType) => {
@@ -412,7 +303,27 @@ export function PlanDetailPage() {
     setModalOpen(true)
   }
 
+  const todayCompletedIds = actions.completedTodayIds
+  const streakSummaries = actions.streakSummaries
+  const isBusy = (id: string) => actions.busyIds.has(id)
+
   if (loading) return <LoadingState label="Opening plan workspace…" />
+  if (notFound) {
+    return (
+      <div>
+        <PageHeader back={{ to: '/tracks', label: 'Back to Tracks' }} title="Plan not found" />
+        <EmptyState
+          title="This plan isn't available"
+          description="It may have been deleted, or the link belongs to a different account."
+          action={
+            <Button variant="primary" onClick={() => navigate('/tracks')}>
+              Go to Tracks
+            </Button>
+          }
+        />
+      </div>
+    )
+  }
   if (error || !plan || !track) {
     return (
       <div>
@@ -427,7 +338,8 @@ export function PlanDetailPage() {
 
   const isArchived = plan.status === 'archived'
   const dateRange = formatDateRange(plan.start_date, plan.end_date)
-  const planSummary = summarizePlan(plan, items)
+  // Habits count as done only when completed today (their status can be stale from earlier days).
+  const planSummary = summarizePlan(plan, items, { completedTodayIds: todayCompletedIds })
   const progress = planSummary.progress
 
   // Filter items by type
@@ -464,6 +376,7 @@ export function PlanDetailPage() {
             <Button
               variant="ghost"
               onClick={handleTogglePlanArchive}
+              disabled={archiveBusy}
               title={isArchived ? 'Restore Plan' : 'Archive Plan'}
             >
               {isArchived ? <><RotateCcw size={16} /> Restore</> : <><Archive size={16} /> Archive</>}
@@ -566,7 +479,7 @@ export function PlanDetailPage() {
                   <ExecutionItemCard
                     key={item.id}
                     item={item}
-                    isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
+                    isCompletedOverride={item.type === 'habit' ? todayCompletedIds.has(item.id) : undefined}
                     streakSummary={item.type === 'habit' ? streakSummaries[item.id] : undefined}
                     onToggleStatus={handleToggleItemStatus}
                     onUpdateCount={handleUpdateItemCount}
@@ -575,7 +488,7 @@ export function PlanDetailPage() {
                     onDelete={handleDeleteItem}
                     onSnoozeReminder={handleSnoozeReminder}
                     onRemoveReminder={handleRemoveReminder}
-                    busy={busyItemId === item.id}
+                    busy={isBusy(item.id)}
                   />
                 ))}
               </div>
@@ -609,7 +522,7 @@ export function PlanDetailPage() {
                 <ExecutionItemCard
                   key={item.id}
                   item={item}
-                  isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
+                  isCompletedOverride={item.type === 'habit' ? todayCompletedIds.has(item.id) : undefined}
                   onToggleStatus={handleToggleItemStatus}
                   onUpdateCount={handleUpdateItemCount}
                   onStepCount={handleStepItemCount}
@@ -617,7 +530,7 @@ export function PlanDetailPage() {
                   onDelete={handleDeleteItem}
                   onSnoozeReminder={handleSnoozeReminder}
                   onRemoveReminder={handleRemoveReminder}
-                  busy={busyItemId === item.id}
+                  busy={isBusy(item.id)}
                 />
               ))}
             </div>
@@ -661,7 +574,7 @@ export function PlanDetailPage() {
                 <ExecutionItemCard
                   key={item.id}
                   item={item}
-                  isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
+                  isCompletedOverride={item.type === 'habit' ? todayCompletedIds.has(item.id) : undefined}
                   streakSummary={streakSummaries[item.id]}
                   onToggleStatus={handleToggleItemStatus}
                   onUpdateCount={handleUpdateItemCount}
@@ -670,7 +583,7 @@ export function PlanDetailPage() {
                   onDelete={handleDeleteItem}
                   onSnoozeReminder={handleSnoozeReminder}
                   onRemoveReminder={handleRemoveReminder}
-                  busy={busyItemId === item.id}
+                  busy={isBusy(item.id)}
                 />
               ))}
             </div>
@@ -704,7 +617,7 @@ export function PlanDetailPage() {
                 <ExecutionItemCard
                   key={item.id}
                   item={item}
-                  isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
+                  isCompletedOverride={item.type === 'habit' ? todayCompletedIds.has(item.id) : undefined}
                   onToggleStatus={handleToggleItemStatus}
                   onUpdateCount={handleUpdateItemCount}
                   onStepCount={handleStepItemCount}
@@ -712,7 +625,7 @@ export function PlanDetailPage() {
                   onDelete={handleDeleteItem}
                   onSnoozeReminder={handleSnoozeReminder}
                   onRemoveReminder={handleRemoveReminder}
-                  busy={busyItemId === item.id}
+                  busy={isBusy(item.id)}
                 />
               ))}
             </div>
@@ -746,7 +659,7 @@ export function PlanDetailPage() {
                 <ExecutionItemCard
                   key={item.id}
                   item={item}
-                  isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
+                  isCompletedOverride={item.type === 'habit' ? todayCompletedIds.has(item.id) : undefined}
                   onToggleStatus={handleToggleItemStatus}
                   onUpdateCount={handleUpdateItemCount}
                   onStepCount={handleStepItemCount}
@@ -754,7 +667,7 @@ export function PlanDetailPage() {
                   onDelete={handleDeleteItem}
                   onSnoozeReminder={handleSnoozeReminder}
                   onRemoveReminder={handleRemoveReminder}
-                  busy={busyItemId === item.id}
+                  busy={isBusy(item.id)}
                 />
               ))}
             </div>
@@ -788,7 +701,7 @@ export function PlanDetailPage() {
                 <ExecutionItemCard
                   key={item.id}
                   item={item}
-                  isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
+                  isCompletedOverride={item.type === 'habit' ? todayCompletedIds.has(item.id) : undefined}
                   onToggleStatus={handleToggleItemStatus}
                   onUpdateCount={handleUpdateItemCount}
                   onStepCount={handleStepItemCount}
@@ -796,7 +709,7 @@ export function PlanDetailPage() {
                   onDelete={handleDeleteItem}
                   onSnoozeReminder={handleSnoozeReminder}
                   onRemoveReminder={handleRemoveReminder}
-                  busy={busyItemId === item.id}
+                  busy={isBusy(item.id)}
                 />
               ))}
             </div>
@@ -847,6 +760,7 @@ export function PlanDetailPage() {
         onClose={() => setEditingItem(null)}
         item={editingItem}
         onSubmit={handleSaveEditItem}
+        completedToday={editingItem ? actions.completedTodayIds.has(editingItem.id) : false}
       />
 
       {/* Edit Plan Modal */}
@@ -866,7 +780,11 @@ export function PlanDetailPage() {
         }
       >
         <form onSubmit={handleSaveEditPlan} className="form" style={{ gap: 'var(--space-3)' }}>
-          {editPlanError && <div className="alert alert--error">{editPlanError}</div>}
+          {editPlanError && (
+            <div className="alert alert--error" role="alert">
+              {editPlanError}
+            </div>
+          )}
           <Input
             label="Plan Name"
             value={editPlanName}
@@ -894,6 +812,18 @@ export function PlanDetailPage() {
           </div>
         </form>
       </Modal>
+
+      {/* Delete Item Confirm Dialog */}
+      <ConfirmDialog
+        open={Boolean(pendingDeleteItem)}
+        title={pendingDeleteItem ? `Delete “${pendingDeleteItem.name}”?` : 'Delete item?'}
+        message="This permanently deletes the item, its schedule, and its completion history (streaks and analytics will no longer include it). This cannot be undone."
+        confirmLabel={pendingDeleteItem && isBusy(pendingDeleteItem.id) ? 'Deleting…' : 'Delete Item'}
+        destructive
+        busy={pendingDeleteItem ? isBusy(pendingDeleteItem.id) : false}
+        onConfirm={() => void confirmDeleteItem()}
+        onCancel={() => setPendingDeleteItem(null)}
+      />
 
       {/* Delete Plan Confirm Dialog */}
       <ConfirmDialog

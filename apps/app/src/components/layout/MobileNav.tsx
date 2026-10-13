@@ -39,7 +39,9 @@ export function MobileNav({ drawerOpen, onToggleDrawer, onCloseDrawer }: MobileN
           size="sm"
           icon
           onClick={onToggleDrawer}
-          aria-label="Open menu drawer"
+          aria-label={drawerOpen ? 'Close menu drawer' : 'Open menu drawer'}
+          aria-expanded={drawerOpen}
+          aria-haspopup="dialog"
         >
           <Menu size={20} />
         </Button>

@@ -26,7 +26,10 @@ import {
 import { useTheme } from '../hooks/useTheme'
 import { ProgressCircle } from '../components/ProgressCircle'
 
-const APP_URL = (import.meta.env.VITE_APP_URL as string) || 'https://trackapp.atreyakamat.dev'
+// Trailing slashes are stripped so CTAs never become //signup.
+const APP_URL = (
+  (import.meta.env.VITE_APP_URL as string | undefined) || 'https://trackapp.atreyakamat.dev'
+).replace(/\/+$/, '')
 const SIGNUP_URL = `${APP_URL}/signup`
 const LOGIN_URL = `${APP_URL}/login`
 

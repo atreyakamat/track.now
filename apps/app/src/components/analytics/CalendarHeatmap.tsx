@@ -1,5 +1,39 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { generateHeatmapMatrix, type HeatmapCell, type HeatmapMatrix } from '@/domain/streaks'
+
+const parseCellDate = (date: string): Date => {
+  const [y, m, d] = date.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
+
+const pluralCompletions = (count: number) => `${count} completion${count === 1 ? '' : 's'}`
+
+/** Long date for assistive text, including the year, e.g. "Mon, 12 Oct 2026". */
+export function formatHeatmapDate(date: string, locale?: string): string {
+  return parseCellDate(date).toLocaleDateString(locale, {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
+/** Count text for one past/present day, e.g. "3 completions" or "No completions (not scheduled)". */
+export function formatHeatmapCount(cell: HeatmapCell): string {
+  const unscheduled = cell.isScheduled === false ? ' (not scheduled)' : ''
+  return `${cell.count === 0 ? 'No completions' : pluralCompletions(cell.count)}${unscheduled}`
+}
+
+/** Past and present days in chronological order — the rows of the accessible table. */
+export function heatmapAccessibleDays(matrix: HeatmapMatrix): HeatmapCell[] {
+  const days: HeatmapCell[] = []
+  for (const week of matrix.weeks) {
+    for (const cell of week.days) {
+      if (cell && !cell.isFuture) days.push(cell)
+    }
+  }
+  return days.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
+}
 
 interface CalendarHeatmapProps {
   dailyCounts: Record<string, number>
@@ -19,6 +53,13 @@ export function CalendarHeatmap({
   subtitle,
 }: CalendarHeatmapProps) {
   const [hoveredCell, setHoveredCell] = useState<HeatmapCell | null>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  // On narrow screens the grid scrolls horizontally; start at the most recent weeks.
+  useEffect(() => {
+    const el = scrollRef.current
+    if (el && el.scrollWidth > el.clientWidth) el.scrollLeft = el.scrollWidth
+  }, [weeksCount])
 
   const matrix: HeatmapMatrix = generateHeatmapMatrix(dailyCounts, now, weeksCount, schedule)
 
@@ -42,9 +83,7 @@ export function CalendarHeatmap({
   }
 
   const formatTooltip = (cell: HeatmapCell): string => {
-    const [y, m, d] = cell.date.split('-').map(Number)
-    const dateObj = new Date(y, m - 1, d)
-    const dateStr = dateObj.toLocaleDateString(undefined, {
+    const dateStr = parseCellDate(cell.date).toLocaleDateString(undefined, {
       weekday: 'short',
       month: 'short',
       day: 'numeric',
@@ -94,8 +133,36 @@ export function CalendarHeatmap({
         </div>
       </div>
 
-      {/* Heatmap Grid Wrapper (responsive horizontal scroll for narrow screens) */}
+      {/* Text alternative for assistive technology; the visual grid itself is decorative. */}
+      <p className="sr-only">
+        {`Last ${weeksCount} weeks: ${matrix.totalCompletions} completion${matrix.totalCompletions === 1 ? '' : 's'} on ${matrix.activeDays} active day${matrix.activeDays === 1 ? '' : 's'}${matrix.maxDailyCount > 0 ? `, busiest day had ${matrix.maxDailyCount}` : ''}.`}
+      </p>
+      {/* Per-day details (hover-only in the visual grid) exposed as a table for screen readers. */}
+      <div className="sr-only">
+        <table>
+          <caption>{`${title ? `${title}: ` : ''}completions per day, last ${weeksCount} weeks`}</caption>
+          <thead>
+            <tr>
+              <th scope="col">Date</th>
+              <th scope="col">Completions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {heatmapAccessibleDays(matrix).map((cell) => {
+              const dateLabel = formatHeatmapDate(cell.date)
+              return (
+                <tr key={cell.date}>
+                  <th scope="row">{cell.isToday ? `${dateLabel} (today)` : dateLabel}</th>
+                  <td>{formatHeatmapCount(cell)}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
       <div
+        ref={scrollRef}
+        aria-hidden="true"
         style={{
           width: '100%',
           overflowX: 'auto',
@@ -166,9 +233,6 @@ export function CalendarHeatmap({
                 return (
                   <div
                     key={cell.date}
-                    tabIndex={cell.isFuture ? -1 : 0}
-                    role="gridcell"
-                    aria-label={formatTooltip(cell)}
                     title={formatTooltip(cell)}
                     onMouseEnter={() => setHoveredCell(cell)}
                     onMouseLeave={() => setHoveredCell(null)}
@@ -178,11 +242,12 @@ export function CalendarHeatmap({
                       borderRadius: '2px',
                       background: getCellBg(cell.level, cell.isFuture),
                       border: cell.isToday
-                        ? '1px solid var(--accent-primary, #c8f169)'
+                        ? '1px solid var(--text-primary)'
                         : isHovered
                         ? '1px solid var(--text-primary)'
                         : '1px solid transparent',
-                      cursor: cell.isFuture ? 'default' : 'pointer',
+                      // Cells are not interactive; details are in the hover readout and the sr-only table.
+                      cursor: 'default',
                       transition: 'transform 0.1s ease, border-color 0.1s ease',
                       transform: isHovered ? 'scale(1.2)' : 'none',
                       zIndex: isHovered ? 2 : 1,
@@ -218,7 +283,7 @@ export function CalendarHeatmap({
           )}
         </div>
 
-        <div className="row" style={{ gap: '4px', alignItems: 'center' }}>
+        <div className="row" style={{ gap: '4px', alignItems: 'center' }} aria-hidden="true">
           <span>Less</span>
           <div
             style={{

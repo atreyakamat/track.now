@@ -12,6 +12,38 @@ export interface AuthErrorLike {
   code?: string
 }
 
+/** True for failures where the server was not reached (offline, DNS, CORS, 5xx). */
+export function isRetryableAuthError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false
+  const e = err as { name?: unknown; status?: unknown; message?: unknown }
+  if (e.name === 'AuthRetryableFetchError') return true
+  if (typeof e.status === 'number' && (e.status === 0 || e.status >= 500)) return true
+  const m = typeof e.message === 'string' ? e.message.toLowerCase() : ''
+  return m.includes('failed to fetch') || m.includes('networkerror') || m.includes('network request failed') || m.includes('load failed')
+}
+
+/** Thrown when the session could not be checked because the server was unreachable. */
+export class AuthNetworkError extends Error {
+  readonly retryable = true
+}
+
+/**
+ * Public origin used in emailed links. VITE_APP_URL wins (required for native shells,
+ * whose origin is https://localhost or tracknow://localhost); otherwise the web origin.
+ */
+export function appOrigin(): string {
+  const configured = (import.meta.env.VITE_APP_URL as string | undefined)?.trim()
+  if (configured) {
+    try {
+      const url = new URL(configured)
+      if (url.protocol === 'https:' || url.hostname === 'localhost' || url.hostname === '127.0.0.1') return url.origin
+    } catch {
+      /* fall through to the current origin */
+    }
+  }
+  return window.location.origin
+}
+
 export function friendlyAuthError(err: string | AuthErrorLike | unknown): string {
   const message = typeof err === 'string'
     ? err
@@ -42,7 +74,10 @@ export function friendlyAuthError(err: string | AuthErrorLike | unknown): string
 
   if (isRateLimit) {
     // Check if the server explicitly provided a cooldown duration
-    const secondsMatch = m.match(/once every (\d+)\s*(?:seconds|secs|s)/i) || m.match(/wait (\d+)\s*(?:seconds|secs|s)/i)
+    const secondsMatch =
+      m.match(/once every (\d+)\s*(?:seconds|secs|s)/i) ||
+      m.match(/wait (\d+)\s*(?:seconds|secs|s)/i) ||
+      m.match(/after (\d+)\s*(?:seconds|secs|s)/i)
     if (secondsMatch && secondsMatch[1]) {
       return `Too many attempts. For security, please wait ${secondsMatch[1]} seconds before trying again.`
     }
@@ -58,8 +93,27 @@ export function friendlyAuthError(err: string | AuthErrorLike | unknown): string
   if (m.includes('password should be at least')) return message
   if (m.includes('invalid email') || code === 'email_address_invalid') return 'Please enter a valid email address.'
   if (m.includes('signup disabled') || code === 'signup_disabled') return 'Signups are currently disabled.'
+  if (code === 'same_password' || m.includes('should be different from the old password'))
+    return 'Choose a new password that is different from your current one.'
+  if (code === 'weak_password') return message
+  if (
+    m.includes('failed to fetch') ||
+    m.includes('networkerror') ||
+    m.includes('network request failed') ||
+    m.includes('load failed') ||
+    status === 0 ||
+    (err && typeof err === 'object' && (err as { name?: unknown }).name === 'AuthRetryableFetchError')
+  )
+    return 'Could not reach the server. Check your connection and try again.'
+  if (status !== undefined && status >= 500)
+    return 'The sign-in service is temporarily unavailable. Please try again in a moment.'
 
   return message
+}
+
+export interface SignOutResult {
+  /** False when the server could not be reached; the session was still cleared on this device. */
+  remoteRevoked: boolean
 }
 
 let activeSignUpPromise: Promise<SignUpResult> | null = null
@@ -67,7 +121,10 @@ let activeSignUpPromise: Promise<SignUpResult> | null = null
 export const authService = {
   async getSession(): Promise<Session | null> {
     const { data, error } = await supabase.auth.getSession()
-    if (error) throw new Error(friendlyAuthError(error))
+    if (error) {
+      if (isRetryableAuthError(error)) throw new AuthNetworkError(friendlyAuthError(error))
+      throw new Error(friendlyAuthError(error))
+    }
     return data.session
   },
 
@@ -103,15 +160,38 @@ export const authService = {
     if (error) throw new Error(friendlyAuthError(error))
   },
 
-  async signOut(): Promise<void> {
-    const { error } = await supabase.auth.signOut()
-    if (error) throw new Error(friendlyAuthError(error))
+  /**
+   * Signs out of this device and attempts to revoke the refresh token server-side.
+   * If the server cannot be reached, the local session is still cleared (scope 'local')
+   * so the user is never left signed in after pressing "Sign out".
+   */
+  async signOut(): Promise<SignOutResult> {
+    let remoteError: unknown = null
+    try {
+      const { error } = await supabase.auth.signOut()
+      if (!error) return { remoteRevoked: true }
+      remoteError = error
+    } catch (err) {
+      remoteError = err
+    }
+    const { error: localError } = await supabase.auth.signOut({ scope: 'local' })
+    if (localError) throw new Error(friendlyAuthError(localError ?? remoteError))
+    return { remoteRevoked: false }
   },
 
   async resetPasswordForEmail(email: string): Promise<void> {
+    // The recovery link lands on /reset-password where the user sets a new password.
+    // NOTE (owner action): this URL must be in Supabase Auth > URL Configuration > Redirect URLs.
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/login`,
+      redirectTo: `${appOrigin()}/reset-password`,
     })
+    if (error) throw new Error(friendlyAuthError(error))
+  },
+
+  /** Sets a new password for the currently authenticated (or recovery) session. */
+  async updatePassword(newPassword: string): Promise<void> {
+    if (newPassword.length < 6) throw new Error('Password should be at least 6 characters.')
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
     if (error) throw new Error(friendlyAuthError(error))
   },
 

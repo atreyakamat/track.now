@@ -1,6 +1,7 @@
 /**
  * Notification and Smart Reminder domain types.
  */
+import type { ItemSchedule, ItemType } from './domain'
 
 export type ReminderPreset =
   | 'none'
@@ -26,10 +27,19 @@ export interface ItemReminder {
   itemId: string
   userId: string
   itemName: string
+  /** Item type at the time the reminder was set (used for recurring habit reminders). */
+  itemType?: ItemType
+  /** Habit schedule snapshot so a recurring reminder can be moved to its next occurrence. */
+  scheduleSnapshot?: Pick<ItemSchedule, 'frequency' | 'days_of_week' | 'time_of_day' | 'reminder_time'> | null
   planId: string
   trackId?: string
   preset: ReminderPreset
   remindAt: string // ISO 8601 timestamp
+  /**
+   * The due/scheduled occurrence this reminder belongs to (ISO). Set for due/schedule-relative
+   * presets; kept across snoozes so a recurring reminder re-arms for the occurrence after it.
+   */
+  occursAt?: string | null
   status: ReminderStatus
   snoozedUntil?: string | null
   deliveredAt?: string | null

@@ -13,7 +13,6 @@ export interface Profile {
   full_name?: string | null
   display_name: string | null
   avatar_url: string | null
-  timezone?: string
   theme_preference?: 'system' | 'light' | 'dark'
   created_at: string
   updated_at: string
@@ -43,7 +42,6 @@ export interface Track {
   status: TrackStatus
   is_template?: boolean
   position?: number
-  archived_at: string | null
   created_at: string
   updated_at: string
 }
@@ -59,7 +57,6 @@ export interface Plan {
   end_date: string | null
   status: PlanStatus
   position?: number
-  archived_at: string | null
   created_at: string
   updated_at: string
 }
@@ -75,10 +72,16 @@ export interface ExecutionItem {
   description: string | null
   status: ItemStatus
   priority: ItemPriority
-  start_date: string | null
+  /** Client-only; track_now_execution_items has no start_date column (never persisted). */
+  start_date?: string | null
   due_date: string | null
   target_count?: number
   current_count?: number
+  /**
+   * Local calendar day (YYYY-MM-DD) that `current_count` belongs to. Present only once
+   * migration 20261013000000 is applied; null for legacy rows. Habits restart daily.
+   */
+  count_date?: string | null
   unit?: string | null
   position?: number
   metadata?: Record<string, unknown>
@@ -97,6 +100,8 @@ export interface ExecutionItemSummary {
   name?: string
   status: ItemStatus
   updated_at: string
+  /** Recurrence for habits (used to decide whether a habit is due today). */
+  schedule?: Pick<ItemSchedule, 'frequency' | 'days_of_week'> | null
 }
 
 export interface ItemSchedule {

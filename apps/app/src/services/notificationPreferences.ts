@@ -44,61 +44,54 @@ export function saveNotificationPreferences(
   return prefs
 }
 
-export function getNotificationCapabilityStatus(): NotificationCapabilityStatus {
-  const isSupported = typeof window !== 'undefined' && 'Notification' in window
+/**
+ * Honest description of what this runtime can deliver.
+ *
+ * - Foreground / background tab: yes, while Track.now is open and permission is granted
+ *   (browsers may throttle timers in background tabs; the engine catches up on focus).
+ * - Browser or installed PWA fully closed: no. There is no Web Push subscription or sender.
+ * - Native shells: no native project/plugin is shipped in this repository, so OS-scheduled
+ *   notifications are never claimed.
+ */
+export function getNotificationCapabilityStatus(
+  env: {
+    notificationSupported?: boolean
+    permission?: NotificationPermission
+    /** The user's "System notifications" switch. Callers should always pass it. */
+    masterEnabled?: boolean
+  } = {},
+): NotificationCapabilityStatus {
+  const isSupported =
+    env.notificationSupported ?? (typeof window !== 'undefined' && 'Notification' in window)
   const permission: NotificationPermission | 'unsupported' = isSupported
-    ? Notification.permission
+    ? env.permission ?? Notification.permission
     : 'unsupported'
 
-  const isStandalonePwa =
-    typeof window !== 'undefined' &&
-    (window.matchMedia('(display-mode: standalone)').matches ||
-      (window.navigator as any).standalone === true)
-
-  const isNative =
-    typeof window !== 'undefined' &&
-    Boolean((window as any).Capacitor?.isNativePlatform?.())
-
-  let canDeliverForeground = false
-  let canDeliverBackground = false
-  let canDeliverAppClosed = false
-  let explanation = ''
-
-  if (!isSupported && !isNative) {
+  let explanation: string
+  if (!isSupported) {
     explanation =
-      'Web Notifications are not supported in this browser. In-app execution alerts and toasts will still work while the app is open.'
+      'This browser does not support system notifications. Reminders still appear inside Track.now while it is open.'
   } else if (permission === 'denied') {
     explanation =
-      'Notifications are blocked in your browser settings. You must manually allow notifications in site permissions to receive alerts.'
+      'Notifications are blocked for this site in your browser settings. Reminders still appear inside Track.now while it is open.'
   } else if (permission === 'default') {
     explanation =
-      'Notifications are ready to be enabled. Click "Enable Notifications" below to grant browser permission.'
+      'Browser notifications are not enabled yet. Reminders appear inside Track.now while it is open; enable notifications to also get system alerts while the tab is in the background.'
+  } else if (env.masterEnabled === false) {
+    explanation =
+      'Your browser allows notifications, but system notifications are switched off in Track.now, so none are sent. Reminders still appear inside Track.now while it is open. When the browser is closed nothing can fire.'
   } else {
-    // Permission granted
-    canDeliverForeground = true
-    canDeliverBackground = true // Via active tab / service worker
-
-    if (isNative) {
-      canDeliverAppClosed = true
-      explanation =
-        'Full native OS scheduled delivery active. Reminders trigger via Android/iOS system alarms even when Track.now is completely closed.'
-    } else if (isStandalonePwa) {
-      canDeliverAppClosed = false // Web Push sender needed for closed PWA
-      explanation =
-        'Active PWA mode. Notifications trigger while Track.now is open or running in the background. Fully-closed offline push requires a server-side push service.'
-    } else {
-      canDeliverAppClosed = false
-      explanation =
-        'Browser tab mode. Notifications trigger while Track.now is open or running in a background tab. When the browser is closed, reminders catch up upon reopen.'
-    }
+    explanation =
+      'System notifications are allowed while Track.now is open in a tab (foreground or background). When the browser is closed nothing can fire; reminders that came due are shown when you reopen the app.'
   }
 
+  const granted = isSupported && permission === 'granted' && env.masterEnabled !== false
   return {
     isSupported,
     permission,
-    canDeliverForeground,
-    canDeliverBackground,
-    canDeliverAppClosed,
+    canDeliverForeground: true, // in-app alerts work whenever the app is open
+    canDeliverBackground: granted,
+    canDeliverAppClosed: false,
     explanation,
   }
 }

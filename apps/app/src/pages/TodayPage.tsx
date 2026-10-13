@@ -1,438 +1,194 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { CheckCircle2, Clock } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthProvider'
 import {
-  editExecutionItem,
   listCompletionsForDate,
   listCompletionsForItems,
   listTodayExecutionItems,
-  stepItemCount,
-  toggleHabitTodayCompletion,
-  toggleItemStatus,
-  updateItemProgress,
 } from '@/services/executionService'
-import {
-  getTodayDateString,
-  isDueToday,
-  isHabitScheduledForToday,
-  isOverdue,
-  isUpcoming,
-} from '@/domain/dates'
-import { calcHabitStreak, type HabitStreakSummary } from '@/domain/streaks'
-import type { ExecutionItem, UpdateExecutionItemInput } from '@/types/domain'
+import { getTodayDateString } from '@/domain/dates'
+import { groupTodayItems } from '@/domain/today'
+import type { ExecutionItem } from '@/types/domain'
 import { EmptyState, ErrorState, LoadingState, PageHeader } from '@/components/ui'
 import { ExecutionItemCard } from '@/components/execution/ExecutionItemCard'
 import { EditItemModal } from '@/components/execution/EditItemModal'
-import { useToast } from '@/features/notifications/ToastContext'
-import { cancelReminderForItem, getReminderForItem, snoozeReminder } from '@/services/reminderService'
+import { reconcileRemindersWithActiveItems } from '@/services/reminderService'
 import { buildWidgetDataPayload, saveWidgetData } from '@/services/widgetDataService'
-import { loadNotificationPreferences } from '@/services/notificationPreferences'
+import { useExecutionItemActions } from '@/hooks/useExecutionItemActions'
+import { addDays } from '@/domain/streaks'
 
 export function TodayPage() {
   const { user } = useAuth()
-  const { showToast } = useToast()
+  const userId = user?.id
   const [items, setItems] = useState<ExecutionItem[]>([])
-  const [todayCompletedIds, setTodayCompletedIds] = useState<string[]>([])
-  const [streakSummaries, setStreakSummaries] = useState<Record<string, HabitStreakSummary>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [editingItem, setEditingItem] = useState<ExecutionItem | null>(null)
-  const [busyItemId, setBusyItemId] = useState<string | null>(null)
+  const [loadedDate, setLoadedDate] = useState(getTodayDateString())
+  const requestRef = useRef(0)
 
-  const isItemCompleted = (i: ExecutionItem, completedIds = todayCompletedIds) => {
-    if (i.type === 'habit') {
-      return completedIds.includes(i.id)
-    }
-    return i.status === 'done'
-  }
+  const persistWidget = useCallback(
+    (list: ExecutionItem[], completedTodayIds: string[]) => {
+      if (!userId) return
+      buildWidgetDataPayload(userId, list, { completedTodayIds })
+        .then(saveWidgetData)
+        .catch(() => undefined)
+    },
+    [userId],
+  )
 
-  const triggerCompletionFeedback = (completedItem: ExecutionItem, currentItems: ExecutionItem[], completedIds: string[]) => {
-    if (!user) return
-    cancelReminderForItem(user.id, completedItem.id)
+  const actionsRef = useRef<ReturnType<typeof useExecutionItemActions> | null>(null)
 
-    const prefs = loadNotificationPreferences(user.id)
-    if (prefs.masterEnabled && prefs.completionAcknowledgement) {
-      const nextItem = currentItems.find(
-        (it) => it.id !== completedItem.id && !isItemCompleted(it, completedIds) && it.status !== 'archived',
-      )
-      showToast({
-        id: `completion-${completedItem.id}`,
-        title: `Completed: ${completedItem.name}`,
-        message: 'Consistency protected.',
-        nextUp: nextItem?.name,
-        type: 'success',
-      })
-    }
+  const loadData = useCallback(
+    async (opts: { silent?: boolean } = {}) => {
+      if (!userId) return
+      const requestId = ++requestRef.current
+      try {
+        if (!opts.silent) setLoading(true)
+        setError(null)
+        const today = getTodayDateString()
+        const [allItems, todayIds] = await Promise.all([
+          listTodayExecutionItems(),
+          listCompletionsForDate(userId, today),
+        ])
+        const habitIds = allItems.filter((i) => i.type === 'habit').map((h) => h.id)
+        // Streaks only need roughly the last year of history.
+        const history = habitIds.length ? await listCompletionsForItems(habitIds, addDays(today, -400)) : {}
+        if (requestId !== requestRef.current) return
 
-    buildWidgetDataPayload(user.id, currentItems, streakSummaries).then(saveWidgetData).catch(() => undefined)
-  }
-
-  const loadData = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const allItems = await listTodayExecutionItems()
-      setItems(allItems)
-      if (user) {
-        const todayDate = getTodayDateString()
-        const completedIds = await listCompletionsForDate(user.id, todayDate)
-        setTodayCompletedIds(completedIds)
+        setItems(allItems)
+        actionsRef.current?.setCompletionState(todayIds, history)
+        setLoadedDate(today)
+        // Reminders for items that were deleted elsewhere or whose plan/track is archived.
+        reconcileRemindersWithActiveItems(userId, allItems.map((i) => i.id))
+        persistWidget(allItems, todayIds)
+      } catch (err) {
+        if (requestId !== requestRef.current) return
+        setError(err instanceof Error ? err.message : 'Failed to load today’s items.')
+      } finally {
+        if (requestId === requestRef.current) setLoading(false)
       }
+    },
+    [userId, persistWidget],
+  )
 
-      // Compute streak metrics for all habit items
-      const habitItems = allItems.filter((i) => i.type === 'habit')
-      if (habitItems.length > 0) {
-        const completionsMap: Record<string, string[]> = await listCompletionsForItems(habitItems.map((h) => h.id)).catch((): Record<string, string[]> => ({}))
-        const streaks: Record<string, HabitStreakSummary> = {}
-        habitItems.forEach((h) => {
-          streaks[h.id] = calcHabitStreak(h.id, h.schedule, completionsMap[h.id] || [])
-        })
-        setStreakSummaries(streaks)
-        if (user) {
-          buildWidgetDataPayload(user.id, allItems, streaks).then(saveWidgetData).catch(() => undefined)
-        }
-      } else {
-        setStreakSummaries({})
-        if (user) {
-          buildWidgetDataPayload(user.id, allItems, {}).then(saveWidgetData).catch(() => undefined)
-        }
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load today items')
-    } finally {
-      setLoading(false)
-    }
-  }
+  const actions = useExecutionItemActions({
+    userId,
+    items,
+    setItems,
+    reload: () => loadData({ silent: true }),
+    onChanged: ({ items: list, completedTodayIds }) => persistWidget(list, completedTodayIds),
+  })
+  actionsRef.current = actions
 
   useEffect(() => {
-    loadData()
-  }, [user?.id])
+    void loadData()
+  }, [loadData])
 
-  const handleToggleStatus = async (itemId: string, currentStatus: ExecutionItem['status']) => {
-    const item = items.find((i) => i.id === itemId)
-    if (!item) return
-    try {
-      setBusyItemId(itemId)
-      if (item.type === 'habit') {
-        const isDoneToday = todayCompletedIds.includes(itemId)
-        if (user) {
-          const nextDone = await toggleHabitTodayCompletion(user.id, itemId, isDoneToday)
-          const nextCompletedIds = nextDone ? [...todayCompletedIds, itemId] : todayCompletedIds.filter((id) => id !== itemId)
-          setTodayCompletedIds(nextCompletedIds)
-          const target = Math.max(1, item.target_count ?? 1)
-          const newCount = nextDone ? target : 0
-          if ((item.current_count ?? 0) !== newCount) {
-            const updated = await updateItemProgress(itemId, newCount, user.id)
-            setItems((prev) => prev.map((it) => (it.id === itemId ? updated : it)))
-          }
-          if (nextDone) {
-            triggerCompletionFeedback(item, items, nextCompletedIds)
-          }
-        } else {
-          setTodayCompletedIds((prev) =>
-            isDoneToday ? prev.filter((id) => id !== itemId) : [...prev, itemId],
-          )
-        }
-      } else {
-        const updated = await toggleItemStatus(itemId, currentStatus, user?.id)
-        const updatedItems = items.map((it) => (it.id === itemId ? updated : it))
-        setItems(updatedItems)
-        if (updated.status === 'done') {
-          triggerCompletionFeedback(item, updatedItems, todayCompletedIds)
-        }
-      }
-    } catch (err) {
-      console.error('Failed to toggle status:', err)
-    } finally {
-      setBusyItemId(null)
+  // Midnight rollover: if the page stays open past midnight, reload so habits reset.
+  useEffect(() => {
+    const check = () => {
+      if (getTodayDateString() !== loadedDate) void loadData({ silent: true })
     }
-  }
-
-  const handleUpdateCount = async (itemId: string, newCount: number) => {
-    try {
-      setBusyItemId(itemId)
-      const updated = await updateItemProgress(itemId, newCount, user?.id)
-      const updatedItems = items.map((item) => (item.id === itemId ? updated : item))
-      setItems(updatedItems)
-      const item = items.find((i) => i.id === itemId)
-      if (item && item.type === 'habit') {
-        const target = Math.max(1, updated.target_count ?? 1)
-        if (newCount >= target) {
-          setTodayCompletedIds((prev) => (prev.includes(itemId) ? prev : [...prev, itemId]))
-          triggerCompletionFeedback(item, updatedItems, [...todayCompletedIds, itemId])
-        } else {
-          setTodayCompletedIds((prev) => prev.filter((id) => id !== itemId))
-        }
-      }
-    } catch (err) {
-      console.error('Failed to update item count:', err)
-    } finally {
-      setBusyItemId(null)
+    const id = setInterval(check, 60_000)
+    document.addEventListener('visibilitychange', check)
+    return () => {
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', check)
     }
-  }
+  }, [loadedDate, loadData])
 
-  const handleStepCount = async (itemId: string, delta: number) => {
-    try {
-      setBusyItemId(itemId)
-      const updated = await stepItemCount(itemId, delta, user?.id)
-      const updatedItems = items.map((item) => (item.id === itemId ? updated : item))
-      setItems(updatedItems)
-      const item = items.find((i) => i.id === itemId)
-      if (item && item.type === 'habit') {
-        const target = Math.max(1, updated.target_count ?? 1)
-        if ((updated.current_count ?? 0) >= target) {
-          setTodayCompletedIds((prev) => (prev.includes(itemId) ? prev : [...prev, itemId]))
-          triggerCompletionFeedback(item, updatedItems, [...todayCompletedIds, itemId])
-        } else {
-          setTodayCompletedIds((prev) => prev.filter((id) => id !== itemId))
-        }
-      } else if (item && updated.status === 'done') {
-        triggerCompletionFeedback(item, updatedItems, todayCompletedIds)
-      }
-    } catch (err) {
-      console.error('Failed to step item count:', err)
-    } finally {
-      setBusyItemId(null)
-    }
-  }
+  if (loading) return <LoadingState label="Preparing today’s queue…" />
+  if (error) return <ErrorState message={error} onRetry={() => void loadData()} />
 
-  const handleSaveEditItem = async (itemId: string, input: UpdateExecutionItemInput) => {
-    if (!user) return
-    try {
-      setBusyItemId(itemId)
-      const updated = await editExecutionItem(itemId, input, user.id)
-      const updatedItems = items.map((item) => (item.id === itemId ? updated : item))
-      setItems(updatedItems)
-      buildWidgetDataPayload(user.id, updatedItems, streakSummaries).then(saveWidgetData).catch(() => undefined)
-      setEditingItem(null)
-    } catch (err) {
-      console.error('Failed to update execution item:', err)
-      throw err
-    } finally {
-      setBusyItemId(null)
-    }
-  }
+  const groups = groupTodayItems(items, actions.completedTodayIds)
+  const totalOpen = groups.overdue.length + groups.dueToday.length + groups.anytime.length
+  const byId = new Map(items.map((i) => [i.id, i]))
 
-  const handleSnoozeReminder = (itemId: string, minutes = 10) => {
-    if (!user) return
-    const reminder = getReminderForItem(user.id, itemId)
-    if (!reminder) return
-    snoozeReminder(user.id, reminder.id, minutes)
-    showToast({
-      id: `snooze-${itemId}`,
-      title: 'Reminder Snoozed',
-      message: `Snoozed for ${minutes} minutes.`,
-      type: 'info',
-    })
-  }
+  const renderCard = (item: ExecutionItem) => (
+    <ExecutionItemCard
+      key={item.id}
+      item={item}
+      isCompletedOverride={item.type === 'habit' ? actions.completedTodayIds.has(item.id) : undefined}
+      streakSummary={item.type === 'habit' ? actions.streakSummaries[item.id] : undefined}
+      onToggleStatus={(id) => {
+        const it = byId.get(id)
+        if (it) void actions.toggle(it)
+      }}
+      onUpdateCount={(id, n) => {
+        const it = byId.get(id)
+        if (it) void actions.setCount(it, n)
+      }}
+      onStepCount={(id, delta) => {
+        const it = byId.get(id)
+        if (it) void actions.step(it, delta)
+      }}
+      onEdit={(it) => setEditingItem(it)}
+      onSnoozeReminder={actions.snooze}
+      onRemoveReminder={actions.removeReminder}
+      busy={actions.busyIds.has(item.id)}
+    />
+  )
 
-  const handleRemoveReminder = (itemId: string) => {
-    if (!user) return
-    cancelReminderForItem(user.id, itemId)
-    showToast({
-      id: `remove-rem-${itemId}`,
-      title: 'Reminder Removed',
-      message: 'Reminder cancelled for this task.',
-      type: 'info',
-    })
-  }
+  const section = (title: string, list: ExecutionItem[], opts: { danger?: boolean; icon?: boolean; muted?: boolean } = {}) =>
+    list.length > 0 && (
+      <section
+        className="section"
+        style={opts.muted ? { borderTop: '1px solid var(--border)', paddingTop: 'var(--space-5)', marginTop: 0 } : { marginTop: 0 }}
+        aria-label={`${title} (${list.length})`}
+      >
+        <div className="section__head">
+          <h2
+            className="t-h2"
+            style={opts.danger ? { color: 'var(--danger)' } : opts.muted ? { color: 'var(--text-secondary)' } : undefined}
+          >
+            {opts.icon && <Clock size={16} aria-hidden="true" />} {title} ({list.length})
+          </h2>
+        </div>
+        <div className="stack" style={{ gap: 'var(--space-2)' }}>
+          {list.map(renderCard)}
+        </div>
+      </section>
+    )
 
-  if (loading) return <LoadingState label="Preparing today's queue…" />
-  if (error) return <ErrorState message={error} onRetry={loadData} />
-
-  // Partition items into Overdue, Today, Upcoming, and Completed
-
-  const uncompleted = items.filter((i) => !isItemCompleted(i) && i.status !== 'archived')
-  const completed = items.filter((i) => isItemCompleted(i) && i.status !== 'archived')
-
-  const overdueItems = uncompleted.filter((i) => i.type !== 'habit' && isOverdue(i.due_date))
-
-  const todayItems = uncompleted.filter((i) => {
-    if (i.type === 'habit') {
-      return !i.schedule || isHabitScheduledForToday(i.schedule)
-    }
-    return isDueToday(i.due_date)
-  })
-
-  const upcomingItems = uncompleted.filter((i) => {
-    if (i.type === 'habit') {
-      return Boolean(i.schedule && !isHabitScheduledForToday(i.schedule))
-    }
-    return isUpcoming(i.due_date)
-  })
-
-  const anytimeItems = uncompleted.filter((i) => {
-    if (i.type === 'habit') return false
-    return !i.due_date
-  })
-
-  const totalOpen = uncompleted.length
+  const nothingAtAll = items.filter((i) => i.status !== 'archived').length === 0
 
   return (
     <div>
       <PageHeader
         title="Today"
-        description="What do you need to execute today? Focus on the items that move your life tracks forward."
+        description="What needs to happen today across your active Tracks and Plans."
       />
 
-      {items.length === 0 ? (
+      {nothingAtAll ? (
         <EmptyState
           icon={<CheckCircle2 size={24} />}
-          title="No execution items found"
-          description="Create plans and execution items in your Tracks to see them scheduled here."
-        />
-      ) : totalOpen === 0 && completed.length > 0 ? (
-        <EmptyState
-          icon={<CheckCircle2 size={24} color="var(--success)" />}
-          title="All caught up for today"
-          description={`You have completed all scheduled items. Consistency protected.`}
+          title="No execution items yet"
+          description="Create a Plan inside one of your Tracks and add habits or tasks to see them here."
         />
       ) : (
         <div className="stack" style={{ gap: 'var(--space-6)' }}>
-          {/* Overdue Section */}
-          {overdueItems.length > 0 && (
-            <section className="section" style={{ marginTop: 0 }}>
-              <div className="section__head">
-                <h2 className="t-h2" style={{ color: 'var(--danger)' }}>
-                  Overdue ({overdueItems.length})
-                </h2>
-              </div>
-              <div className="stack" style={{ gap: 'var(--space-2)' }}>
-                {overdueItems.map((item) => (
-                  <ExecutionItemCard
-                    key={item.id}
-                    item={item}
-                    isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
-                    streakSummary={item.type === 'habit' ? streakSummaries[item.id] : undefined}
-                    onToggleStatus={handleToggleStatus}
-                    onUpdateCount={handleUpdateCount}
-                    onStepCount={handleStepCount}
-                    onEdit={(item) => setEditingItem(item)}
-                    onSnoozeReminder={handleSnoozeReminder}
-                    onRemoveReminder={handleRemoveReminder}
-                    busy={busyItemId === item.id}
-                  />
-                ))}
-              </div>
-            </section>
+          {totalOpen === 0 && (
+            <div className="alert alert--success" role="status">
+              {groups.completedToday.length > 0
+                ? 'All caught up for today. Completed items are listed below if you need to undo one.'
+                : 'Nothing is due today.'}
+            </div>
           )}
-
-          {/* Today's Section */}
-          {todayItems.length > 0 && (
-            <section className="section" style={{ marginTop: 0 }}>
-              <div className="section__head">
-                <h2 className="t-h2">Due Today ({todayItems.length})</h2>
-              </div>
-              <div className="stack" style={{ gap: 'var(--space-2)' }}>
-                {todayItems.map((item) => (
-                  <ExecutionItemCard
-                    key={item.id}
-                    item={item}
-                    isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
-                    streakSummary={item.type === 'habit' ? streakSummaries[item.id] : undefined}
-                    onToggleStatus={handleToggleStatus}
-                    onUpdateCount={handleUpdateCount}
-                    onStepCount={handleStepCount}
-                    onEdit={(item) => setEditingItem(item)}
-                    onSnoozeReminder={handleSnoozeReminder}
-                    onRemoveReminder={handleRemoveReminder}
-                    busy={busyItemId === item.id}
-                  />
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* General Queue / Anytime */}
-          {anytimeItems.length > 0 && (
-            <section className="section" style={{ marginTop: 0 }}>
-              <div className="section__head">
-                <h2 className="t-h2">Action Queue ({anytimeItems.length})</h2>
-              </div>
-              <div className="stack" style={{ gap: 'var(--space-2)' }}>
-                {anytimeItems.map((item) => (
-                  <ExecutionItemCard
-                    key={item.id}
-                    item={item}
-                    isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
-                    streakSummary={item.type === 'habit' ? streakSummaries[item.id] : undefined}
-                    onToggleStatus={handleToggleStatus}
-                    onUpdateCount={handleUpdateCount}
-                    onStepCount={handleStepCount}
-                    onEdit={(item) => setEditingItem(item)}
-                    onSnoozeReminder={handleSnoozeReminder}
-                    onRemoveReminder={handleRemoveReminder}
-                    busy={busyItemId === item.id}
-                  />
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* Upcoming Section */}
-          {upcomingItems.length > 0 && (
-            <section className="section" style={{ marginTop: 0 }}>
-              <div className="section__head">
-                <h2 className="t-h2">
-                  <Clock size={16} /> Upcoming ({upcomingItems.length})
-                </h2>
-              </div>
-              <div className="stack" style={{ gap: 'var(--space-2)' }}>
-                {upcomingItems.map((item) => (
-                  <ExecutionItemCard
-                    key={item.id}
-                    item={item}
-                    isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
-                    streakSummary={item.type === 'habit' ? streakSummaries[item.id] : undefined}
-                    onToggleStatus={handleToggleStatus}
-                    onUpdateCount={handleUpdateCount}
-                    onStepCount={handleStepCount}
-                    onEdit={(item) => setEditingItem(item)}
-                    onSnoozeReminder={handleSnoozeReminder}
-                    onRemoveReminder={handleRemoveReminder}
-                    busy={busyItemId === item.id}
-                  />
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* Completed Section */}
-          {completed.length > 0 && (
-            <section className="section" style={{ borderTop: '1px solid var(--border)', paddingTop: 'var(--space-5)' }}>
-              <div className="section__head">
-                <h2 className="t-h2" style={{ color: 'var(--text-secondary)' }}>
-                  Completed Items ({completed.length})
-                </h2>
-              </div>
-              <div className="stack" style={{ gap: 'var(--space-2)' }}>
-                {completed.map((item) => (
-                  <ExecutionItemCard
-                    key={item.id}
-                    item={item}
-                    isCompletedOverride={item.type === 'habit' ? todayCompletedIds.includes(item.id) : undefined}
-                    streakSummary={item.type === 'habit' ? streakSummaries[item.id] : undefined}
-                    onToggleStatus={handleToggleStatus}
-                    onUpdateCount={handleUpdateCount}
-                    onStepCount={handleStepCount}
-                    onEdit={(item) => setEditingItem(item)}
-                    onSnoozeReminder={handleSnoozeReminder}
-                    onRemoveReminder={handleRemoveReminder}
-                    busy={busyItemId === item.id}
-                  />
-                ))}
-              </div>
-            </section>
-          )}
+          {section('Overdue', groups.overdue, { danger: true })}
+          {section('Due Today', groups.dueToday)}
+          {section('Anytime', groups.anytime)}
+          {section('Upcoming', groups.upcoming, { icon: true })}
+          {section('Completed Today', groups.completedToday, { muted: true })}
         </div>
       )}
 
-      {/* Edit Item Modal */}
       <EditItemModal
         open={Boolean(editingItem)}
         onClose={() => setEditingItem(null)}
         item={editingItem}
-        onSubmit={handleSaveEditItem}
+        onSubmit={actions.saveEdit}
+        completedToday={editingItem ? actions.completedTodayIds.has(editingItem.id) : false}
       />
     </div>
   )

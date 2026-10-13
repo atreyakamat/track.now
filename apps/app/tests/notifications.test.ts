@@ -70,4 +70,34 @@ describe('Notification Preferences & Capability Status', () => {
     expect(typeof status.canDeliverAppClosed).toBe('boolean')
     expect(typeof status.explanation).toBe('string')
   })
+
+  it('never claims closed-app delivery and reflects permission honestly', () => {
+    const granted = getNotificationCapabilityStatus({ notificationSupported: true, permission: 'granted' })
+    expect(granted.canDeliverForeground).toBe(true)
+    expect(granted.canDeliverBackground).toBe(true)
+    expect(granted.canDeliverAppClosed).toBe(false)
+    expect(granted.explanation).toMatch(/browser is closed nothing can fire/)
+
+    const denied = getNotificationCapabilityStatus({ notificationSupported: true, permission: 'denied' })
+    expect(denied.canDeliverBackground).toBe(false)
+    expect(denied.explanation).toMatch(/blocked/)
+
+    const unsupported = getNotificationCapabilityStatus({ notificationSupported: false })
+    expect(unsupported.permission).toBe('unsupported')
+    expect(unsupported.canDeliverBackground).toBe(false)
+    expect(unsupported.canDeliverAppClosed).toBe(false)
+  })
+
+  it('does not claim system notifications are on when the in-app switch is off (L10)', () => {
+    const off = getNotificationCapabilityStatus({ notificationSupported: true, permission: 'granted', masterEnabled: false })
+    expect(off.explanation).not.toMatch(/System notifications are allowed/)
+    expect(off.explanation).toMatch(/switched off in Track\.now/)
+    expect(off.explanation).toMatch(/browser is closed nothing can fire/)
+    expect(off.canDeliverBackground).toBe(false)
+    expect(off.canDeliverAppClosed).toBe(false)
+
+    const on = getNotificationCapabilityStatus({ notificationSupported: true, permission: 'granted', masterEnabled: true })
+    expect(on.explanation).toMatch(/System notifications are allowed/)
+    expect(on.canDeliverBackground).toBe(true)
+  })
 })

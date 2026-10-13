@@ -15,6 +15,7 @@ import {
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useTheme } from '@/hooks/useTheme'
 import { initials } from '@/utils/format'
+import { useToast } from '@/features/notifications/ToastContext'
 
 interface SidebarProps {
   onNavigate?: () => void
@@ -24,6 +25,7 @@ interface SidebarProps {
 export function Sidebar({ onNavigate, isDrawer }: SidebarProps) {
   const { displayName, signOut } = useAuth()
   const { theme, toggleTheme } = useTheme()
+  const { showToast } = useToast()
 
   const links = [
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -37,7 +39,11 @@ export function Sidebar({ onNavigate, isDrawer }: SidebarProps) {
     try {
       await signOut()
     } catch (err) {
-      console.error('Sign out error:', err)
+      showToast({
+        title: 'Sign out failed',
+        message: err instanceof Error ? err.message : 'Please try again.',
+        type: 'warning',
+      })
     }
   }
 

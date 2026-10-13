@@ -1,4 +1,14 @@
-import { useId, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
+import {
+  useId,
+  useRef,
+  type CSSProperties,
+  type InputHTMLAttributes,
+  type KeyboardEvent,
+  type ReactNode,
+  type SelectHTMLAttributes,
+  type TextareaHTMLAttributes,
+} from 'react'
+import { nextRovingIndex } from './Tabs'
 
 interface FieldProps {
   label: string
@@ -48,5 +58,66 @@ export function Select({
         {children}
       </select>
     </FieldShell>
+  )
+}
+
+export interface RadioOption {
+  value: string
+  /** Accessible name (also used as the tooltip). */
+  label: string
+  content?: ReactNode
+  style?: CSSProperties
+}
+
+/**
+ * Single-select picker with WAI-ARIA radiogroup semantics: only the checked
+ * option is in the Tab order (roving tabindex); Arrow keys move and select,
+ * Home/End jump to the ends; Space/Enter select via the native button click.
+ */
+export function RovingRadioGroup({
+  labelledBy, options, value, onChange, className, optionClassName,
+}: {
+  /** id of the visible label element. */
+  labelledBy: string
+  options: RadioOption[]
+  value: string
+  onChange: (value: string) => void
+  className?: string
+  optionClassName?: string
+}) {
+  const refs = useRef<Array<HTMLButtonElement | null>>([])
+  const checkedIndex = options.findIndex((option) => option.value === value)
+  // With nothing checked, the first option must still be reachable with Tab.
+  const tabbableIndex = checkedIndex === -1 ? 0 : checkedIndex
+
+  const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
+    const target = nextRovingIndex(event.key, index, options.length, 'both')
+    if (target === null) return
+    event.preventDefault()
+    onChange(options[target].value)
+    refs.current[target]?.focus()
+  }
+
+  return (
+    <div role="radiogroup" aria-labelledby={labelledBy} className={className}>
+      {options.map((option, index) => (
+        <button
+          key={option.value}
+          ref={(node) => { refs.current[index] = node }}
+          type="button"
+          role="radio"
+          aria-checked={index === checkedIndex}
+          aria-label={option.label}
+          title={option.label}
+          tabIndex={index === tabbableIndex ? 0 : -1}
+          className={optionClassName}
+          style={option.style}
+          onClick={() => onChange(option.value)}
+          onKeyDown={(event) => onKeyDown(event, index)}
+        >
+          {option.content}
+        </button>
+      ))}
+    </div>
   )
 }

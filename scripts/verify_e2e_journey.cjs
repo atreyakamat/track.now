@@ -35,13 +35,22 @@ if (!url || !anonKey) {
   process.exit(1);
 }
 
+// Fail closed: requires the admin key AND an explicit per-project opt-in, and never uses
+// public sign-up (no confirmation emails, no orphaned users). See scripts/lib/liveGuard.cjs.
+require('./lib/liveGuard.cjs').assertLiveTargetAllowed({ url, serviceKey, env, scriptName: 'verify_e2e_journey.cjs' });
+if (env.TEST_USER_EMAIL) {
+  console.error('REFUSED: TEST_USER_EMAIL is not supported; this script only uses a throw-away user it creates and deletes itself.');
+  process.exit(2);
+}
+
 const anonClient = createClient(url, anonKey, {
   auth: { persistSession: false, autoRefreshToken: false }
 });
 
-const adminClient = serviceKey
-  ? createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } })
-  : null;
+const adminClient = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+
+// The throw-away user created by this run (deleted on success AND on failure).
+let createdUserId = null;
 
 async function runJourney() {
   console.log('--- STARTING TRACK.NOW REAL-DATA END-TO-END VERIFICATION ---');
@@ -49,16 +58,15 @@ async function runJourney() {
   console.log('Admin Client Available:', Boolean(adminClient));
 
   const timestamp = Date.now();
-  const testEmail = env.TEST_USER_EMAIL || `testrunner${timestamp}@gmail.com`;
-  const testPassword = env.TEST_USER_PASSWORD || `TrackPass!${timestamp}`;
+  // Non-routable domain: even a misconfigured project can never email a real person.
+  const testEmail = `testrunner${timestamp}@tracknow.invalid`;
+  const testPassword = `TrackPass!${timestamp}-${Math.random().toString(36).slice(2)}`;
   const displayName = `Test Athlete ${timestamp}`;
 
   let userId;
 
   // 1. SIGN UP / CREATE USER
-  if (env.TEST_USER_EMAIL) {
-    console.log('\n[1/10] Using configured test user:', testEmail);
-  } else if (adminClient) {
+  {
     console.log('\n[1/10] Creating confirmed test user via admin API:', testEmail);
     const { data: createUserData, error: createErr } = await adminClient.auth.admin.createUser({
       email: testEmail,
@@ -68,16 +76,7 @@ async function runJourney() {
     });
     if (createErr) throw new Error('CreateUser failed: ' + createErr.message);
     userId = createUserData.user?.id;
-    console.log('✓ User created with ID:', userId);
-  } else {
-    console.log('\n[1/10] Signing up test user via public API:', testEmail);
-    const { data: signUpData, error: signUpErr } = await anonClient.auth.signUp({
-      email: testEmail,
-      password: testPassword,
-      options: { data: { full_name: displayName, display_name: displayName } }
-    });
-    if (signUpErr) throw new Error('SignUp failed: ' + signUpErr.message);
-    userId = signUpData.user?.id;
+    createdUserId = userId;
     console.log('✓ User created with ID:', userId);
   }
 
@@ -249,16 +248,20 @@ async function runJourney() {
   console.log('\n--- CLEANING UP TEST DATA ---');
   await userClient.from('track_now_tracks').delete().eq('user_id', userId);
   await userClient.from('track_now_profiles').delete().eq('id', userId);
-  if (adminClient) {
-    await adminClient.auth.admin.deleteUser(userId);
-  }
+  await adminClient.auth.admin.deleteUser(userId);
+  createdUserId = null;
   console.log('✓ Test user and all related Track.now entities removed cleanly.');
   console.log('\n======================================================');
   console.log('🎉 SUCCESS: Entire core user journey passed with REAL Supabase data!');
   console.log('======================================================');
 }
 
-runJourney().catch(err => {
+runJourney().catch(async err => {
   console.error('\n❌ E2E VERIFICATION FAILED:', err);
+  if (createdUserId) {
+    // Deleting the auth user cascades to every track_now_* row it owns.
+    const { error } = await adminClient.auth.admin.deleteUser(createdUserId);
+    console.error(error ? `Cleanup failed for test user ${createdUserId}: ${error.message}` : 'Test user removed after failure.');
+  }
   process.exit(1);
 });

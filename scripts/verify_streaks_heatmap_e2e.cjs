@@ -1,3 +1,6 @@
+// Fail closed: only runs against a bundle built with a fake Supabase project (see scripts/lib/e2eMock.cjs).
+const E2E_MOCK = require('./lib/e2eMock.cjs');
+E2E_MOCK.assertMockBuild();
 const { spawn } = require('child_process');
 const http = require('http');
 const fs = require('fs');
@@ -8,6 +11,8 @@ function createSpaServer(distDir) {
   return http.createServer((req, res) => {
     let reqPath = req.url.split('?')[0];
     let filePath = path.join(distDir, reqPath);
+    // Confine to the build directory (no ../ path traversal out of dist).
+    if (!path.resolve(filePath).startsWith(path.resolve(distDir) + path.sep)) filePath = path.join(distDir, 'index.html');
     if (filePath.endsWith(path.sep) || reqPath === '/') {
       filePath = path.join(distDir, 'index.html');
     }
@@ -106,6 +111,7 @@ async function runStreaksHeatmapBrowserE2E() {
     `--remote-debugging-port=${cdpPort}`,
     '--headless=new',
     `--user-data-dir=${tempDir}`,
+    '--host-resolver-rules=MAP *.supabase.co ~NOTFOUND, MAP *.supabase.in ~NOTFOUND',
     '--no-first-run',
     '--no-default-browser-check',
     '--disable-extensions',
@@ -330,7 +336,19 @@ async function runStreaksHeatmapBrowserE2E() {
             state.completions = state.completions.filter((c) => c.completed_date !== compDate);
             bodyObj = [];
           } else {
-            bodyObj = state.completions;
+            // Honour PostgREST filters (eq / in / gte) like the real API does.
+            let rows = state.completions;
+            for (const [key, raw] of url.searchParams.entries()) {
+              if (key === 'select' || key === 'order') continue;
+              if (raw.startsWith('eq.')) rows = rows.filter((c) => String(c[key]) === raw.slice(3));
+              else if (raw.startsWith('gte.')) rows = rows.filter((c) => String(c[key]) >= raw.slice(4));
+              else if (raw.startsWith('lte.')) rows = rows.filter((c) => String(c[key]) <= raw.slice(4));
+              else if (raw.startsWith('in.(')) {
+                const set = new Set(raw.slice(4, -1).split(','));
+                rows = rows.filter((c) => set.has(String(c[key])));
+              }
+            }
+            bodyObj = rows;
           }
         } else {
           bodyObj = [];
@@ -350,7 +368,8 @@ async function runStreaksHeatmapBrowserE2E() {
         });
       } catch (err) {
         console.error('Fetch intercept error:', err);
-        await cdpClient.send('Fetch.continueRequest', { requestId });
+        // Fail closed: an intercepted Supabase request must never reach the live network.
+        await cdpClient.send('Fetch.failRequest', { requestId, errorReason: 'BlockedByClient' });
       }
     });
 
@@ -369,7 +388,7 @@ async function runStreaksHeatmapBrowserE2E() {
           token_type: 'bearer',
           user: ${JSON.stringify(state.user)}
         };
-        localStorage.setItem('sb-bjejovuayqtxqhevvvuu-auth-token', JSON.stringify(session));
+        localStorage.setItem('${E2E_MOCK.AUTH_STORAGE_KEY}', JSON.stringify(session));
       })()
     `);
 
@@ -432,6 +451,9 @@ async function runStreaksHeatmapBrowserE2E() {
       })()
     `);
     console.log(`✓ Updated streak badge: "${updatedStreakBadge}"`);
+    if (!updatedStreakBadge || !updatedStreakBadge.includes('4d streak')) {
+      throw new Error(`Expected the streak to grow to 4 days after completing today, got: ${updatedStreakBadge}`);
+    }
 
     // 7. Responsive checks
     console.log('[7/7] Verifying responsive layout across viewports (320px, 375px, 768px, 1280px)...');

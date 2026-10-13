@@ -38,6 +38,7 @@ describe('Home Screen Widget Data Engine', () => {
       plan_id: 'plan-1',
       type: 'habit',
       name: 'Drink 2L Water',
+      description: null,
       status: 'done',
       priority: 'medium',
       start_date: null,
@@ -53,6 +54,7 @@ describe('Home Screen Widget Data Engine', () => {
       plan_id: 'plan-1',
       type: 'habit',
       name: 'Morning Jog',
+      description: null,
       status: 'todo',
       priority: 'high',
       start_date: null,
@@ -68,6 +70,7 @@ describe('Home Screen Widget Data Engine', () => {
       plan_id: 'plan-1',
       type: 'task',
       name: 'Submit Q3 Tax Filing',
+      description: null,
       status: 'todo',
       priority: 'urgent',
       start_date: null,
@@ -85,16 +88,20 @@ describe('Home Screen Widget Data Engine', () => {
       currentStreak: 12,
       longestStreak: 15,
       consistencyRate: 85,
-      completedToday: true,
+      isCompletedToday: true,
       isActiveStreak: true,
+      totalCompletions: 30,
+      lastCompletedDate: null,
     },
     'item-2': {
       itemId: 'item-2',
       currentStreak: 4,
       longestStreak: 6,
       consistencyRate: 60,
-      completedToday: false,
+      isCompletedToday: false,
       isActiveStreak: true,
+      totalCompletions: 10,
+      lastCompletedDate: null,
     },
   }
 
@@ -128,7 +135,7 @@ describe('Home Screen Widget Data Engine', () => {
     const payload = await buildWidgetDataPayload(userId, mockItems, mockStreaks)
     saveWidgetData(payload)
 
-    const loaded = loadWidgetData()
+    const loaded = loadWidgetData(userId)
     expect(loaded).not.toBeNull()
     expect(loaded?.version).toBe(1)
     expect(loaded?.progress.total).toBe(3)
@@ -138,9 +145,31 @@ describe('Home Screen Widget Data Engine', () => {
   it('clears widget data on sign-out to guarantee privacy', async () => {
     const payload = await buildWidgetDataPayload(userId, mockItems, mockStreaks)
     saveWidgetData(payload)
-    expect(loadWidgetData()).not.toBeNull()
+    expect(loadWidgetData(userId)).not.toBeNull()
 
-    clearWidgetData()
-    expect(loadWidgetData()).toBeNull()
+    await clearWidgetData()
+    expect(loadWidgetData(userId)).toBeNull()
+  })
+
+  it("counts only today's queue: earlier-finished and future items are excluded", async () => {
+    const today = '2026-10-12'
+    const now = new Date(2026, 9, 12, 10, 0)
+    const items: ExecutionItem[] = [
+      { ...mockItems[2], id: 'done-last-week', status: 'done', due_date: '2026-10-01' },
+      { ...mockItems[2], id: 'future', status: 'todo', due_date: '2026-10-20' },
+      { ...mockItems[2], id: 'due-today', status: 'todo', due_date: today },
+      { ...mockItems[2], id: 'done-today', status: 'done', due_date: today },
+      { ...mockItems[0], id: 'habit-stale-done', status: 'done' },
+    ]
+    const payload = await buildWidgetDataPayload(userId, items, { completedTodayIds: ['done-today'] }, today, now)
+    expect(payload.progress.total).toBe(3) // due-today, done-today, habit scheduled today
+    expect(payload.progress.done).toBe(1) // only the item completed today; stale habit status ignored
+    expect(payload.items.map((i) => i.id)).not.toContain('future')
+  })
+
+  it("never returns another user's cached payload", async () => {
+    const payload = await buildWidgetDataPayload(userId, mockItems, mockStreaks)
+    await saveWidgetData(payload)
+    expect(loadWidgetData('someone-else')).toBeNull()
   })
 })

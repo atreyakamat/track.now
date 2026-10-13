@@ -26,8 +26,8 @@ export function TrackCard({ summary, onToggleArchive, busy }: TrackCardProps) {
           <TrackIcon name={track.icon} size={20} />
         </div>
         <div className="card__body">
-          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-            <Link to={`/tracks/${track.id}`} className="t-h3" style={{ textDecoration: 'none' }}>
+          <div className="row track-card__title-row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+            <Link to={`/tracks/${track.id}`} className="t-h3 track-card__name" style={{ textDecoration: 'none' }}>
               {track.name}
             </Link>
             {isArchived ? (
@@ -65,8 +65,9 @@ export function TrackCard({ summary, onToggleArchive, busy }: TrackCardProps) {
           to={`/tracks/${track.id}`}
           className="btn btn--secondary btn--sm"
           style={{ textDecoration: 'none' }}
+          aria-label={`Open Track ${track.name}`}
         >
-          Open Track <ArrowRight size={14} />
+          Open Track <ArrowRight size={14} aria-hidden="true" />
         </Link>
         {onToggleArchive && (
           <Button
@@ -74,15 +75,18 @@ export function TrackCard({ summary, onToggleArchive, busy }: TrackCardProps) {
             size="sm"
             onClick={() => onToggleArchive(track.id, track.status)}
             disabled={busy}
+            aria-busy={busy || undefined}
+            // Every card has the same visible label; the name says which Track it acts on.
+            aria-label={isArchived ? `Restore ${track.name}` : `Archive ${track.name}`}
             title={isArchived ? 'Restore Track' : 'Archive Track'}
           >
             {isArchived ? (
               <>
-                <RotateCcw size={14} /> Restore
+                <RotateCcw size={14} aria-hidden="true" /> Restore
               </>
             ) : (
               <>
-                <Archive size={14} /> Archive
+                <Archive size={14} aria-hidden="true" /> Archive
               </>
             )}
           </Button>

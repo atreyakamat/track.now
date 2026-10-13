@@ -1,3 +1,11 @@
+// Fail closed: only runs against a bundle built with a fake Supabase project (see scripts/lib/e2eMock.cjs).
+const E2E_MOCK = require('./lib/e2eMock.cjs');
+E2E_MOCK.assertMockBuild();
+// Screenshots go to a temporary directory outside the repository (override with TRACKNOW_SCREENSHOT_DIR).
+const __shotDir = process.env.TRACKNOW_SCREENSHOT_DIR || require('path').join(require('os').tmpdir(), 'tracknow-e2e-screenshots');
+require('fs').mkdirSync(__shotDir, { recursive: true });
+const shotPath = (name) => require('path').join(__shotDir, name);
+
 const { spawn } = require('child_process');
 const http = require('http');
 const fs = require('fs');
@@ -8,6 +16,8 @@ function createSpaServer(distDir) {
   return http.createServer((req, res) => {
     let reqPath = req.url.split('?')[0];
     let filePath = path.join(distDir, reqPath);
+    // Confine to the build directory (no ../ path traversal out of dist).
+    if (!path.resolve(filePath).startsWith(path.resolve(distDir) + path.sep)) filePath = path.join(distDir, 'index.html');
     if (filePath.endsWith(path.sep) || reqPath === '/') {
       filePath = path.join(distDir, 'index.html');
     }
@@ -104,7 +114,7 @@ async function run() {
 
   const port = 4182;
   const server = createSpaServer(distDir);
-  await new Promise((resolve) => server.listen(port, resolve));
+  await new Promise((resolve) => server.listen(port, '127.0.0.1', resolve));
   console.log(`SPA server active at http://localhost:${port}`);
 
   const chromePath = await findChrome();
@@ -120,6 +130,7 @@ async function run() {
   const chromeProc = spawn(chromePath, [
     `--remote-debugging-port=${cdpPort}`,
     `--user-data-dir=${userDataDir}`,
+    '--host-resolver-rules=MAP *.supabase.co ~NOTFOUND, MAP *.supabase.in ~NOTFOUND',
     '--no-first-run',
     '--no-default-browser-check',
     '--headless=new',
@@ -365,7 +376,8 @@ async function run() {
       });
     } catch (err) {
       console.error('Fetch fulfill error:', err);
-      return cdp.send('Fetch.continueRequest', { requestId });
+      // Fail closed: an intercepted Supabase request must never reach the live network.
+      return cdp.send('Fetch.failRequest', { requestId, errorReason: 'BlockedByClient' });
     }
   });
 
@@ -382,7 +394,7 @@ async function run() {
 
   // Inject session into localStorage and reload
   await cdp.eval(`
-    localStorage.setItem('sb-bjejovuayqtxqhevvvuu-auth-token', JSON.stringify({
+    localStorage.setItem('${E2E_MOCK.AUTH_STORAGE_KEY}', JSON.stringify({
       access_token: 'fake-valid-jwt',
       refresh_token: 'fake-valid-refresh',
       expires_at: Math.floor(Date.now() / 1000) + 3600,
@@ -407,9 +419,12 @@ async function run() {
       const text = document.body.innerText;
       return {
         url: window.location.href,
-        hasNotificationSection: text.includes('Smart Reminders & Notifications'),
-        hasPlatformTable: text.includes('Platform Delivery Capabilities'),
-        hasWidgetSection: text.includes('Home Screen Widgets (Android & iOS)'),
+        hasNotificationSection: text.includes('Reminders & Notifications'),
+        hasPlatformTable: text.includes('Where reminders can reach you'),
+        hasWidgetSection: text.includes('Home-screen widgets'),
+        // Honesty checks: closed-browser and native delivery must never be advertised.
+        statesClosedBrowserLimit: text.includes('Browser or installed app fully closed') && text.includes('Not available'),
+        noFalseNativeClaim: !text.includes('Native Bridge Ready') && !text.includes('Full native OS scheduled delivery'),
       };
     })()
   `);
@@ -424,13 +439,16 @@ async function run() {
   if (!settingsSections.hasWidgetSection) {
     throw new Error('Home Screen Widgets section missing from SettingsPage');
   }
+  if (!settingsSections.statesClosedBrowserLimit || !settingsSections.noFalseNativeClaim) {
+    throw new Error('Settings must state that reminders cannot fire with the browser closed and must not claim native delivery');
+  }
 
   // Click "Send Test Notification"
   console.log('Testing in-app celebratory toast notification...');
   const toastClicked = await cdp.eval(`
     (() => {
       const buttons = Array.from(document.querySelectorAll('button'));
-      const testBtn = buttons.find(b => b.innerText.includes('Send Test Notification'));
+      const testBtn = buttons.find(b => b.innerText.includes('Send test reminder'));
       if (testBtn) {
         testBtn.click();
         return true;
@@ -439,7 +457,7 @@ async function run() {
     })()
   `);
 
-  if (!toastClicked) throw new Error('Could not find Send Test Notification button');
+  if (!toastClicked) throw new Error('Could not find Send test reminder button');
   await new Promise((r) => setTimeout(r, 500));
 
   const toastCard = await cdp.eval(`
@@ -448,8 +466,9 @@ async function run() {
       if (!card) return null;
       return {
         text: card.innerText,
-        hasTitle: card.innerText.includes('Track.now Test Notification'),
-        hasNextUp: card.innerText.includes("Today's Execution Queue"),
+        hasTitle: card.innerText.includes('Test reminder'),
+        // Honest outcome text: in this headless run no browser permission is granted.
+        statesOutcome: card.innerText.includes('In-app alert shown'),
       };
     })()
   `);
@@ -461,16 +480,16 @@ async function run() {
 
   // Capture screenshot of Settings page
   const settingsScreenshot = await cdp.send('Page.captureScreenshot', { format: 'png' });
-  const settingsImgPath = path.resolve(__dirname, '../scripts/screenshot_settings_notifications.png');
+  const settingsImgPath = shotPath('screenshot_settings_notifications.png');
   fs.writeFileSync(settingsImgPath, Buffer.from(settingsScreenshot.data, 'base64'));
   console.log(`Saved screenshot to ${settingsImgPath}`);
 
-  // Test "Force Widget Sync"
-  console.log('Testing Force Widget Sync button...');
+  // Test "Refresh snapshot"
+  console.log('Testing widget snapshot refresh button...');
   await cdp.eval(`
     (() => {
       const buttons = Array.from(document.querySelectorAll('button'));
-      const syncBtn = buttons.find(b => b.innerText.includes('Force Widget Sync'));
+      const syncBtn = buttons.find(b => b.innerText.includes('Refresh snapshot'));
       if (syncBtn) syncBtn.click();
     })()
   `);
@@ -596,7 +615,7 @@ async function run() {
 
   // Capture screenshot of Today page with completion toast
   const todayScreenshot = await cdp.send('Page.captureScreenshot', { format: 'png' });
-  const todayImgPath = path.resolve(__dirname, '../scripts/screenshot_today_queue.png');
+  const todayImgPath = shotPath('screenshot_today_queue.png');
   fs.writeFileSync(todayImgPath, Buffer.from(todayScreenshot.data, 'base64'));
   console.log(`Saved screenshot to ${todayImgPath}`);
 

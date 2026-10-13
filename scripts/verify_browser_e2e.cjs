@@ -43,6 +43,9 @@ if (!serviceKey) {
   process.exit(2);
 }
 
+// Fail closed: explicit per-project opt-in, never production (see scripts/lib/liveGuard.cjs).
+require('./lib/liveGuard.cjs').assertLiveTargetAllowed({ url, serviceKey, env, scriptName: 'verify_browser_e2e.cjs' });
+
 const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
 
 // Helper to communicate with Chrome DevTools Protocol over WebSocket
@@ -115,7 +118,7 @@ async function runBrowserE2E() {
   console.log('================================================================');
 
   const ts = Date.now();
-  const testEmail = `e2e.athlete.${ts}@tracknow.internal`;
+  const testEmail = `e2e.athlete.${ts}@tracknow.invalid`;
   const testPassword = `TestE2E!Pass${ts}`;
   const displayName = `E2E Athlete ${ts}`;
 
@@ -202,7 +205,7 @@ async function runBrowserE2E() {
         const passInputs = document.querySelectorAll('input[type="password"]');
         
         if (nameInput) { nameInput.value = 'Auto Test Athlete'; nameInput.dispatchEvent(new Event('input', { bubbles: true })); }
-        if (emailInput) { emailInput.value = 'autotest.${ts}@tracknow.internal'; emailInput.dispatchEvent(new Event('input', { bubbles: true })); }
+        if (emailInput) { emailInput.value = 'autotest.${ts}@tracknow.invalid'; emailInput.dispatchEvent(new Event('input', { bubbles: true })); }
         if (passInputs[0]) { passInputs[0].value = 'StrongPass123!'; passInputs[0].dispatchEvent(new Event('input', { bubbles: true })); }
         if (passInputs[1]) { passInputs[1].value = 'StrongPass123!'; passInputs[1].dispatchEvent(new Event('input', { bubbles: true })); }
         return { name: Boolean(nameInput), email: Boolean(emailInput), passCount: passInputs.length };

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Bell, Calendar, Check, Edit2, Flame, Repeat, Trash2 } from 'lucide-react'
+import { Bell, Calendar, Check, Clock, Edit2, Flame, Repeat, Trash2 } from 'lucide-react'
 import type { ExecutionItem } from '@/types/domain'
 import { Badge, Button } from '@/components/ui'
-import { getTodayDateString, isOverdue } from '@/domain/dates'
+import { isOverdue } from '@/domain/dates'
+import { effectiveCurrentCount } from '@/domain/habitCounter'
 import type { HabitStreakSummary } from '@/domain/streaks'
 import {
   cancelReminderForItem,
@@ -39,16 +40,11 @@ export function ExecutionItemCard({
   streakSummary,
 }: ExecutionItemCardProps) {
   const isDone = isCompletedOverride !== undefined ? isCompletedOverride : item.status === 'done'
-  const overdue = !isDone && isOverdue(item.due_date)
+  // Habits recur on their schedule; a stale due date never makes a habit overdue.
+  const overdue = item.type !== 'habit' && !isDone && isOverdue(item.due_date)
   const targetCount = Math.max(1, item.target_count ?? 1)
-  const isHabitUnfinishedNewDay =
-    item.type === 'habit' &&
-    !isDone &&
-    Boolean(item.updated_at) &&
-    getTodayDateString(new Date(item.updated_at)) < getTodayDateString()
-  const currentCount = isHabitUnfinishedNewDay
-    ? 0
-    : Math.max(0, item.current_count ?? 0)
+  // A habit's stored count may belong to an earlier day (see domain/habitCounter.ts).
+  const currentCount = effectiveCurrentCount(item, isDone)
   const hasNumericTarget = targetCount > 1 || Boolean(item.unit)
   const progressPercent = Math.min(100, Math.round((currentCount / targetCount) * 100))
 
@@ -72,7 +68,7 @@ export function ExecutionItemCard({
 
   const priorityColor =
     item.priority === 'urgent'
-      ? '#ef4444'
+      ? 'var(--danger)'
       : item.priority === 'high'
       ? 'var(--warning, #e67e22)'
       : item.priority === 'low'
@@ -95,10 +91,10 @@ export function ExecutionItemCard({
         className="btn btn--icon btn--sm"
         style={{
           borderRadius: '50%',
-          width: '30px',
-          minWidth: '30px',
-          height: '30px',
-          minHeight: '30px',
+          width: '36px',
+          minWidth: '36px',
+          height: '36px',
+          minHeight: '36px',
           padding: 0,
           background: isDone ? 'var(--control-bg)' : 'transparent',
           color: isDone ? 'var(--control-text)' : 'transparent',
@@ -110,6 +106,7 @@ export function ExecutionItemCard({
         onClick={() => onToggleStatus(item.id, item.status)}
         disabled={busy}
         aria-label={isDone ? `Mark ${item.name} as incomplete` : `Mark ${item.name} as done`}
+        aria-pressed={isDone}
       >
         <Check size={14} style={{ opacity: isDone ? 1 : 0 }} />
       </button>
@@ -135,15 +132,16 @@ export function ExecutionItemCard({
                 gap: '3px',
                 fontSize: '11px',
                 fontWeight: 600,
-                color: streakSummary.isActiveStreak ? 'var(--accent-primary, #c8f169)' : 'var(--text-secondary)',
-                background: streakSummary.isActiveStreak ? 'rgba(200, 241, 105, 0.12)' : 'var(--surface-muted, rgba(255, 255, 255, 0.05))',
+                color: streakSummary.isActiveStreak ? 'var(--accent-primary-text)' : 'var(--text-secondary)',
+                background: streakSummary.isActiveStreak ? 'var(--accent-primary)' : 'var(--surface-muted)',
                 padding: '2px 8px',
                 borderRadius: '999px',
                 border: '1px solid ' + (streakSummary.isActiveStreak ? 'rgba(200, 241, 105, 0.3)' : 'transparent'),
               }}
             >
-              <Flame size={12} fill={streakSummary.isActiveStreak ? 'currentColor' : 'none'} />
+              <Flame size={12} fill={streakSummary.isActiveStreak ? 'currentColor' : 'none'} aria-hidden="true" />
               <span>{streakSummary.currentStreak}d streak</span>
+              <span className="sr-only">{`, best ${streakSummary.longestStreak} days, ${streakSummary.consistencyRate}% consistency`}</span>
             </div>
           )}
           {item.priority !== 'medium' && (
@@ -233,7 +231,7 @@ export function ExecutionItemCard({
                   color:
                     activeReminder.status === 'snoozed'
                       ? 'var(--warning, #e67e22)'
-                      : 'var(--accent-primary, #c8f169)',
+                      : 'var(--text-secondary)',
                   flexShrink: 0,
                 }}
               />
@@ -242,7 +240,8 @@ export function ExecutionItemCard({
                 style={{
                   background: 'none',
                   border: 'none',
-                  padding: 0,
+                  padding: '0 4px',
+                  minHeight: '32px',
                   cursor: 'pointer',
                   color:
                     activeReminder.status === 'snoozed'
@@ -261,12 +260,11 @@ export function ExecutionItemCard({
                 type="button"
                 className="btn btn--ghost btn--sm"
                 style={{
-                  padding: '0 4px',
-                  height: '18px',
-                  lineHeight: '18px',
-                  fontSize: '10px',
+                  padding: '0 8px',
+                  minHeight: '32px',
+                  fontSize: '11px',
                   fontWeight: 600,
-                  borderRadius: '4px',
+                  borderRadius: '6px',
                 }}
                 onClick={(e) => {
                   e.stopPropagation()
@@ -285,13 +283,13 @@ export function ExecutionItemCard({
                 type="button"
                 className="btn btn--ghost btn--sm"
                 style={{
-                  padding: '0 4px',
-                  height: '18px',
-                  lineHeight: '18px',
-                  fontSize: '11px',
+                  padding: '0 8px',
+                  minHeight: '32px',
+                  minWidth: '32px',
+                  fontSize: '14px',
                   fontWeight: 700,
-                  borderRadius: '4px',
-                  color: 'var(--text-tertiary)',
+                  borderRadius: '6px',
+                  color: 'var(--text-secondary)',
                 }}
                 onClick={(e) => {
                   e.stopPropagation()
@@ -309,18 +307,21 @@ export function ExecutionItemCard({
             </div>
           )}
 
-          {!activeReminder && item.schedule?.reminder_time && (
+          {item.schedule?.reminder_time && (
             <div
               className="row"
-              title={`Scheduled daily reminder at ${item.schedule.reminder_time.slice(0, 5)}`}
+              title={`Scheduled time ${item.schedule.reminder_time.slice(0, 5)}`}
               style={{
                 gap: '4px',
                 fontSize: 'var(--text-meta)',
                 color: 'var(--text-secondary)',
               }}
             >
-              <Bell size={12} />
-              <span>{item.schedule.reminder_time.slice(0, 5)}</span>
+              <Clock size={12} aria-hidden="true" />
+              <span>
+                <span className="sr-only">Scheduled time </span>
+                {item.schedule.reminder_time.slice(0, 5)}
+              </span>
             </div>
           )}
 
@@ -329,8 +330,8 @@ export function ExecutionItemCard({
               type="button"
               className="btn btn--ghost btn--sm"
               style={{
-                padding: '0 6px',
-                height: '20px',
+                padding: '0 8px',
+                minHeight: '32px',
                 fontSize: '11px',
                 gap: '4px',
                 display: 'inline-flex',
@@ -399,10 +400,10 @@ export function ExecutionItemCard({
               className="btn btn--ghost btn--sm"
               style={{
                 padding: 0,
-                width: '28px',
-                minWidth: '28px',
-                minHeight: '28px',
-                height: '28px',
+                width: '36px',
+                minWidth: '36px',
+                minHeight: '36px',
+                height: '36px',
                 fontSize: '16px',
                 fontWeight: 700,
                 lineHeight: 1,
@@ -418,6 +419,7 @@ export function ExecutionItemCard({
               –
             </button>
             <span
+              aria-live="polite"
               style={{
                 fontSize: 'var(--text-caption)',
                 fontWeight: 600,
@@ -434,10 +436,10 @@ export function ExecutionItemCard({
               className="btn btn--ghost btn--sm"
               style={{
                 padding: 0,
-                width: '28px',
-                minWidth: '28px',
-                minHeight: '28px',
-                height: '28px',
+                width: '36px',
+                minWidth: '36px',
+                minHeight: '36px',
+                height: '36px',
                 fontSize: '16px',
                 fontWeight: 700,
                 lineHeight: 1,

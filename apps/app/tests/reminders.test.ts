@@ -217,6 +217,7 @@ describe('Smart Reminder Storage, Lifecycle & Consistency', () => {
     track_id: 'track-1',
     type: 'task',
     name: 'Deploy security audit',
+    description: null,
     status: 'todo',
     priority: 'high',
     start_date: null,
@@ -382,8 +383,10 @@ describe('Smart Reminder Storage, Lifecycle & Consistency', () => {
         ...mockItem,
         id: `item-${i}`,
         name: `Task ${i}`,
+        description: null,
       }
-      setReminderForItem(userId, item, 'exact_time', '2026-10-10T11:00:00.000Z')
+      // Scheduled at 10:00Z for 11:00Z, then swept at 12:00Z.
+      setReminderForItem(userId, item, 'exact_time', '2026-10-10T11:00:00.000Z', new Date('2026-10-10T10:00:00.000Z'))
     }
 
     const due = checkDueReminders(userId, base)

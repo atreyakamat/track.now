@@ -1,3 +1,11 @@
+// Fail closed: only runs against a bundle built with a fake Supabase project (see scripts/lib/e2eMock.cjs).
+const E2E_MOCK = require('./lib/e2eMock.cjs');
+E2E_MOCK.assertMockBuild();
+// Screenshots go to a temporary directory outside the repository (override with TRACKNOW_SCREENSHOT_DIR).
+const __shotDir = process.env.TRACKNOW_SCREENSHOT_DIR || require('path').join(require('os').tmpdir(), 'tracknow-e2e-screenshots');
+require('fs').mkdirSync(__shotDir, { recursive: true });
+const shotPath = (name) => require('path').join(__shotDir, name);
+
 const { spawn } = require('child_process');
 const http = require('http');
 const fs = require('fs');
@@ -8,6 +16,8 @@ function createSpaServer(distDir) {
   return http.createServer((req, res) => {
     let reqPath = req.url.split('?')[0];
     let filePath = path.join(distDir, reqPath);
+    // Confine to the build directory (no ../ path traversal out of dist).
+    if (!path.resolve(filePath).startsWith(path.resolve(distDir) + path.sep)) filePath = path.join(distDir, 'index.html');
     if (filePath.endsWith(path.sep) || reqPath === '/') {
       filePath = path.join(distDir, 'index.html');
     }
@@ -104,7 +114,7 @@ async function run() {
 
   const port = 4183;
   const server = createSpaServer(distDir);
-  await new Promise((resolve) => server.listen(port, resolve));
+  await new Promise((resolve) => server.listen(port, '127.0.0.1', resolve));
   console.log(`SPA server active at http://localhost:${port}`);
 
   const chromePath = await findChrome();
@@ -120,6 +130,7 @@ async function run() {
   const chromeProc = spawn(chromePath, [
     `--remote-debugging-port=${cdpPort}`,
     `--user-data-dir=${userDataDir}`,
+    '--host-resolver-rules=MAP *.supabase.co ~NOTFOUND, MAP *.supabase.in ~NOTFOUND',
     '--no-first-run',
     '--no-default-browser-check',
     '--headless=new',
@@ -368,7 +379,8 @@ async function run() {
       });
     } catch (err) {
       console.error('Fetch fulfill error:', err);
-      return cdp.send('Fetch.continueRequest', { requestId });
+      // Fail closed: an intercepted Supabase request must never reach the live network.
+      return cdp.send('Fetch.failRequest', { requestId, errorReason: 'BlockedByClient' });
     }
   });
 
@@ -386,7 +398,7 @@ async function run() {
   // Inject authenticated session and initial reminder
   await cdp.eval(`
     (() => {
-      localStorage.setItem('sb-bjejovuayqtxqhevvvuu-auth-token', JSON.stringify({
+      localStorage.setItem('${E2E_MOCK.AUTH_STORAGE_KEY}', JSON.stringify({
         access_token: 'fake-valid-jwt',
         refresh_token: 'fake-valid-refresh',
         expires_at: Math.floor(Date.now() / 1000) + 3600,
@@ -549,7 +561,7 @@ async function run() {
   const modalOptionsCheck = await cdp.eval(`
     (() => {
       const labels = Array.from(document.querySelectorAll('label'));
-      const timingLabel = labels.find(l => l.innerText.includes('Reminder Timing'));
+      const timingLabel = labels.find(l => l.innerText.toLowerCase().includes('reminder timing'));
       if (!timingLabel) return null;
       const select = document.getElementById(timingLabel.getAttribute('for'));
       if (!select) return null;
@@ -622,7 +634,7 @@ async function run() {
 
   // Take screenshot
   const planScreenshot = await cdp.send('Page.captureScreenshot', { format: 'png' });
-  const planImgPath = path.resolve(__dirname, '../scripts/screenshot_reminders_task_card.png');
+  const planImgPath = shotPath('screenshot_reminders_task_card.png');
   fs.writeFileSync(planImgPath, Buffer.from(planScreenshot.data, 'base64'));
   console.log(`Saved screenshot to ${planImgPath}`);
 

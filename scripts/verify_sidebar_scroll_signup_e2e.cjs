@@ -1,3 +1,11 @@
+// Fail closed: only runs against a bundle built with a fake Supabase project (see scripts/lib/e2eMock.cjs).
+const E2E_MOCK = require('./lib/e2eMock.cjs');
+E2E_MOCK.assertMockBuild();
+// Screenshots go to a temporary directory outside the repository (override with TRACKNOW_SCREENSHOT_DIR).
+const __shotDir = process.env.TRACKNOW_SCREENSHOT_DIR || require('path').join(require('os').tmpdir(), 'tracknow-e2e-screenshots');
+require('fs').mkdirSync(__shotDir, { recursive: true });
+const shotPath = (name) => require('path').join(__shotDir, name);
+
 const { spawn } = require('child_process');
 const http = require('http');
 const fs = require('fs');
@@ -8,6 +16,8 @@ function createSpaServer(distDir) {
   return http.createServer((req, res) => {
     let reqPath = req.url.split('?')[0];
     let filePath = path.join(distDir, reqPath);
+    // Confine to the build directory (no ../ path traversal out of dist).
+    if (!path.resolve(filePath).startsWith(path.resolve(distDir) + path.sep)) filePath = path.join(distDir, 'index.html');
     if (filePath.endsWith(path.sep) || reqPath === '/') {
       filePath = path.join(distDir, 'index.html');
     }
@@ -120,6 +130,7 @@ async function runSidebarAndSignupE2E() {
     `--remote-debugging-port=${cdpPort}`,
     '--headless=new',
     `--user-data-dir=${tempDir}`,
+    '--host-resolver-rules=MAP *.supabase.co ~NOTFOUND, MAP *.supabase.in ~NOTFOUND',
     '--no-first-run',
     '--no-default-browser-check',
     '--window-size=1280,900',
@@ -353,7 +364,7 @@ async function runSidebarAndSignupE2E() {
           token_type: 'bearer',
           user: ${JSON.stringify(state.user)}
         };
-        localStorage.setItem('sb-bjejovuayqtxqhevvvuu-auth-token', JSON.stringify(session));
+        localStorage.setItem('${E2E_MOCK.AUTH_STORAGE_KEY}', JSON.stringify(session));
       })()
     `);
     await cdpClient.send('Page.navigate', { url: `http://127.0.0.1:${port}/plans/plan-1` });
@@ -451,10 +462,10 @@ async function runSidebarAndSignupE2E() {
     }
 
     // Capture desktop screenshots
-    await cdpClient.captureScreenshot(path.resolve(__dirname, 'screenshot_desktop_short_viewport.png'));
+    await cdpClient.captureScreenshot(shotPath('screenshot_desktop_short_viewport.png'));
     await cdpClient.setViewport(1280, 900);
     await new Promise((r) => setTimeout(r, 100));
-    await cdpClient.captureScreenshot(path.resolve(__dirname, 'screenshot_desktop_sidebar_scroll.png'));
+    await cdpClient.captureScreenshot(shotPath('screenshot_desktop_sidebar_scroll.png'));
     console.log('✓ Desktop independent scrolling verified with captured screenshots.\n');
 
     // =========================================================================
@@ -510,7 +521,7 @@ async function runSidebarAndSignupE2E() {
     if (drawerMetrics.bodyOverflow !== 'hidden') throw new Error('Body scroll was not locked when drawer opened!');
     if (!drawerMetrics.hasCloseBtn) throw new Error('Drawer is missing accessible close button!');
 
-    await cdpClient.captureScreenshot(path.resolve(__dirname, 'screenshot_mobile_drawer.png'));
+    await cdpClient.captureScreenshot(shotPath('screenshot_mobile_drawer.png'));
 
     // Close mobile drawer
     await cdpClient.eval(`
@@ -522,7 +533,7 @@ async function runSidebarAndSignupE2E() {
     if (closedBodyOverflow === 'hidden') {
       throw new Error('Body scroll lock was not restored after closing drawer!');
     }
-    await cdpClient.captureScreenshot(path.resolve(__dirname, 'screenshot_mobile_today.png'));
+    await cdpClient.captureScreenshot(shotPath('screenshot_mobile_today.png'));
     console.log('✓ Mobile drawer scrolling, safe-area insets, and body lock verified.\n');
 
     // =========================================================================
@@ -566,7 +577,7 @@ async function runSidebarAndSignupE2E() {
     if (mismatchError !== 'Passwords do not match.') {
       throw new Error(`Expected "Passwords do not match.", got "${mismatchError}"`);
     }
-    await cdpClient.captureScreenshot(path.resolve(__dirname, 'screenshot_signup_validation_error.png'));
+    await cdpClient.captureScreenshot(shotPath('screenshot_signup_validation_error.png'));
 
     // 3.2 Duplicate submission prevention & 429 rate limit
     console.log('  Testing duplicate click submission and HTTP 429 rate limit...');
@@ -642,7 +653,7 @@ async function runSidebarAndSignupE2E() {
       throw new Error('Button was not restored after submission failure!');
     }
 
-    await cdpClient.captureScreenshot(path.resolve(__dirname, 'screenshot_signup_rate_limit_alert.png'));
+    await cdpClient.captureScreenshot(shotPath('screenshot_signup_rate_limit_alert.png'));
     console.log('✓ Duplicate submission prevention and HTTP 429 handling verified 100%.\n');
 
     console.log('[4/4] Finalizing verification and cleaning up...');

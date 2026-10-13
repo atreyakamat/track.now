@@ -14,3 +14,8 @@ scratch_chrome_user_data/
 *.dmp
 audit_screenshots/
 audit_findings.json
+codebase_dump.txt
+folder_list.txt
+
+# Supabase CLI local cache
+supabase/.temp/

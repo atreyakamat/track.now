@@ -1,3 +1,6 @@
+// Fail closed: only runs against a bundle built with a fake Supabase project (see scripts/lib/e2eMock.cjs).
+const E2E_MOCK = require('./lib/e2eMock.cjs');
+E2E_MOCK.assertMockBuild();
 const { spawn } = require('child_process');
 const http = require('http');
 const fs = require('fs');
@@ -123,7 +126,9 @@ async function runAudit() {
     '--no-sandbox',
     '--disable-gpu',
     '--disable-extensions',
-    '--user-data-dir=' + path.resolve(__dirname, '../scratch_chrome_user_data'),
+    '--host-resolver-rules=MAP *.supabase.co ~NOTFOUND, MAP *.supabase.in ~NOTFOUND',
+    // Always a fresh temporary profile outside the repository (never a saved browser profile).
+    '--user-data-dir=' + require('fs').mkdtempSync(path.join(require('os').tmpdir(), 'tracknow_responsive_')),
   ]);
 
   try {
@@ -276,7 +281,7 @@ async function runAudit() {
     appServer.close();
     // remove scratch user data dir
     try {
-      fs.rmSync(path.resolve(__dirname, '../scratch_chrome_user_data'), { recursive: true, force: true });
+      // Never touch the pre-existing scratch_chrome_user_data folder; this run used a temporary profile.
     } catch (e) {}
   }
 }

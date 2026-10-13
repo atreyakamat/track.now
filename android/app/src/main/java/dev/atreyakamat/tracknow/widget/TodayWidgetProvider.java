@@ -42,10 +42,13 @@ public class TodayWidgetProvider extends AppWidgetProvider {
         super.onReceive(context, intent);
         if ("dev.atreyakamat.tracknow.ACTION_REFRESH_WIDGET".equals(intent.getAction())) {
             AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
-            ComponentName thisWidget = new ComponentName(context, TodayWidgetProvider.class);
-            int[] allWidgetIds = appWidgetManager.getAppWidgetIds(thisWidget);
-            for (int widgetId : allWidgetIds) {
-                updateAppWidget(context, appWidgetManager, widgetId);
+            // Refresh both registered sizes (each manifest receiver needs its own class).
+            Class<?>[] providers = { TodayWidgetProvider.class, TodayWidgetMediumProvider.class };
+            for (Class<?> provider : providers) {
+                int[] ids = appWidgetManager.getAppWidgetIds(new ComponentName(context, provider));
+                for (int widgetId : ids) {
+                    updateAppWidget(context, appWidgetManager, widgetId);
+                }
             }
         }
     }

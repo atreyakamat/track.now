@@ -28,9 +28,10 @@
                 android:resource="@xml/widget_today_small_info" />
         </receiver>
 
-        <!-- Medium Widget (4x2) -->
+        <!-- Medium Widget (4x2). A receiver class may be declared only once, so the medium
+             size uses its own (trivial) subclass. -->
         <receiver
-            android:name=".widget.TodayWidgetProvider"
+            android:name=".widget.TodayWidgetMediumProvider"
             android:label="Track.now Today (Medium)"
             android:exported="true">
             <intent-filter>

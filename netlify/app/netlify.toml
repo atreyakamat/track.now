@@ -3,6 +3,18 @@
   command = "npm run build"
   publish = "dist"
 
+# React Router 7 and Vite 6 need Node 20+.
+[build.environment]
+  NODE_VERSION = "22"
+
+# Missing build assets must be a real 404 (not the SPA shell with 200), so browsers and the
+# service worker never treat index.html as a JavaScript/CSS file. Existing files are served
+# before redirects (no force), so this only applies to assets that do not exist.
+[[redirects]]
+  from = "/assets/*"
+  to = "/index.html"
+  status = 404
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
@@ -15,4 +27,4 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
-    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://*.supabase.in wss://*.supabase.co; img-src 'self' data: https:; frame-ancestors 'none';"
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://*.supabase.in wss://*.supabase.co; img-src 'self' data: https:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'; worker-src 'self'; manifest-src 'self';"

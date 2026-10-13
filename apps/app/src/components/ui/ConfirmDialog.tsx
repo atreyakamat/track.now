@@ -19,12 +19,25 @@ export function ConfirmDialog({
   return (
     <Modal
       open={open}
-      onClose={onCancel}
+      // While the confirmed action runs, Escape/backdrop must not hide the dialog.
+      onClose={() => {
+        if (!busy) onCancel()
+      }}
+      dismissible={!busy}
       title={title}
       actions={
         <>
-          <Button variant="ghost" onClick={onCancel} disabled={busy}>{cancelLabel}</Button>
-          <Button variant={destructive ? 'danger' : 'primary'} onClick={onConfirm} disabled={busy} data-autofocus>
+          {/* Destructive dialogs focus the safe choice first so a stray Enter cannot delete data. */}
+          <Button variant="ghost" onClick={onCancel} disabled={busy} data-autofocus={destructive ? true : undefined}>
+            {cancelLabel}
+          </Button>
+          <Button
+            variant={destructive ? 'danger' : 'primary'}
+            onClick={onConfirm}
+            disabled={busy}
+            aria-busy={busy}
+            data-autofocus={destructive ? undefined : true}
+          >
             {confirmLabel}
           </Button>
         </>

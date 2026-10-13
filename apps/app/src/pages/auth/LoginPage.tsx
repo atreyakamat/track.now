@@ -1,12 +1,14 @@
 import { useState, useRef } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { authService } from '@/features/auth/authService'
 import { Button, Input } from '@/components/ui'
+import { returnPathFromState } from '@/routes/returnPath'
 
 export function LoginPage() {
   const { signIn, notice, clearNotice } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -35,7 +37,7 @@ export function LoginPage() {
         document.activeElement.blur()
       }
       await signIn(email.trim(), password)
-      navigate('/dashboard', { replace: true })
+      navigate(returnPathFromState(location.state), { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to sign in')
     } finally {
@@ -60,7 +62,9 @@ export function LoginPage() {
 
     try {
       await authService.resetPasswordForEmail(email.trim())
-      setResetSuccess('Password reset instructions have been sent to your email.')
+      setResetSuccess(
+        'If an account exists for that email, a password reset link is on its way. Open it on this device to choose a new password.',
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send reset link')
     } finally {
@@ -95,8 +99,16 @@ export function LoginPage() {
 
         {isResetMode ? (
           <form onSubmit={handleResetPassword} className="auth__form" noValidate>
-            {resetSuccess && <div className="alert alert--success">{resetSuccess}</div>}
-            {error && <div className="alert alert--error">{error}</div>}
+            {resetSuccess && (
+              <div className="alert alert--success" role="status">
+                {resetSuccess}
+              </div>
+            )}
+            {error && (
+              <div className="alert alert--error" role="alert">
+                {error}
+              </div>
+            )}
 
             <Input
               name="email"
@@ -110,7 +122,7 @@ export function LoginPage() {
               autoFocus
             />
 
-            <Button type="submit" variant="primary" block disabled={busy}>
+            <Button type="submit" variant="primary" block disabled={busy} aria-busy={busy}>
               {busy ? 'Sending link…' : 'Send Reset Link'}
             </Button>
 
@@ -129,8 +141,16 @@ export function LoginPage() {
           </form>
         ) : (
           <form onSubmit={handleSubmit} className="auth__form" noValidate>
-            {notice && <div className="alert alert--info">{notice}</div>}
-            {error && <div className="alert alert--error">{error}</div>}
+            {notice && (
+              <div className="alert alert--info" role="status">
+                {notice}
+              </div>
+            )}
+            {error && (
+              <div className="alert alert--error" role="alert">
+                {error}
+              </div>
+            )}
 
             <Input
               name="email"
@@ -169,7 +189,7 @@ export function LoginPage() {
               </button>
             </div>
 
-            <Button type="submit" variant="primary" block disabled={busy}>
+            <Button type="submit" variant="primary" block disabled={busy} aria-busy={busy}>
               {busy ? 'Signing in…' : 'Sign In'}
             </Button>
           </form>

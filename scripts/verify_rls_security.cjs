@@ -42,6 +42,9 @@ if (!serviceKey) {
   process.exit(2);
 }
 
+// Fail closed: explicit per-project opt-in, never production (see scripts/lib/liveGuard.cjs).
+require('./lib/liveGuard.cjs').assertLiveTargetAllowed({ url, serviceKey, env, scriptName: 'verify_rls_security.cjs' });
+
 const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
 
 async function verifyFullIntegrationAndRLS() {
@@ -50,8 +53,8 @@ async function verifyFullIntegrationAndRLS() {
   console.log('================================================================');
 
   const ts = Date.now();
-  const emailA = `test.user.a.${ts}@tracknow.sec`;
-  const emailB = `test.user.b.${ts}@tracknow.sec`;
+  const emailA = `test.user.a.${ts}@tracknow.invalid`;
+  const emailB = `test.user.b.${ts}@tracknow.invalid`;
   const pass = `SecurePass!${ts}`;
   const todayStr = new Date().toISOString().split('T')[0];
 

@@ -9,7 +9,14 @@ import type {
 } from '@/types/domain'
 import { getTodayDateString } from '@/domain/dates'
 import { calcHabitStreak, type HabitStreakSummary } from '@/domain/streaks'
-import { unwrap } from './helpers'
+import {
+  STALE_DAY_MESSAGE,
+  effectiveCurrentCount,
+  isHabitCountStale,
+  isStaleDayWrite,
+  supportsCountDate,
+} from '@/domain/habitCounter'
+import { chunk, fetchAllPages, unwrap } from './helpers'
 
 export function mapExecutionItemRow(row: any): ExecutionItem {
   const rawSched = row.track_now_item_schedules ?? row.schedule
@@ -64,15 +71,22 @@ export async function listTodayExecutionItems(): Promise<ExecutionItem[]> {
 
   const activePlanIds = activePlans.map((p) => p.id)
 
-  const { data: items, error: itemsErr } = await supabase
-    .from('track_now_execution_items')
-    .select('*, track_now_item_schedules(*)')
-    .in('plan_id', activePlanIds)
-    .neq('status', 'archived')
-    .order('created_at', { ascending: true })
-
-  if (itemsErr) throw new Error(itemsErr.message)
-  return ((items || []) as any[]).map(mapExecutionItemRow)
+  const items: any[] = []
+  for (const planIds of chunk(activePlanIds)) {
+    const rows = await fetchAllPages<any>((from, to) =>
+      supabase
+        .from('track_now_execution_items')
+        .select('*, track_now_item_schedules(*)')
+        .in('plan_id', planIds)
+        .neq('status', 'archived')
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
+        .range(from, to),
+    )
+    items.push(...rows)
+  }
+  items.sort((a, b) => (a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : 0))
+  return items.map(mapExecutionItemRow)
 }
 
 export async function listExecutionItemsByTrack(trackId: string): Promise<ExecutionItem[]> {
@@ -147,12 +161,25 @@ export async function createExecutionItem(
       time_of_day: scheduleInput?.time_of_day || 'anytime',
       reminder_time: scheduleInput?.reminder_time || null,
     }
-    const { data: createdSched } = await supabase
+    const { data: createdSched, error: schedErr } = await supabase
       .from('track_now_item_schedules')
       .insert(schedPayload)
       .select()
       .maybeSingle()
-    item.schedule = createdSched as ItemSchedule | null
+    if (schedErr) {
+      // Never report a half-created item: roll the item back so the caller can retry cleanly.
+      const { error: rollbackErr } = await supabase
+        .from('track_now_execution_items')
+        .delete()
+        .eq('id', item.id)
+      if (rollbackErr) {
+        throw new Error(
+          `The item was created but its schedule could not be saved (${schedErr.message}). Edit the item to set its schedule.`,
+        )
+      }
+      throw new Error(`The item could not be created because its schedule failed to save (${schedErr.message}).`)
+    }
+    item.schedule = (createdSched as ItemSchedule | null) ?? null
   }
 
   return item
@@ -214,6 +241,75 @@ export async function updateExecutionItem(
   return mapExecutionItemRow(row)
 }
 
+/**
+ * Habits restart their counter every day. True when the stored count belongs to an
+ * earlier local day (from `count_date`, or the legacy `updated_at` heuristic) and the
+ * habit is not completed today. See domain/habitCounter.ts.
+ */
+export function shouldResetHabitCount(
+  item: Pick<ExecutionItem, 'type' | 'updated_at'> & Partial<Pick<ExecutionItem, 'count_date'>>,
+  completedToday: boolean,
+  now = new Date(),
+): boolean {
+  return isHabitCountStale(item, completedToday, now)
+}
+
+/** Fields that tie a written count to the day it belongs to (only when the column exists). */
+function countDayFields(item: ExecutionItem, dateStr: string): Partial<ExecutionItem> {
+  return supportsCountDate(item) ? { count_date: dateStr } : {}
+}
+
+/** True when a completion row exists for the item on the given local calendar date. */
+export async function hasCompletionOnDate(itemId: string, dateStr: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('track_now_item_completions')
+    .select('id')
+    .eq('item_id', itemId)
+    .eq('completed_date', dateStr)
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  return Boolean(data)
+}
+
+/**
+ * "Was done" before a mutation: for habits this is per-day truth from the completion
+ * log (status may still read 'done' from a previous day); for one-off items it is status.
+ */
+async function wasItemDoneBefore(item: ExecutionItem, dateStr: string): Promise<boolean> {
+  if (item.type === 'habit') return hasCompletionOnDate(item.id, dateStr)
+  return item.status === 'done'
+}
+
+/**
+ * Keeps the completion log consistent with a status transition. Failures are surfaced
+ * (never swallowed) so the UI can tell the user that history is out of sync.
+ */
+async function syncCompletionLog(
+  userId: string,
+  itemId: string,
+  dateStr: string,
+  wasDone: boolean,
+  willBeDone: boolean,
+  itemType?: ExecutionItem['type'],
+): Promise<void> {
+  try {
+    if (willBeDone && !wasDone) {
+      await recordCompletion(userId, itemId, undefined, dateStr)
+    } else if (!willBeDone && wasDone) {
+      if (itemType && itemType !== 'habit') {
+        // A one-off item has a single completion event; un-completing it (possibly on a
+        // later day) must remove it so history and analytics do not overstate finished work.
+        await deleteAllCompletionsForItem(itemId)
+      } else {
+        await deleteCompletionForDate(itemId, dateStr)
+      }
+    }
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err)
+    throw new Error(`Progress was saved, but completion history could not be updated (${reason}).`)
+  }
+}
+
 export async function updateItemProgress(
   itemId: string,
   newCount: number,
@@ -225,64 +321,92 @@ export async function updateItemProgress(
   const clampedCount = Math.max(0, newCount)
   const willBeDone = clampedCount >= targetCount
   const nextStatus: ItemStatus = willBeDone ? 'done' : 'todo'
-  const wasDone = currentItem.status === 'done'
   const dateStr = completedDate || getTodayDateString()
+  if (isStaleDayWrite(currentItem, dateStr)) throw new Error(STALE_DAY_MESSAGE)
+  const wasDone = userId ? await wasItemDoneBefore(currentItem, dateStr) : currentItem.status === 'done'
 
   const updated = await updateExecutionItem(itemId, {
     current_count: clampedCount,
     status: nextStatus,
+    ...countDayFields(currentItem, dateStr),
   })
 
   if (userId) {
-    if (willBeDone && !wasDone) {
-      await recordCompletion(userId, itemId, undefined, dateStr).catch((err) => {
-        console.warn('Could not record completion log on progress completion:', err)
-      })
-    } else if (!willBeDone && wasDone) {
-      await deleteCompletionForDate(itemId, dateStr).catch((err) => {
-        console.warn('Could not remove completion log on progress regress:', err)
-      })
-    }
+    await syncCompletionLog(userId, itemId, dateStr, wasDone, willBeDone, currentItem.type)
   }
 
   return updated
 }
 
+/** PostgREST reports a missing/unknown RPC signature as PGRST202 (schema cache miss). */
+export function isMissingRpcError(
+  error: { code?: string; message?: string; status?: number } | null | undefined,
+): boolean {
+  if (!error) return false
+  if (error.code === 'PGRST202') return true
+  const m = (error.message || '').toLowerCase()
+  return (
+    m.includes('could not find the function') ||
+    m.includes('function public.track_now_increment_item_count')
+  )
+}
+
 /**
  * Atomic relative increment/decrement counter mutation.
- * Attempts database-side RPC (with row-level lock) to prevent lost-update races.
- * Gracefully falls back to optimistic read-calculate-write if RPC is unavailable.
+ *
+ * Preferred path: the SECURITY DEFINER RPC `track_now_increment_item_count`, which
+ * derives the acting user from `auth.uid()` on the server (the client never sends a
+ * user id) and applies the change under a row lock to prevent lost updates.
+ *
+ * Fallback path: only when PostgREST reports that the function does not exist (the
+ * remediation migration has not been applied yet) we fall back to the RLS-protected
+ * read-calculate-write path. Any other RPC error (unauthorized, validation) is surfaced.
+ *
+ * @param resetCount Hint that a habit is on a new local day. Once `count_date` exists the
+ *   server (and the fallback path) decide from it and only use this hint for legacy rows.
  */
 export async function stepItemCount(
   itemId: string,
   delta: number,
   userId?: string,
   completedDate?: string,
+  resetCount?: boolean,
 ): Promise<ExecutionItem> {
   const dateStr = completedDate || getTodayDateString()
+  if (!Number.isInteger(delta) || delta === 0) {
+    throw new Error('Count change must be a non-zero whole number.')
+  }
+
   if (userId) {
-    try {
-      const { data, error } = await supabase.rpc('track_now_increment_item_count', {
-        p_item_id: itemId,
-        p_delta: delta,
-        p_user_id: userId,
-        p_completed_date: dateStr,
-      })
-      if (!error && data) {
-        return mapExecutionItemRow(data)
-      }
-    } catch {
-      // Fall through to safe client-side fallback
+    const { data, error } = await supabase.rpc('track_now_increment_item_count', {
+      p_item_id: itemId,
+      p_delta: delta,
+      p_completed_date: dateStr,
+      p_reset_count: Boolean(resetCount),
+    })
+    if (!error && data) {
+      return mapExecutionItemRow(data)
     }
+    if (error && !isMissingRpcError(error)) {
+      throw new Error(error.message || 'Could not update the item count.')
+    }
+    // RPC not deployed yet: continue with the RLS-protected client path below.
   }
 
   const currentItem = await getExecutionItem(itemId)
-  const isHabitUnfinishedNewDay =
-    currentItem.type === 'habit' &&
-    currentItem.status !== 'done' &&
-    currentItem.updated_at &&
-    getTodayDateString(new Date(currentItem.updated_at)) < dateStr
-  const baseCount = isHabitUnfinishedNewDay ? 0 : (currentItem.current_count ?? 0)
+  if (isStaleDayWrite(currentItem, dateStr)) throw new Error(STALE_DAY_MESSAGE)
+  let reset = false
+  if (currentItem.type === 'habit') {
+    const completedToday = userId
+      ? await hasCompletionOnDate(itemId, dateStr)
+      : currentItem.status === 'done'
+    // The authoritative count_date decides; the caller's hint only matters for legacy rows.
+    reset =
+      currentItem.count_date || resetCount === undefined
+        ? isHabitCountStale(currentItem, completedToday, new Date(`${dateStr}T12:00:00`))
+        : resetCount && !completedToday
+  }
+  const baseCount = reset ? 0 : (currentItem.current_count ?? 0)
   const nextCount = Math.max(0, baseCount + delta)
   return updateItemProgress(itemId, nextCount, userId, dateStr)
 }
@@ -296,30 +420,41 @@ export async function editExecutionItem(
   const currentItem = await getExecutionItem(itemId)
   const dateStr = completedDate || getTodayDateString()
 
-  // Determine updated fields
-  const targetCount =
-    input.target_count !== undefined
-      ? Math.max(1, input.target_count)
-      : Math.max(1, currentItem.target_count ?? 1)
+  // Count/completion state is only recomputed when the edit touches it. A plain rename,
+  // description or priority change must never change progress or completion history.
+  const touchesProgress =
+    input.target_count !== undefined ||
+    input.current_count !== undefined ||
+    (input.type !== undefined && input.type !== currentItem.type)
 
-  const currentCount =
-    input.current_count !== undefined
-      ? Math.max(0, input.current_count)
-      : Math.max(0, currentItem.current_count ?? 0)
+  const updates: Partial<ExecutionItem> = {}
+  if (input.unit !== undefined) updates.unit = input.unit?.trim() || null
 
-  const unit =
-    input.unit !== undefined ? (input.unit?.trim() || null) : currentItem.unit
+  let wasDone = false
+  let willBeDone = false
+  if (touchesProgress) {
+    if (isStaleDayWrite(currentItem, dateStr)) throw new Error(STALE_DAY_MESSAGE)
+    const targetCount =
+      input.target_count !== undefined
+        ? Math.max(1, input.target_count)
+        : Math.max(1, currentItem.target_count ?? 1)
+    wasDone = userId ? await wasItemDoneBefore(currentItem, dateStr) : currentItem.status === 'done'
+    // A habit's stored count may belong to an earlier day: today's base is then 0, so an
+    // edit on a new day can never carry yesterday's count (or completion) into today.
+    const currentCount =
+      input.current_count !== undefined
+        ? Math.max(0, input.current_count)
+        : effectiveCurrentCount(currentItem, currentItem.type === 'habit' && wasDone, new Date(`${dateStr}T12:00:00`))
 
-  // Canonical completion: current_count >= target_count
-  const willBeDone = currentCount >= targetCount
-  const wasDone = currentItem.status === 'done'
-  const nextStatus: ItemStatus = willBeDone ? 'done' : 'todo'
-
-  const updates: Partial<ExecutionItem> = {
-    target_count: targetCount,
-    current_count: currentCount,
-    unit,
-    status: nextStatus,
+    // Canonical completion: current_count >= target_count
+    willBeDone = currentCount >= targetCount
+    // Keep explicit non-terminal states (in_progress / archived) unless the edit completes the item.
+    const preservedStatus: ItemStatus =
+      currentItem.status === 'in_progress' || currentItem.status === 'archived' ? currentItem.status : 'todo'
+    updates.target_count = targetCount
+    updates.current_count = currentCount
+    updates.status = willBeDone ? 'done' : preservedStatus
+    Object.assign(updates, countDayFields(currentItem, dateStr))
   }
 
   if (input.name !== undefined) updates.name = input.name.trim()
@@ -327,26 +462,34 @@ export async function editExecutionItem(
   if (input.priority !== undefined) updates.priority = input.priority
   if (input.type !== undefined) updates.type = input.type
   if (input.due_date !== undefined) updates.due_date = input.due_date || null
-  if (input.start_date !== undefined) updates.start_date = input.start_date || null
+  // NOTE: track_now_execution_items has no start_date column; it is intentionally not persisted.
 
   const updated = await updateExecutionItem(itemId, updates)
 
-  // Persist schedule if provided
+  // Persist schedule if provided. A failure here is surfaced: the item fields were saved,
+  // but the caller must know the schedule was not.
   if (input.schedule) {
-    const savedSchedule = await saveItemSchedule(itemId, input.schedule)
-    updated.schedule = savedSchedule
+    try {
+      const savedSchedule = await saveItemSchedule(itemId, input.schedule)
+      updated.schedule = savedSchedule
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err)
+      throw new Error(`Item details were saved, but the schedule could not be updated (${reason}).`)
+    }
+  } else if (currentItem.type === 'habit' && input.type !== undefined && input.type !== 'habit') {
+    // The item is no longer a habit: remove its recurrence so it stops driving badges/reminders.
+    const { error: schedDelErr } = await supabase
+      .from('track_now_item_schedules')
+      .delete()
+      .eq('item_id', itemId)
+    if (schedDelErr) {
+      throw new Error(`Item details were saved, but its old habit schedule could not be removed (${schedDelErr.message}).`)
+    }
+    updated.schedule = null
   }
 
-  if (userId) {
-    if (willBeDone && !wasDone) {
-      await recordCompletion(userId, itemId, undefined, dateStr).catch((err) => {
-        console.warn('Could not record completion log on edit completion:', err)
-      })
-    } else if (!willBeDone && wasDone) {
-      await deleteCompletionForDate(itemId, dateStr).catch((err) => {
-        console.warn('Could not remove completion log on edit regress:', err)
-      })
-    }
+  if (userId && touchesProgress) {
+    await syncCompletionLog(userId, itemId, dateStr, wasDone, willBeDone, updates.type ?? currentItem.type)
   }
 
   return updated
@@ -396,16 +539,23 @@ export async function recordCompletion(
   }
 }
 
+/** Removes every completion row for an item (used when a one-off item is un-completed). */
+export async function deleteAllCompletionsForItem(itemId: string): Promise<void> {
+  const { error } = await supabase.from('track_now_item_completions').delete().eq('item_id', itemId)
+  if (error) throw new Error(error.message)
+}
+
 export async function deleteCompletionForDate(
   itemId: string,
   completedDate?: string,
 ): Promise<void> {
   const dateStr = completedDate || getTodayDateString()
-  await supabase
+  const { error } = await supabase
     .from('track_now_item_completions')
     .delete()
     .eq('item_id', itemId)
     .eq('completed_date', dateStr)
+  if (error) throw new Error(error.message)
 }
 
 export async function listCompletionsForDate(
@@ -438,12 +588,14 @@ export async function toggleHabitTodayCompletion(
 
 export async function toggleItemStatus(
   itemId: string,
-  currentStatus: ItemStatus,
+  _currentStatus: ItemStatus,
   userId?: string,
   completedDate?: string,
 ): Promise<ExecutionItem> {
-  const nextStatus: ItemStatus = currentStatus === 'done' ? 'todo' : 'done'
+  // Derive the transition from the freshly loaded row, not the caller's possibly stale copy,
+  // so double clicks / two tabs cannot invert the intended action.
   const currentItem = await getExecutionItem(itemId)
+  const nextStatus: ItemStatus = currentItem.status === 'done' ? 'todo' : 'done'
   const targetCount = Math.max(1, currentItem.target_count ?? 1)
   const nextCount = nextStatus === 'done' ? Math.max(targetCount, currentItem.current_count ?? 0) : 0
   const dateStr = completedDate || getTodayDateString()
@@ -451,21 +603,34 @@ export async function toggleItemStatus(
   const updated = await updateExecutionItem(itemId, {
     status: nextStatus,
     current_count: nextCount,
+    ...countDayFields(currentItem, dateStr),
   })
 
   if (userId) {
-    if (nextStatus === 'done') {
-      await recordCompletion(userId, itemId, undefined, dateStr).catch((err) => {
-        console.warn('Could not record completion log:', err)
-      })
-    } else {
-      await deleteCompletionForDate(itemId, dateStr).catch((err) => {
-        console.warn('Could not remove completion log on uncomplete:', err)
-      })
-    }
+    await syncCompletionLog(userId, itemId, dateStr, nextStatus !== 'done', nextStatus === 'done', currentItem.type)
   }
 
   return updated
+}
+
+/**
+ * Idempotently marks an item done (or not done). Unlike toggleItemStatus, the caller
+ * states the intended result, so an item already completed elsewhere (another tab or
+ * device) is left as is instead of being flipped back and losing its history.
+ */
+export async function setItemDone(
+  itemId: string,
+  done: boolean,
+  userId?: string,
+  completedDate?: string,
+): Promise<ExecutionItem> {
+  const currentItem = await getExecutionItem(itemId)
+  if (currentItem.type === 'habit') {
+    const target = Math.max(1, currentItem.target_count ?? 1)
+    return updateItemProgress(itemId, done ? target : 0, userId, completedDate)
+  }
+  if ((currentItem.status === 'done') === done) return currentItem
+  return toggleItemStatus(itemId, currentItem.status, userId, completedDate)
 }
 
 export async function deleteExecutionItem(itemId: string): Promise<void> {
@@ -487,19 +652,23 @@ export async function listCompletionsForItems(
     result[id] = []
   })
 
-  let query = supabase
-    .from('track_now_item_completions')
-    .select('item_id, completed_date')
-    .in('item_id', itemIds)
-
-  if (startDate) {
-    query = query.gte('completed_date', startDate)
+  const data: Array<{ item_id: string; completed_date: string }> = []
+  for (const ids of chunk(itemIds)) {
+    const rows = await fetchAllPages<{ item_id: string; completed_date: string }>((from, to) => {
+      let query = supabase
+        .from('track_now_item_completions')
+        .select('item_id, completed_date')
+        .in('item_id', ids)
+      if (startDate) query = query.gte('completed_date', startDate)
+      return query
+        .order('completed_date', { ascending: true })
+        .order('item_id', { ascending: true })
+        .range(from, to)
+    })
+    data.push(...rows)
   }
 
-  const { data, error } = await query
-  if (error) throw new Error(error.message)
-
-  ;(data || []).forEach((row: { item_id: string; completed_date: string }) => {
+  data.forEach((row) => {
     if (!result[row.item_id]) result[row.item_id] = []
     result[row.item_id].push(row.completed_date)
   })
@@ -524,7 +693,14 @@ export async function getHabitStreakSummaries(
 
   eligibleHabits.forEach((habit) => {
     const dates = completionsMap[habit.id] || []
-    result[habit.id] = calcHabitStreak(habit.id, habit.schedule, dates, now)
+    result[habit.id] = calcHabitStreak(
+      habit.id,
+      habit.schedule,
+      dates,
+      now,
+      undefined,
+      habit.created_at ? getTodayDateString(new Date(habit.created_at)) : null,
+    )
   })
 
   return result
@@ -538,20 +714,20 @@ export async function listUserDailyCompletionCounts(
   userId: string,
   startDate?: string,
 ): Promise<Record<string, number>> {
-  let query = supabase
-    .from('track_now_item_completions')
-    .select('completed_date')
-    .eq('user_id', userId)
-
-  if (startDate) {
-    query = query.gte('completed_date', startDate)
-  }
-
-  const { data, error } = await query
-  if (error) throw new Error(error.message)
+  const data = await fetchAllPages<{ completed_date: string }>((from, to) => {
+    let query = supabase
+      .from('track_now_item_completions')
+      .select('completed_date, item_id')
+      .eq('user_id', userId)
+    if (startDate) query = query.gte('completed_date', startDate)
+    return query
+      .order('completed_date', { ascending: true })
+      .order('item_id', { ascending: true })
+      .range(from, to)
+  })
 
   const counts: Record<string, number> = {}
-  ;(data || []).forEach((row: { completed_date: string }) => {
+  data.forEach((row) => {
     counts[row.completed_date] = (counts[row.completed_date] || 0) + 1
   })
 

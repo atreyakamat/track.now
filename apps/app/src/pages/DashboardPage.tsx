@@ -1,56 +1,87 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, Calendar, Clock, Plus, Target } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthProvider'
-import { listTracks, setTrackArchived } from '@/services/tracksService'
+import { listTracks } from '@/services/tracksService'
+import { setTrackArchivedWithCleanup } from '@/services/trackLifecycle'
+import { useToast } from '@/features/notifications/ToastContext'
 import { listItemSummaries, listPlans } from '@/services/plansService'
-import { listUserDailyCompletionCounts } from '@/services/executionService'
+import { listCompletionsForDate, listUserDailyCompletionCounts } from '@/services/executionService'
+import { addDays } from '@/domain/streaks'
 import { summarizeTrack, type TrackSummary } from '@/domain/progress'
-import { greeting } from '@/domain/dates'
+import { getTodayDateString, greeting } from '@/domain/dates'
 import { ButtonLink, EmptyState, ErrorState, LoadingState, PageHeader } from '@/components/ui'
 import { TrackCard } from '@/components/tracks/TrackCard'
 import { CalendarHeatmap } from '@/components/analytics/CalendarHeatmap'
 
 export function DashboardPage() {
   const { user, displayName } = useAuth()
+  const { showToast } = useToast()
+  const [heatmapError, setHeatmapError] = useState<string | null>(null)
   const [summaries, setSummaries] = useState<TrackSummary[]>([])
   const [dailyCompletionCounts, setDailyCompletionCounts] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busyTrackId, setBusyTrackId] = useState<string | null>(null)
 
-  const loadData = async () => {
+  const requestRef = useRef(0)
+  const userId = user?.id
+
+  // Each load gets an id; a slower, older response (e.g. a reload racing the first load,
+  // or an account switch) can never overwrite newer data or touch an unmounted page.
+  const loadData = useCallback(async () => {
+    const requestId = ++requestRef.current
+    const isCurrent = () => requestId === requestRef.current
     try {
       setLoading(true)
       setError(null)
-      const [tracks, plans, items, dailyCounts] = await Promise.all([
+      setHeatmapError(null)
+      const today = getTodayDateString()
+      const [tracks, plans, items, completedTodayIds, dailyCounts] = await Promise.all([
         listTracks(),
         listPlans(),
         listItemSummaries(),
-        user ? listUserDailyCompletionCounts(user.id).catch(() => ({})) : Promise.resolve({}),
+        userId ? listCompletionsForDate(userId, today) : Promise.resolve([] as string[]),
+        // Only the 12-week heatmap window is needed (plus the current partial week).
+        userId
+          ? listUserDailyCompletionCounts(userId, addDays(today, -7 * 13)).catch((err: unknown) => {
+              if (isCurrent()) setHeatmapError(err instanceof Error ? err.message : 'Could not load completion history.')
+              return null
+            })
+          : Promise.resolve({}),
       ])
+      if (!isCurrent()) return
 
-      const trackSummaries = tracks.map((track) => summarizeTrack(track, plans, items))
+      // Habits count as done only when completed today.
+      const options = { completedTodayIds: new Set(completedTodayIds) }
+      const trackSummaries = tracks.map((track) => summarizeTrack(track, plans, items, options))
       setSummaries(trackSummaries)
-      setDailyCompletionCounts(dailyCounts)
+      setDailyCompletionCounts(dailyCounts ?? {})
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load dashboard data')
+      if (isCurrent()) setError(err instanceof Error ? err.message : 'Failed to load dashboard data')
     } finally {
-      setLoading(false)
+      if (isCurrent()) setLoading(false)
     }
-  }
+  }, [userId])
 
   useEffect(() => {
-    loadData()
-  }, [user?.id])
+    void loadData()
+    return () => {
+      requestRef.current += 1 // invalidate in-flight loads on unmount / user change
+    }
+  }, [loadData])
 
   const handleToggleArchive = async (trackId: string, currentStatus: string) => {
     try {
       setBusyTrackId(trackId)
-      await setTrackArchived(trackId, currentStatus !== 'archived')
+      await setTrackArchivedWithCleanup(user?.id, trackId, currentStatus !== 'archived')
       await loadData()
     } catch (err) {
-      console.error('Failed to toggle archive:', err)
+      showToast({
+        title: 'Could not update the Track',
+        message: err instanceof Error ? err.message : 'Please try again.',
+        type: 'warning',
+      })
     } finally {
       setBusyTrackId(null)
     }
@@ -140,6 +171,11 @@ export function DashboardPage() {
 
           {/* Consistency & Habit Heatmap */}
           <section className="section" style={{ marginTop: 0 }}>
+            {heatmapError && (
+              <div className="alert alert--error" role="alert">
+                Completion history could not be loaded, so the heatmap below is incomplete: {heatmapError}
+              </div>
+            )}
             <CalendarHeatmap
               dailyCounts={dailyCompletionCounts}
               title="Execution & Habit Consistency"
@@ -181,11 +217,11 @@ export function DashboardPage() {
                 </Link>
               </div>
               <p className="t-caption" style={{ marginBottom: 'var(--space-3)' }}>
-                Periodic review cycles and reflection milestones across your life areas.
+                Weekly reviews and monthly reflections built from your real completions.
               </p>
               <div className="row" style={{ gap: 'var(--space-2)' }}>
                 <Link to="/reviews" className="btn btn--secondary btn--sm">
-                  View Review System
+                  Start a Review
                 </Link>
               </div>
             </div>

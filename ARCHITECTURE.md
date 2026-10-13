@@ -160,18 +160,60 @@ CREATE POLICY "Users can only manage their own data"
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 ```
-Even if a compromised or malicious client crafts an arbitrary Supabase API query with another user's UUID, PostgreSQL immediately rejects the request with an empty set or error.
+Even if a compromised or malicious client crafts an arbitrary Supabase API query with another user's UUID, RLS returns an empty set or an error for table access.
+
+**Exception — SECURITY DEFINER functions bypass RLS.** `public.track_now_increment_item_count` (added in
+`20261008000000`) trusted a client-supplied user id. The client no longer sends one, and
+`20261012000000_secure_increment_item_count_rpc.sql` (prepared, **not applied**) rebuilds the function
+around `auth.uid()` with a pinned `search_path` and least-privilege grants; `20261013000000` adds
+`count_date` so the server decides a habit's daily counter restart. Both were verified on a disposable local
+PostgreSQL cluster (`node scripts/verify_sql_local.cjs`), not on the live project. See `SECURITY_AUDIT.md`.
+
+**Habit counters.** A habit's `current_count` belongs to one local day (`count_date`). Shared rules live in
+`domain/habitCounter.ts` (effective count, stale-day detection) and are mirrored by the RPC; edits only touch
+count/status/history when count, target or type change.
 
 ### Authentication Flow
-1. User submits email/password to `supabase.auth.signUp()` or `supabase.auth.signInWithPassword()`.
-2. Supabase issues JWT access and refresh tokens stored securely in local browser storage via the Supabase client.
+1. User submits email/password to `supabase.auth.signUp()` or `supabase.auth.signInWithPassword()`. Forms block duplicate submissions and map rate-limit (HTTP 429) responses to clear messages.
+2. Supabase issues JWT access and refresh tokens stored in local browser storage via the Supabase client. The client uses the **PKCE** flow, so emailed links carry a one-time `?code=` usable only by the browser that requested them.
 3. The database trigger `on_auth_user_created_track_now` automatically inserts a corresponding row in `public.track_now_profiles`.
 4. `AuthProvider` listens to `supabase.auth.onAuthStateChange` to synchronize session state into React context without page reload.
+5. Password recovery: the email links to `/reset-password` (origin from `VITE_APP_URL` when set). The `PASSWORD_RECOVERY` event is recorded in a tab-scoped, one-hour marker; only such a session sees the new-password form, and route guards send it there from any page.
+6. Sign-out revokes the session server-side when possible, otherwise signs out locally and says so. Any sign-out or account switch wipes the previous user's reminders, widget snapshot, toasts and visible notifications.
+7. Protected routes remember the requested page; after login the user returns there (validated same-origin paths, re-checked after normalisation). Not after a manual sign-out. An unreachable server shows an offline retry screen instead of the login form.
+8. Routing: React Router 7 in library mode (`<BrowserRouter>`), no data router or SSR.
 
 ---
 
-## 6. Offline Readiness & PWA Structure
+## 6. PWA, Reminders & Device-Local Data
 
-- **Static Asset Caching:** Vite compiles production assets into fingerprinted chunks with CSS/JS hash filenames.
-- **Manifest:** `public/manifest.webmanifest` provides PWA metadata, color definitions, and standalone display configurations.
-- **Responsive Layout:** `AppShell` automatically switches between a persistent desktop sidebar navigation and an accessible bottom navigation bar on mobile viewports ($\le 768\text{px}$).
+- **Service worker (`public/sw.js`, v3):** network-first for navigations with an offline fallback to the cached
+  shell; the shell's assets are precached at install; cache-first for content-hashed `/assets/*` but never for
+  non-OK or HTML responses; assets of old deploys are pruned. Only same-origin GET requests are handled (Supabase
+  responses never are). Notification clicks accept same-origin paths only and route in-app via `postMessage`.
+- **Theme bootstrap:** `public/theme-init.js` (external so the CSP `script-src 'self'` allows it).
+- **Reminders:** `services/reminderService.ts` stores reminders per user in localStorage;
+  `services/webNotificationEngine.ts` checks every 20 s and on focus/visibility while the app is open.
+  In-app alerts show in the visible tab; browser notifications need permission and the Settings toggle. One
+  delivery across tabs (Web Locks / localStorage claim). Up to 3 reminders are shown per catch-up, the rest (and
+  anything more than a day late) as one summary. Habit reminders repeat on scheduled days. Before the first
+  sweep and every 10 minutes the engine reconciles reminders with the server (items deleted, archived or done
+  elsewhere); a failed load never cancels anything.
+  **Nothing fires while the browser is closed** — there is no Web Push sender.
+- **Daily briefing / overdue alert:** once a day at the chosen time, while the app is open.
+- **Device-local data:** reminders (`tracknow_reminders_<uid>`), notification preferences
+  (`tracknow_notification_prefs_<uid>`), review notes (`tracknow_reviews_<uid>`), widget snapshot
+  (`tracknow_widget_data_<uid>`). None of it syncs across devices.
+- **Native:** `android/` and `ios/` contain widget sources only; there is no Capacitor app or native build.
+- **Responsive Layout:** `AppShell` shows a persistent sidebar at ≥ 900 px and a top bar, drawer, and bottom
+  navigation below that.
+
+## 7. Analytics & Reviews
+
+- `domain/analytics.ts` and `domain/reviews.ts` are pure functions over Tracks, Plans, items, and the
+  completion log (`services/historyService.ts`). Empty data produces empty states, never sample numbers.
+- Progress everywhere (Plan, Track, Dashboard, Analytics) uses `domain/progress.ts`; habits count as
+  done only when completed today, and habits not scheduled today are left out of today's total.
+  History and item queries are paged (`services/helpers.ts#fetchAllPages`), so nothing is cut at 1000 rows.
+- Review notes are saved per user on the device (`services/reviewNotesStorage.ts`) because no reviews
+  table has been approved.

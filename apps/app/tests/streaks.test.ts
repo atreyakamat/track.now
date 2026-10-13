@@ -126,7 +126,20 @@ describe('Domain Streaks Engine - calcHabitStreak', () => {
     // 5 completions in 10 daily expected days -> 50%
     const dates = ['2026-10-01', '2026-10-02', '2026-10-03', '2026-10-04', '2026-10-05']
     const res = calcHabitStreak('item-1', { frequency: 'daily' }, dates, refDate, 10)
-    expect(res.consistencyRate).toBe(45) // 5 out of 11 days (Oct 8 minus 10 days to Oct 8 = 11 days)
+    // Window Sep 28..Oct 7: today (Oct 8) is still pending, so it is not a missed day.
+    expect(res.consistencyRate).toBe(50)
+  })
+
+  it('consistency starts at the habit creation day (new habit done every day = 100%)', () => {
+    const res = calcHabitStreak('item-1', { frequency: 'daily' }, ['2026-10-07', '2026-10-08'], refDate, 90, '2026-10-07')
+    expect(res.consistencyRate).toBe(100)
+  })
+
+  it('a pending today is not counted as missed, a completed today is counted', () => {
+    const pending = calcHabitStreak('item-1', { frequency: 'daily' }, ['2026-10-07'], refDate, 90, '2026-10-07')
+    expect(pending.consistencyRate).toBe(100)
+    const missedYesterday = calcHabitStreak('item-1', { frequency: 'daily' }, ['2026-10-08'], refDate, 90, '2026-10-07')
+    expect(missedYesterday.consistencyRate).toBe(50)
   })
 })
 

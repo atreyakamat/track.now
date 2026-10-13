@@ -5,7 +5,6 @@ import {
   listCompletionsForDate,
   toggleHabitTodayCompletion,
   deleteCompletionForDate,
-  recordCompletion,
 } from '@/services/executionService'
 import { supabase } from '@/lib/supabase/client'
 
@@ -21,6 +20,10 @@ vi.mock('@/lib/supabase/client', () => {
 describe('Execution Items — Domain Types & Database Row Mapping', () => {
   const validTypes: ItemType[] = ['habit', 'task', 'checklist', 'milestone', 'project']
   const validStatuses: ItemStatus[] = ['todo', 'in_progress', 'done', 'archived']
+
+  it('supports all 4 statuses', () => {
+    expect(validStatuses).toHaveLength(4)
+  })
   const validPriorities: ItemPriority[] = ['low', 'medium', 'high', 'urgent']
 
   it('supports all 5 primary execution item types', () => {

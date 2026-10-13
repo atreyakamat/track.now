@@ -1,119 +1,74 @@
-# Track.now — Roadmap & TODO Specification
+# Track.now — Roadmap & Status
 
-This document lays out the phased development roadmap for **Track.now**, from the current foundational release to advanced domain modules, analytics, and offline sync.
+Status legend: **Done** (implemented and covered by tests), **Partial** (works with stated limits),
+**Blocked** (needs an owner action or external dependency), **Future** (not started; out of v1 scope).
 
----
+Evidence for every "Done" item is in `RELEASE_READINESS.md` (commands, exit codes, test counts).
+Security findings and remediations are in `SECURITY_AUDIT.md`.
 
-## Current Status: Phase 1 (Foundation & Core Shell) — [COMPLETED]
-
-- [x] Clean architecture scaffolded with React 18, TypeScript, Vite 5, React Router v6.
-- [x] Complete removal of legacy Vue/Quasar/Firebase code.
-- [x] PostgreSQL relational schema with Row Level Security (RLS) policies.
-- [x] Design token system (warm cream light mode, near-black dark mode, MIDI/editorial aesthetic).
-- [x] Supabase Auth integration (email/password signup, login, session persistence, profile sync).
-- [x] 5 Predefined Track templates (Fitness, Finance, Career, Learning & Productivity, Business).
-- [x] Custom Track creation with custom colors and Lucide icons.
-- [x] Non-blocking duplicate track confirmation flow.
-- [x] Track and Plan lifecycle management (Active, Archive, Restore).
-- [x] Plan execution workspace with 5 Item Types (Habit, Task, Checklist, Milestone, Project).
-- [x] Real-time atomic completion toggling.
-- [x] Pure deterministic progress calculations across Items, Plans, and Tracks (0% faking).
-- [x] Today view with time-aware grouping (Overdue, Due Today, Anytime, Upcoming, Completed) and active-only scoping (`listTodayExecutionItems`).
-- [x] Database-level duplicate completion prevention via unique index `(item_id, completed_date)` and idempotent conflict resolution.
-- [x] Full responsive design verified across viewports (320px–1920px) with mobile bottom nav and dialog overflow protection.
-- [x] Security audited: zero hard-coded secrets or service_role keys in source code or client bundles.
-- [x] 100% passing Vitest test suite (75/75 unit/integration tests) for domain math, date scheduling, auth routing, numeric targets, and invariants.
-- [x] Zero-error TypeScript compilation and production build (`dist/`).
-- [ ] Live Supabase E2E multi-user journey and cross-tenant RLS isolation (BLOCKED pending remote execution of hardening migration `20261008000000_harden_constraints_and_rls.sql` and rotated administrative credential provisioning).
+> Note: the earlier `audit_findings.json` (zero findings) was a responsive screenshot audit only.
+> It was never a security or functional audit.
 
 ---
 
-## Phase 2: Execution Engine Expansion
+## v1 — Core product
 
-- [ ] **Habit Streaks & History Engine:**
-  - [ ] Implement streak calculator (current streak, longest streak, consistency percentage) using `item_completions`.
-  - [ ] Habit daily completion calendar heatmap in Plan workspace.
-  - [ ] Habit reset behavior based on `item_schedules.frequency` (daily, weekly, custom days).
-- [ ] **Numeric Target Progress:**
-  - [ ] Interactive counter controls (`-` / `+`) on cards with `target_count > 1` (e.g., 8 glasses of water, 50 pushups, 20 pages read).
-  - [ ] Automatic status transition to `'done'` when `current_count >= target_count`.
-- [ ] **Hierarchical Checklists & Subtasks:**
-  - [ ] Nested subtask items inside Projects and Tasks.
-  - [ ] Child task completion rolling up into parent task status.
-- [ ] **Drag & Drop Reordering:**
-  - [ ] Reorder Execution Items within a Plan via HTML5 drag-and-drop or pointer events.
-  - [ ] Persist `position` column updates to Supabase batch API.
+| Area | Status | Notes |
+| :--- | :--- | :--- |
+| Monorepo, two Netlify sites (landing + app) | Done | `apps/landing` has no Supabase dependency. |
+| Email/password auth, session restore, protected/public routes | Done | PKCE flow (no login CSRF via URL fragments). Offline sessions get a retry screen. Mocked tests only; live Auth was deliberately not exercised. |
+| Duplicate-submit guards and 429 / rate-limit messaging | Done | A frontend cannot remove the server-side Supabase limit. |
+| Password reset (request link + set new password page) | Partial | Form shown only for a recovery-link session; recovery sessions are routed to `/reset-password`. The owner must add it to the Supabase redirect allow-list; with PKCE the link must be opened on the device that requested it. |
+| Return to the intended page after login | Done | Validated same-origin paths only. |
+| Sign-out that cannot leave the user signed in when offline | Done | Falls back to local sign-out and says so. |
+| Tracks: create (templates/custom), edit, duplicate-name confirmation, archive, restore, delete | Done | Duplicate names allowed after confirmation. |
+| Plans: create, edit (date validation), archive, restore, delete | Done | Archive/delete also cancel device reminders. |
+| Execution items: habit, task, checklist, milestone, project — create/edit/delete | Done | Delete now asks for confirmation; schedule failures are never silent. |
+| Today view: Overdue / Due Today / Anytime / Upcoming / Completed Today | Done | Only active Tracks and Plans; midnight rollover reloads. |
+| Completion log, idempotent per item per day | Done | Unique index `(item_id, completed_date)`. |
+| Numeric targets with +/- stepper | Done | Atomic RPC once the prepared migrations are applied; RLS-protected fallback before that. Habits restart daily from `count_date` (renaming/editing a habit on a new day no longer carries yesterday's count or logs a fake completion). |
+| Progress rollups (item, plan, track, dashboard) | Done | Habits count as done only if completed today; habits not scheduled today are left out of today's total. Empty = 0%. History queries are paged (no 1000-row truncation). |
+| Habit streaks, consistency, calendar heatmap | Done | Rest days do not break streaks. "Monthly" habits are treated as daily (see Future). |
+| Smart reminders (all item types; in X time / X before / at time / custom) | Partial | Device-local; fire only while the app is open (see Reminders below). |
+| Daily briefing and overdue alerts | Partial | Once a day while the app is open; no background delivery. |
+| Settings: profile, theme, notification preferences, honest capability table | Done | |
+| Analytics v1 (trends, habit consistency, per-track progress, overdue, recent) | Done | Built only from real completions; no sample data. |
+| Reviews v1 (weekly review + monthly reflection) | Partial | Notes are stored on this device only (no table approved), per user; unsaved notes are kept when navigating away. "Mark done" is idempotent. |
+| PWA manifest + service worker (offline shell, notification click routing) | Partial | Shell + assets precached, old deploys pruned, in-app routing on notification click. No Web Push sender; SVG-only icon. |
+| Security remediation of `track_now_increment_item_count` + habit `count_date` | Blocked | Migrations `20261012000000` and `20261013000000` prepared and verified on a disposable local PostgreSQL (`node scripts/verify_sql_local.cjs`, 15/15); **not applied**; owner approval required. |
+| Live multi-user RLS verification | Blocked | Requires an isolated Supabase project and admin credentials; not run. |
 
----
+## Reminders — what actually works
 
-## Phase 3: Domain-Specific Track Modules
+| Situation | Delivery |
+| :--- | :--- |
+| App open, active tab | In-app alert always; system notification if enabled and permitted. |
+| App open, background tab | System notification if enabled and permitted and no other Track.now tab is visible; otherwise it waits for a visible tab. One delivery across tabs. |
+| Browser / installed app closed | Nothing fires. Due reminders appear on next open (3 individually, rest as a summary; anything more than 1 day late only in the summary). Reminders of items completed/deleted elsewhere are reconciled away first. |
+| Native Android / iOS | Not available — no native app is built. |
 
-Specialized widgets and domain-specific data models layered on top of core Tracks:
+## Blocked — owner actions
 
-### 3.1 Fitness Track
-- [ ] Workout split planner (e.g. Push/Pull/Legs, Upper/Lower).
-- [ ] Exercise weight/rep log tables for strength training.
-- [ ] Body metric tracking (weight, resting heart rate, recovery score) with sparkline trends.
+1. Review and apply `supabase/migrations/20261012000000_secure_increment_item_count_rpc.sql`, then `20261013000000_habit_daily_counter.sql` (see `RELEASE_READINESS.md`).
+2. Add `https://trackapp.atreyakamat.dev/reset-password` to Supabase Auth → URL Configuration → Redirect URLs.
+3. Investigate the live signup rate limit / bounced emails in the Supabase dashboard (Auth logs, SMTP settings).
+4. Run a cross-tenant RLS test against an isolated (non-production) Supabase project.
 
-### 3.2 Finance Track
-- [ ] Net worth and account balance snapshots.
-- [ ] Budget category ceilings vs actual monthly expenditures.
-- [ ] Debt snowball/avalanche payoff arc calculators.
+## Native mobile — Blocked
 
-### 3.3 Career Track
-- [ ] Quarterly OKR / deliverable milestones with measurable key results.
-- [ ] Skills inventory matrix (Proficiency ratings 1–5, practice goals).
-- [ ] Professional contact & networking cadence tracker.
+- `android/` contains widget sources only (no Gradle project, no `MainActivity`, no Capacitor app). No Android SDK on the build machine. The manifest's duplicate receiver declaration was fixed (medium size has its own subclass).
+- `ios/` contains SwiftUI widget sources only (no Xcode project, no app target, no App Group wiring). Requires macOS + Xcode.
+- No `@capacitor/*` packages are installed; the `TrackNowWidgetBridge` plugin referenced by `nativeMobileBridge.ts` is not implemented.
+- Next step: `npx cap add android` / `npx cap add ios`, implement the bridge plugin, wire App Group / SharedPreferences, then build and test on devices.
 
-### 3.4 Learning & Productivity Track
-- [ ] Reading list tracker (Currently reading, completed, key quotes).
-- [ ] Focus timer / Pomodoro session recorder integrated with task items.
-- [ ] Markdown notes and resource links attached to learning plans.
+## Future (not in v1)
 
-### 3.5 Business Track
-- [ ] Revenue milestone runways and monthly recurring revenue (MRR) goals.
-- [ ] Client acquisition pipeline board (Lead -> Pitched -> Won).
-- [ ] Sprint cadence and release milestone checklists.
-
----
-
-## Phase 4: Analytics, Heatmaps & Insights
-
-- [ ] **Global Activity Heatmap:**
-  - [ ] GitHub-style daily completion grid over a rolling 52-week window.
-  - [ ] Filtering heatmap by Track (e.g. show only Fitness habit completions).
-- [ ] **Execution Velocity Metrics:**
-  - [ ] Average days to task completion.
-  - [ ] Habit completion adherence rates by day of week (identifying weekend drop-offs).
-  - [ ] Ratio of created vs completed items per week.
-- [ ] **Track Balance Radar:**
-  - [ ] Visual distribution chart showing where user time and energy are concentrated across their active Tracks.
-
----
-
-## Phase 5: Reviews & Retrospectives
-
-- [ ] **Weekly Review Wizard:**
-  - [ ] Step-by-step guided flow:
-    1. Clean up overdue tasks (reschedule, complete, or discard).
-    2. Review habit consistency metrics from the past 7 days.
-    3. Celebrate completed milestones and plans.
-    4. Plan the top 3 focus priorities for the upcoming week.
-  - [ ] Save retrospective journal entry into a `reviews` table.
-- [ ] **Monthly Retrospective:**
-  - [ ] High-level progress audit of all active Tracks.
-  - [ ] Prompt to archive concluded plans and inaugurate new quarterly arcs.
-
----
-
-## Phase 6: Offline Sync, Realtime & Mobile Native
-
-- [ ] **Service Worker & Offline Cache:**
-  - [ ] Workbox service worker caching static assets and API read queries in IndexedDB.
-  - [ ] Offline mutation queue: record completions while offline and replay to Supabase when connectivity resumes.
-- [ ] **Supabase Realtime:**
-  - [ ] Realtime channel subscriptions on `execution_items` and `tracks` for instant multi-device synchronization.
-- [ ] **Mobile Experience Enhancements:**
-  - [ ] Native pull-to-refresh on mobile views.
-  - [ ] Haptic feedback on task completion using the Web Vibration API.
-  - [ ] Web Push Notifications for scheduled habits and reminders.
+- Hierarchical subtasks and checklist items inside projects.
+- Drag-and-drop reordering persisted to `position`.
+- True monthly habit cadence (schedule semantics + streak rules).
+- Synced review notes (needs an approved `track_now_reviews` table).
+- Web Push (VAPID keys, subscription storage, a sender service) for closed-browser reminders.
+- Offline mutation queue and Supabase Realtime multi-device sync.
+- Domain modules: fitness logs, finance balances, career OKRs, reading lists, business pipeline.
+- Track balance radar, created-vs-completed velocity over long horizons, average days to completion.
+- Raster/maskable PWA icons and Apple touch icon.

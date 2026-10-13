@@ -45,11 +45,15 @@ export async function listTrackTemplates(): Promise<TrackTemplate[]> {
   }))
 }
 
-export async function getTrack(trackId: string): Promise<Track> {
-  const row = unwrap(
-    await supabase.from('track_now_tracks').select('*').eq('id', trackId).single(),
-  ) as Track & { template_key?: string | null }
-  return mapTrackRow(row)
+/**
+ * Loads one track. Returns null when it does not exist or is not visible to the signed-in
+ * user (RLS hides other users' rows), so pages can show a real "not found" state.
+ * Network/database failures still throw.
+ */
+export async function getTrack(trackId: string): Promise<Track | null> {
+  const { data, error } = await supabase.from('track_now_tracks').select('*').eq('id', trackId).maybeSingle()
+  if (error) throw new Error(error.message)
+  return data ? mapTrackRow(data as Track & { template_key?: string | null }) : null
 }
 
 export async function createTrack(userId: string, input: NewTrackInput): Promise<Track> {
@@ -109,10 +113,9 @@ export async function setTrackArchived(trackId: string, archived: boolean): Prom
   unwrap(
     await supabase
       .from('track_now_tracks')
-      .update({
-        status: archived ? 'archived' : 'active',
-        archived_at: archived ? new Date().toISOString() : null,
-      })
+      // Archival is represented by `status` alone; the schema has no archived_at column
+      // (the updated_at trigger records when the transition happened).
+      .update({ status: archived ? 'archived' : 'active' })
       .eq('id', trackId)
       .select('id')
       .single(),

@@ -55,7 +55,7 @@ export function UnconfiguredNotice() {
             <ol style={{ paddingLeft: '1.25rem', margin: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <li>Copy <code>.env.example</code> to <code>.env.local</code>.</li>
               <li>Insert your project URL and public anon key from your Supabase dashboard.</li>
-              <li>Run the SQL migration in <code>supabase/migrations/20261005000000_init_schema.sql</code> in the Supabase SQL editor.</li>
+              <li>Run the SQL migration in <code>supabase/migrations/20261005000000_init_track_now.sql</code> (then the later migrations in order) in the Supabase SQL editor.</li>
               <li>Restart the Vite dev server.</li>
             </ol>
           </div>

@@ -121,6 +121,7 @@ Atomic actionable units attached to a Plan.
 | `due_date` | `date` | `NULL` | Target completion date |
 | `target_count` | `integer` | `DEFAULT 1 NOT NULL` | Target repetitions |
 | `current_count`| `integer` | `DEFAULT 0 NOT NULL` | Completed repetitions |
+| `count_date` | `date` | `NULL` | Local calendar day `current_count` belongs to (habits restart daily). Added by `20261013000000` (**not applied yet**); NULL = legacy/unknown |
 | `unit` | `text` | `NULL` | Metric unit (`reps`, `pages`, `$`) |
 | `position` | `integer` | `DEFAULT 0 NOT NULL` | Ordering rank in plan |
 | `created_at` | `timestamptz` | `DEFAULT now() NOT NULL` | Creation timestamp |
@@ -198,7 +199,7 @@ Every Track.now table enables Row Level Security with strict ownership verificat
 | Table | Permitted Roles | Condition (`USING` / `WITH CHECK`) |
 | :--- | :--- | :--- |
 | `track_now_profiles` | `authenticated` | `auth.uid() = id` |
-| `track_now_track_templates` | `anon, authenticated` | `true` (Public read-only catalog) |
+| `track_now_track_templates` | `anon, authenticated` | `true` (public read-only catalog; no write policy) |
 | `track_now_tracks` | `authenticated` | `auth.uid() = user_id` |
 | `track_now_plans` | `authenticated` | `auth.uid() = user_id` |
 | `track_now_execution_items` | `authenticated` | `auth.uid() = user_id` |
@@ -220,3 +221,45 @@ CREATE INDEX idx_track_now_items_plan_status ON public.track_now_execution_items
 CREATE INDEX idx_track_now_items_user_due ON public.track_now_execution_items(user_id, due_date);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_track_now_completions_item_date ON public.track_now_item_completions(item_id, completed_date);
 ```
+
+---
+
+## 6. Migrations
+
+| File | Purpose | Status |
+| :--- | :--- | :--- |
+| `20261005000000_init_track_now.sql` | Tables, RLS, triggers, template seed | Applied (per project history) |
+| `20261008000000_harden_constraints_and_rls.sql` | CHECK constraints, stricter item RLS, `track_now_increment_item_count` RPC | Applied (per project history) |
+| `20261012000000_secure_increment_item_count_rpc.sql` | Security fix for the RPC (see below) | **NOT APPLIED — requires explicit owner approval** |
+| `20261013000000_habit_daily_counter.sql` | Adds `count_date`, backfills it (updated_at trigger suspended), server-side daily restart in the RPC. Refuses to run before `20261012000000`. | **NOT APPLIED — requires explicit owner approval** |
+
+Local verification (disposable PostgreSQL cluster, never Supabase): `node scripts/verify_sql_local.cjs`.
+It reproduces the original exploit, applies the fixes, runs both verification scripts in
+`supabase/verification/`, re-applies every migration, runs a real 8-session concurrency test and checks
+`tracked_profiles` is untouched. Last result: 15/15 checks (22 + 14 SQL assertions) passed on PostgreSQL 18.3.
+
+## 7. `track_now_increment_item_count` RPC
+
+Atomically steps an item's `current_count`, sets `status`, and keeps `track_now_item_completions` in sync,
+under a row lock.
+
+- **Current (vulnerable) version:** `(p_item_id, p_delta, p_user_id, p_completed_date)`, SECURITY DEFINER,
+  filters by the caller-supplied `p_user_id`, no pinned `search_path`, default `EXECUTE` for `PUBLIC`.
+- **Prepared version:** `(p_item_id, p_delta, p_completed_date, p_reset_count)`; actor = `auth.uid()`;
+  `SET search_path = ''`; input validation; `EXECUTE` only for `authenticated` and `service_role`;
+  habit "done today" read from the completion log; `p_reset_count` restarts a habit's daily counter.
+- **After `20261013000000`:** same signature and grants. The server decides the daily restart from
+  `count_date` (restart when `count_date < p_completed_date` and the habit is not completed that day; a request
+  for an OLDER day than `count_date` is rejected with SQLSTATE 22023 and changes nothing). `p_reset_count` is
+  only used for rows whose `count_date` is NULL. Every call stores `count_date = p_completed_date`.
+- The app calls the prepared signature and, while it is missing, falls back to its RLS-protected path, which
+  applies the same rules client-side and writes `count_date` only when the column exists (detected from the
+  selected row, so an un-migrated schema never receives an unknown column).
+
+## 8. Notes on columns
+
+- Archival is represented by `status = 'archived'` only. There is no `archived_at` column (the app no longer
+  writes one). `updated_at` records when the change happened.
+- `track_now_execution_items` has no `start_date` column; the app does not persist one.
+- `track_now_item_schedules` has no unique constraint on `item_id`; the app updates the existing row when present.
+- `track_now_profiles` has no timezone column; dates use the device's local timezone.

@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Check, Plus } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { createTrack, listTracks, listTrackTemplates } from '@/services/tracksService'
 import { createPlan } from '@/services/plansService'
 import { createExecutionItem } from '@/services/executionService'
+import { getTodayDateString } from '@/domain/dates'
 import type { TemplateType, Track, TrackTemplate } from '@/types/domain'
 import {
   DEFAULT_TRACK_TEMPLATES,
@@ -17,15 +18,53 @@ import {
   Input,
   Modal,
   PageHeader,
+  RovingRadioGroup,
   Textarea,
 } from '@/components/ui'
 import { TrackIcon } from '@/components/tracks/TrackIcon'
+
+/** An existing Track that the new one would duplicate (same name, or same non-custom template). */
+export function findDuplicateTrack(tracks: Track[], name: string, template: TemplateType): Track | null {
+  const wanted = name.trim().toLowerCase()
+  return (
+    tracks.find(
+      (t) =>
+        t.name.trim().toLowerCase() === wanted ||
+        (template !== 'custom' && t.template_type === template),
+    ) ?? null
+  )
+}
+
+export type DuplicateCheckResult =
+  | { ok: true; duplicate: Track | null }
+  | { ok: false; error: string }
+
+/**
+ * Runs the duplicate-name check against a *fresh* Track list at submit time.
+ * If the list cannot be loaded the check fails closed (no create), instead of
+ * silently treating the user as having no Tracks.
+ */
+export async function checkForDuplicateTrack(
+  loadTracks: () => Promise<Track[]>,
+  name: string,
+  template: TemplateType,
+): Promise<DuplicateCheckResult> {
+  try {
+    const tracks = await loadTracks()
+    return { ok: true, duplicate: findDuplicateTrack(tracks, name, template) }
+  } catch (err) {
+    const reason = err instanceof Error && err.message ? ` (${err.message})` : ''
+    return {
+      ok: false,
+      error: `Could not check your existing Tracks${reason}, so nothing was created. Please try again.`,
+    }
+  }
+}
 
 export function NewTrackPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
 
-  const [existingTracks, setExistingTracks] = useState<Track[]>([])
   const [templates, setTemplates] = useState<TrackTemplate[]>([])
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateType>('fitness')
   const [name, setName] = useState('Fitness')
@@ -38,21 +77,25 @@ export function NewTrackPage() {
   const [seedStarterPlan, setSeedStarterPlan] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  // Synchronous lock: `busy` state lags a render, so double submits could start two creates.
+  const busyRef = useRef(false)
+  const templateLabelId = useId()
+  const colorLabelId = useId()
+  const iconLabelId = useId()
 
   // Duplicate warning state
   const [duplicateMatch, setDuplicateMatch] = useState<Track | null>(null)
   const [showDuplicateModal, setShowDuplicateModal] = useState(false)
+  const [duplicateConfirmed, setDuplicateConfirmed] = useState(false)
+  // Once the user picks a template or edits the form, late-arriving template data must not overwrite it.
+  const userTouchedRef = useRef(false)
 
   useEffect(() => {
-    listTracks()
-      .then((tracks) => setExistingTracks(tracks))
-      .catch((err) => console.error('Could not prefetch tracks:', err))
-
     listTrackTemplates()
       .then((tpls) => {
         setTemplates(tpls)
         const fitness = tpls.find((t) => t.template_type === 'fitness')
-        if (fitness) {
+        if (fitness && !userTouchedRef.current) {
           setName(fitness.name)
           setDescription(fitness.description)
           setIcon(fitness.icon)
@@ -60,10 +103,12 @@ export function NewTrackPage() {
           setSuggestedAreas(fitness.suggested_areas || [])
         }
       })
-      .catch((err) => console.error('Could not load templates:', err))
+      .catch(() => setTemplates([]))
   }, [])
 
   const handleSelectTemplate = (type: TemplateType) => {
+    userTouchedRef.current = true
+    setDuplicateConfirmed(false)
     setSelectedTemplate(type)
     if (type === 'custom') {
       setName('')
@@ -86,10 +131,24 @@ export function NewTrackPage() {
     }
   }
 
+  /** Runs `task` while holding the busy lock; ignores calls while another is running. */
+  const withBusy = async (task: () => Promise<void>) => {
+    if (busyRef.current) return
+    busyRef.current = true
+    setBusy(true)
+    try {
+      await task()
+    } finally {
+      busyRef.current = false
+      setBusy(false)
+    }
+  }
+
+  /** Creates the Track (and optional starter plan). Callers must hold the busy lock. */
   const performCreate = async () => {
     if (!user) return
+    let seedFailed = false
     try {
-      setBusy(true)
       setError(null)
       const track = await createTrack(user.id, {
         name: name.trim(),
@@ -110,7 +169,7 @@ export function NewTrackPage() {
               track_id: track.id,
               name: `${track.name} Kickoff`,
               description: `Starter plan seeded from ${tpl.name} template`,
-              start_date: new Date().toISOString().slice(0, 10),
+              start_date: getTodayDateString(),
               end_date: null,
             })
 
@@ -133,41 +192,49 @@ export function NewTrackPage() {
                 schedule: item.type === 'habit' ? { frequency: 'daily', time_of_day: 'anytime' } : null,
               })
             }
-          } catch (seedErr) {
-            console.error('Failed to seed starter plan/items:', seedErr)
+          } catch {
+            // The Track itself exists; tell the user on the next page instead of hiding it.
+            seedFailed = true
           }
         }
       }
 
-      navigate(`/tracks/${track.id}?created=true`, { replace: true })
+      navigate(`/tracks/${track.id}?created=true${seedFailed ? '&seed=failed' : ''}`, { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create Track')
-    } finally {
-      setBusy(false)
     }
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    if (busyRef.current) return
     if (!name.trim()) {
       setError('Track name is required.')
       return
     }
-
-    // Check for duplicate track by name or template
-    const match = existingTracks.find(
-      (t) =>
-        t.name.trim().toLowerCase() === name.trim().toLowerCase() ||
-        (selectedTemplate !== 'custom' && t.template_type === selectedTemplate),
-    )
-
-    if (match && !duplicateMatch) {
-      setDuplicateMatch(match)
-      setShowDuplicateModal(true)
+    if (name.trim().length > 80) {
+      setError('Track name must be 80 characters or fewer.')
       return
     }
 
-    performCreate()
+    void withBusy(async () => {
+      setError(null)
+      if (!duplicateConfirmed) {
+        // Always check against the current list; a failed or not-yet-finished preload must not skip it.
+        const check = await checkForDuplicateTrack(listTracks, name, selectedTemplate)
+        if (!check.ok) {
+          setError(check.error)
+          return
+        }
+        // Duplicate names are allowed, but only after an explicit confirmation.
+        if (check.duplicate) {
+          setDuplicateMatch(check.duplicate)
+          setShowDuplicateModal(true)
+          return
+        }
+      }
+      await performCreate()
+    })
   }
 
   return (
@@ -178,15 +245,19 @@ export function NewTrackPage() {
         description="Choose a template or build a custom life area."
       />
 
-      {error && <div className="alert alert--error" style={{ marginBottom: 'var(--space-4)' }}>{error}</div>}
+      {error && (
+        <div className="alert alert--error" role="alert" style={{ marginBottom: 'var(--space-4)' }}>
+          {error}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="form">
         {/* Step 1: Choose Template */}
         <div>
-          <label className="field__label" style={{ marginBottom: 'var(--space-3)', display: 'block' }}>
+          <h2 id={templateLabelId} className="field__label" style={{ marginBottom: 'var(--space-3)' }}>
             1. Select a Template
-          </label>
-          <div className="template-grid">
+          </h2>
+          <div className="template-grid" role="group" aria-labelledby={templateLabelId}>
             {(templates.length > 0 ? templates : DEFAULT_TRACK_TEMPLATES).map((t) => {
               const tKey = (t.key || t.template_type) as TemplateType
               const isSelected = selectedTemplate === tKey
@@ -198,22 +269,22 @@ export function NewTrackPage() {
                   aria-pressed={isSelected}
                   onClick={() => handleSelectTemplate(tKey)}
                 >
-                  <div className="row" style={{ justifyContent: 'space-between', width: '100%' }}>
-                    <div
+                  <span className="row" style={{ justifyContent: 'space-between', width: '100%' }}>
+                    <span
                       className="icon-chip"
                       style={{ background: t.color, color: '#141414' }}
                       aria-hidden="true"
                     >
                       <TrackIcon name={t.icon} size={20} />
-                    </div>
-                    {isSelected && <Check size={18} color="var(--text-primary)" />}
-                  </div>
-                  <div>
-                    <h3 className="t-h3">{t.name}</h3>
-                    <p className="card__desc" style={{ fontSize: 'var(--text-caption)', marginTop: '2px' }}>
+                    </span>
+                    {isSelected && <Check size={18} color="var(--text-primary)" aria-hidden="true" />}
+                  </span>
+                  <span className="template__text">
+                    <span className="t-h3 template__name">{t.name}</span>
+                    <span className="card__desc" style={{ fontSize: 'var(--text-caption)', marginTop: '2px' }}>
                       {t.description}
-                    </p>
-                  </div>
+                    </span>
+                  </span>
                 </button>
               )
             })}
@@ -225,37 +296,40 @@ export function NewTrackPage() {
               aria-pressed={selectedTemplate === 'custom'}
               onClick={() => handleSelectTemplate('custom')}
             >
-              <div className="row" style={{ justifyContent: 'space-between', width: '100%' }}>
-                <div
+              <span className="row" style={{ justifyContent: 'space-between', width: '100%' }}>
+                <span
                   className="icon-chip"
                   style={{ background: 'var(--surface-muted)', color: 'var(--text-primary)' }}
                   aria-hidden="true"
                 >
                   <Plus size={20} />
-                </div>
-                {selectedTemplate === 'custom' && <Check size={18} color="var(--text-primary)" />}
-              </div>
-              <div>
-                <h3 className="t-h3">Custom Track</h3>
-                <p className="card__desc" style={{ fontSize: 'var(--text-caption)', marginTop: '2px' }}>
+                </span>
+                {selectedTemplate === 'custom' && <Check size={18} color="var(--text-primary)" aria-hidden="true" />}
+              </span>
+              <span className="template__text">
+                <span className="t-h3 template__name">Custom Track</span>
+                <span className="card__desc" style={{ fontSize: 'var(--text-caption)', marginTop: '2px' }}>
                   Define your own life area, personal domain, or initiative.
-                </p>
-              </div>
+                </span>
+              </span>
             </button>
           </div>
         </div>
 
         {/* Step 2: Configure details */}
         <div className="stack" style={{ gap: 'var(--space-4)', borderTop: '1px solid var(--border)', paddingTop: 'var(--space-5)' }}>
-          <label className="field__label" style={{ display: 'block' }}>
-            2. Configure Track
-          </label>
+          <h2 className="field__label">2. Configure Track</h2>
 
           <Input
             label="Track Name"
             placeholder="e.g. Fitness, Career, Wealth, Creativity"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              userTouchedRef.current = true
+              setDuplicateConfirmed(false)
+              setName(e.target.value)
+            }}
+            maxLength={80}
             required
           />
 
@@ -310,51 +384,44 @@ export function NewTrackPage() {
           )}
 
           <div>
-            <label className="field__label" style={{ marginBottom: '8px', display: 'block' }}>
+            <span id={colorLabelId} className="field__label" style={{ marginBottom: '8px', display: 'block' }}>
               Accent Color
-            </label>
-            <div className="swatches" role="radiogroup" aria-label="Accent Color">
-              {TRACK_COLORS.map((swatch) => (
-                <button
-                  key={swatch.key}
-                  type="button"
-                  role="radio"
-                  aria-checked={color === swatch.value}
-                  className="swatch"
-                  style={{ '--swatch': swatch.value } as React.CSSProperties}
-                  onClick={() => setColor(swatch.value)}
-                  title={swatch.label}
-                  aria-label={swatch.label}
-                />
-              ))}
-            </div>
+            </span>
+            <RovingRadioGroup
+              labelledBy={colorLabelId}
+              className="swatches"
+              optionClassName="swatch"
+              value={color}
+              onChange={setColor}
+              options={TRACK_COLORS.map((swatch) => ({
+                value: swatch.value,
+                label: swatch.label,
+                style: { '--swatch': swatch.value } as React.CSSProperties,
+              }))}
+            />
           </div>
 
           <div>
-            <label className="field__label" style={{ marginBottom: '8px', display: 'block' }}>
+            <span id={iconLabelId} className="field__label" style={{ marginBottom: '8px', display: 'block' }}>
               Icon
-            </label>
-            <div className="icon-picker" role="radiogroup" aria-label="Track Icon">
-              {TRACK_ICONS.map((iconName) => (
-                <button
-                  key={iconName}
-                  type="button"
-                  role="radio"
-                  aria-checked={icon === iconName}
-                  className="icon-option"
-                  onClick={() => setIcon(iconName)}
-                  title={iconName}
-                  aria-label={iconName}
-                >
-                  <TrackIcon name={iconName} size={18} />
-                </button>
-              ))}
-            </div>
+            </span>
+            <RovingRadioGroup
+              labelledBy={iconLabelId}
+              className="icon-picker"
+              optionClassName="icon-option"
+              value={icon}
+              onChange={setIcon}
+              options={TRACK_ICONS.map((iconName) => ({
+                value: iconName,
+                label: iconName,
+                content: <TrackIcon name={iconName} size={18} aria-hidden="true" />,
+              }))}
+            />
           </div>
         </div>
 
         <div className="row" style={{ gap: 'var(--space-3)' }}>
-          <Button type="submit" variant="primary" disabled={busy}>
+          <Button type="submit" variant="primary" disabled={busy} aria-busy={busy || undefined}>
             {busy ? 'Creating Track…' : 'Create Track'}
           </Button>
           <ButtonLink to="/tracks" variant="ghost">
@@ -381,7 +448,8 @@ export function NewTrackPage() {
                 variant="secondary"
                 onClick={() => {
                   setShowDuplicateModal(false)
-                  performCreate()
+                  setDuplicateConfirmed(true)
+                  void withBusy(performCreate)
                 }}
               >
                 Create Another Track

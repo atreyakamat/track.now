@@ -78,6 +78,7 @@ export function PlanCard({ summary, trackColor, onToggleArchive, busy }: PlanCar
             onClick={() => onToggleArchive(plan.id, plan.status)}
             disabled={busy}
             title={isArchived ? 'Restore Plan' : 'Archive Plan'}
+            aria-label={isArchived ? `Restore plan ${plan.name}` : `Archive plan ${plan.name}`}
           >
             {isArchived ? <RotateCcw size={14} /> : <Archive size={14} />}
           </Button>

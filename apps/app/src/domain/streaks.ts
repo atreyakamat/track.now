@@ -61,6 +61,9 @@ export interface HabitStreakSummary {
  * 4. If yesterday (or the most recent scheduled day before today) was missed,
  *    current streak drops to 0 (or 1 if today was completed).
  * 5. Longest streak is the historical maximum consecutive expected periods completed.
+ * 6. Consistency = completed / scheduled days in the evaluation window, where the window
+ *    never starts before `trackedSince` (the habit's creation day) and today only counts
+ *    once it is completed (a pending day is not a miss).
  */
 export function calcHabitStreak(
   itemId: string,
@@ -68,6 +71,7 @@ export function calcHabitStreak(
   completedDates: string[],
   now = new Date(),
   evaluationDays = 90,
+  trackedSince?: string | null,
 ): HabitStreakSummary {
   const todayStr = getTodayDateString(now)
   const uniqueDates = Array.from(new Set(completedDates.filter(Boolean))).sort()
@@ -172,14 +176,21 @@ export function calcHabitStreak(
   longestStreak = Math.max(longestStreak, currentStreak)
 
   // --- Calculate Consistency Rate in Evaluation Window ---
-  const windowStart = addDays(todayStr, -evaluationDays)
+  let windowStart = addDays(todayStr, -evaluationDays)
+  // Never count days before the habit existed (but keep any earlier logged completion).
+  const firstTracked = [trackedSince ?? null, uniqueDates[0] ?? null]
+    .filter((d): d is string => Boolean(d))
+    .sort()[0]
+  if (trackedSince && firstTracked && firstTracked > windowStart) windowStart = firstTracked
   let expectedInWindow = 0
   let completedInWindow = 0
   let checkDate = windowStart
   safetyCounter = 0
 
-  while (checkDate <= todayStr && safetyCounter < 500) {
+  while (checkDate <= todayStr && safetyCounter < 1000) {
     safetyCounter++
+    // Today is still pending until it is completed; it is not a missed day.
+    if (checkDate === todayStr && !isCompletedToday) break
     if (isHabitScheduledForDate(schedule, checkDate)) {
       expectedInWindow++
       if (completionSet.has(checkDate)) {

@@ -4,6 +4,7 @@ import { AppShell } from '@/components/layout/AppShell'
 
 import { LoginPage } from '@/pages/auth/LoginPage'
 import { SignupPage } from '@/pages/auth/SignupPage'
+import { ResetPasswordPage } from '@/pages/auth/ResetPasswordPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { TracksPage } from '@/pages/tracks/TracksPage'
 import { NewTrackPage } from '@/pages/tracks/NewTrackPage'
@@ -19,6 +20,9 @@ import { NotFoundPage } from '@/pages/NotFoundPage'
 export function AppRoutes() {
   return (
     <Routes>
+      {/* Password recovery: reachable with the recovery session the email link creates */}
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
+
       {/* Public auth routes */}
       <Route element={<PublicRoute />}>
         <Route path="/login" element={<LoginPage />} />

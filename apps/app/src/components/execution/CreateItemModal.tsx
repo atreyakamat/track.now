@@ -1,7 +1,20 @@
-import { useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import type { ItemPriority, ItemType, NewExecutionItemInput } from '@/types/domain'
 import type { ReminderPreset } from '@/types/notifications'
 import { Button, Input, Modal, Select, Textarea } from '@/components/ui'
+import { useAuth } from '@/features/auth/AuthProvider'
+import { loadNotificationPreferences } from '@/services/notificationPreferences'
+import { previewReminder } from '@/services/reminderService'
+import { useToast } from '@/features/notifications/ToastContext'
+import {
+  DayPicker,
+  ReminderFields,
+  buildHabitScheduleInput,
+  needsActiveDays,
+  reminderHint,
+  resolveCreateReminderChoice,
+  type HabitFrequency,
+} from './ItemFormParts'
 
 interface CreateItemModalProps {
   open: boolean
@@ -15,6 +28,9 @@ interface CreateItemModalProps {
   ) => Promise<void>
 }
 
+const MAX_NAME = 200
+const MAX_TARGET = 100000
+
 export function CreateItemModal({
   open,
   onClose,
@@ -23,21 +39,48 @@ export function CreateItemModal({
   defaultType = 'task',
   onSubmit,
 }: CreateItemModalProps) {
+  const { user } = useAuth()
+  const { showToast } = useToast()
+  const formId = useId()
   const [type, setType] = useState<ItemType>(defaultType)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState<ItemPriority>('medium')
-  const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'custom'>('daily')
+  const [frequency, setFrequency] = useState<HabitFrequency>('daily')
   const [daysOfWeek, setDaysOfWeek] = useState<number[]>([1, 2, 3, 4, 5])
   const [timeOfDay, setTimeOfDay] = useState<'anytime' | 'morning' | 'afternoon' | 'evening'>('anytime')
   const [dueDate, setDueDate] = useState('')
-  const [targetCount, setTargetCount] = useState<number>(1)
-  const [unit, setUnit] = useState<string>('')
+  const [targetInput, setTargetInput] = useState('1')
+  const [unit, setUnit] = useState('')
   const [reminderPreset, setReminderPreset] = useState<ReminderPreset>('none')
-  const [exactReminderTime, setExactReminderTime] = useState<string>('')
-  const [habitReminderTime, setHabitReminderTime] = useState<string>('')
+  // False while the preset is still the Settings default (the user has not picked one).
+  const [presetTouched, setPresetTouched] = useState(false)
+  const [exactReminderTime, setExactReminderTime] = useState('')
+  const [habitReminderTime, setHabitReminderTime] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+
+  // Reset the form every time the dialog opens, honouring the requested type and the
+  // user's default reminder preference from Settings.
+  useEffect(() => {
+    if (!open) return
+    setType(defaultType)
+    setName('')
+    setDescription('')
+    setPriority('medium')
+    setFrequency('daily')
+    setDaysOfWeek([1, 2, 3, 4, 5])
+    setTimeOfDay('anytime')
+    setDueDate('')
+    setTargetInput('1')
+    setUnit('')
+    setReminderPreset(user?.id ? loadNotificationPreferences(user.id).defaultPreset : 'none')
+    setPresetTouched(false)
+    setExactReminderTime('')
+    setHabitReminderTime('')
+    setError(null)
+    setBusy(false)
+  }, [open, defaultType, user?.id])
 
   const toggleDay = (dayIndex: number) => {
     setDaysOfWeek((prev) =>
@@ -45,12 +88,42 @@ export function CreateItemModal({
     )
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!name.trim()) {
-      setError('Item name is required.')
-      return
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault()
+    if (busy) return
+    const trimmed = name.trim()
+    if (!trimmed) return setError('Item name is required.')
+    if (trimmed.length > MAX_NAME) return setError(`Item name must be ${MAX_NAME} characters or fewer.`)
+    const targetCount = Number(targetInput)
+    if (!Number.isInteger(targetCount) || targetCount < 1 || targetCount > MAX_TARGET) {
+      return setError(`Target quantity must be a whole number between 1 and ${MAX_TARGET}.`)
     }
+    if (type === 'habit' && needsActiveDays(frequency) && daysOfWeek.length === 0) {
+      return setError('Choose at least one active day for this habit.')
+    }
+
+    const schedule =
+      type === 'habit'
+        ? buildHabitScheduleInput({ frequency, daysOfWeek, timeOfDay, habitTime: habitReminderTime })
+        : null
+
+    const preview =
+      reminderPreset !== 'none'
+        ? previewReminder(
+            reminderPreset,
+            {
+              type,
+              due_date: dueDate || null,
+              schedule: schedule ? { id: '', item_id: '', created_at: '', ...schedule } : null,
+            },
+            reminderPreset === 'exact_time' ? exactReminderTime : undefined,
+          )
+        : null
+    // An untouched default preset that does not fit this item (e.g. "1 hour before" on an
+    // undated task) never blocks creation: the item is added without a reminder.
+    const choice = resolveCreateReminderChoice(reminderPreset, presetTouched, preview)
+    if (choice.error) return setError(choice.error)
+    const effectivePreset = choice.preset
 
     try {
       setBusy(true)
@@ -60,101 +133,86 @@ export function CreateItemModal({
           plan_id: planId,
           track_id: trackId,
           type,
-          name: name.trim(),
+          name: trimmed,
           description: description.trim() || null,
           priority,
           due_date: dueDate || null,
           target_count: targetCount,
           current_count: 0,
           unit: unit.trim() || null,
-          schedule:
-            type === 'habit'
-              ? {
-                  frequency,
-                  days_of_week: frequency === 'daily' ? null : daysOfWeek,
-                  time_of_day: timeOfDay,
-                  reminder_time: habitReminderTime || null,
-                }
-              : null,
+          schedule,
         },
-        reminderPreset !== 'none'
-          ? {
-              preset: reminderPreset,
-              exactTime: reminderPreset === 'exact_time' ? exactReminderTime : undefined,
-            }
+        effectivePreset !== 'none'
+          ? { preset: effectivePreset, exactTime: effectivePreset === 'exact_time' ? exactReminderTime : undefined }
           : undefined,
       )
-      setName('')
-      setDescription('')
-      setDueDate('')
-      setTargetCount(1)
-      setUnit('')
-      setReminderPreset('none')
-      setExactReminderTime('')
-      setHabitReminderTime('')
+      if (choice.skippedDefault) {
+        showToast({
+          id: 'create-default-reminder-skipped',
+          title: 'Added without a reminder',
+          message: 'Your default reminder needs a due date or schedule, so none was set for this item.',
+          type: 'info',
+        })
+      }
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create item')
+      setError(err instanceof Error ? err.message : 'Failed to create item.')
     } finally {
       setBusy(false)
     }
   }
 
-  const DAYS = [
-    { label: 'Sun', value: 0 },
-    { label: 'Mon', value: 1 },
-    { label: 'Tue', value: 2 },
-    { label: 'Wed', value: 3 },
-    { label: 'Thu', value: 4 },
-    { label: 'Fri', value: 5 },
-    { label: 'Sat', value: 6 },
-  ]
-
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={busy ? () => undefined : onClose}
       title="Add Execution Item"
       actions={
         <>
           <Button variant="ghost" onClick={onClose} disabled={busy}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={handleSubmit} disabled={busy}>
+          <Button type="submit" form={formId} variant="primary" disabled={busy} aria-busy={busy}>
             {busy ? 'Adding…' : 'Add Item'}
           </Button>
         </>
       }
     >
-      <form onSubmit={handleSubmit} className="form" style={{ gap: 'var(--space-3)' }}>
-        {error && <div className="alert alert--error">{error}</div>}
+      <form id={formId} onSubmit={handleSubmit} className="form" style={{ gap: 'var(--space-3)' }} noValidate>
+        {error && (
+          <div className="alert alert--error" role="alert">
+            {error}
+          </div>
+        )}
 
         <Select
-          label="Item Type"
+          label="Item type"
           value={type}
           onChange={(e) => setType(e.target.value as ItemType)}
-          hint="Habit, Task, Checklist item, Project, or Milestone"
+          hint="Habit, Task, Checklist item, Milestone, or Project"
         >
-          <option value="task">Task (Action to be done)</option>
-          <option value="habit">Habit (Recurring routine)</option>
-          <option value="checklist">Checklist Item (Quick verification)</option>
-          <option value="milestone">Milestone (Key target/marker)</option>
-          <option value="project">Project (Initiative with sub-steps)</option>
+          <option value="task">Task (action to be done)</option>
+          <option value="habit">Habit (recurring routine)</option>
+          <option value="checklist">Checklist item (quick verification)</option>
+          <option value="milestone">Milestone (key target)</option>
+          <option value="project">Project (larger initiative)</option>
         </Select>
 
         <Input
           label="Title"
-          placeholder="e.g. 5km morning run, complete portfolio draft"
+          placeholder="e.g. 5 km morning run, complete portfolio draft"
           value={name}
           onChange={(e) => setName(e.target.value)}
+          maxLength={MAX_NAME}
           required
         />
 
         <Textarea
-          label="Description (Optional)"
-          placeholder="Add context, parameters, or details..."
+          label="Description (optional)"
+          placeholder="Add context, parameters, or details…"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
+          maxLength={2000}
         />
 
         {type === 'habit' && (
@@ -169,25 +227,18 @@ export function CreateItemModal({
             }}
           >
             <span className="t-meta" style={{ fontWeight: 600 }}>
-              Habit Recurrence Schedule
+              Habit schedule
             </span>
             <div className="grid grid--2" style={{ gap: 'var(--space-3)' }}>
-              <Select
-                label="Frequency"
-                value={frequency}
-                onChange={(e) => setFrequency(e.target.value as 'daily' | 'weekly' | 'custom')}
-              >
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
-                <option value="custom">Custom Days</option>
+              <Select label="Frequency" value={frequency} onChange={(e) => setFrequency(e.target.value as HabitFrequency)}>
+                <option value="daily">Every day</option>
+                <option value="weekly">Weekly (chosen days)</option>
+                <option value="custom">Custom days</option>
               </Select>
-
               <Select
-                label="Time of Day"
+                label="Time of day"
                 value={timeOfDay}
-                onChange={(e) =>
-                  setTimeOfDay(e.target.value as 'anytime' | 'morning' | 'afternoon' | 'evening')
-                }
+                onChange={(e) => setTimeOfDay(e.target.value as 'anytime' | 'morning' | 'afternoon' | 'evening')}
               >
                 <option value="anytime">Anytime</option>
                 <option value="morning">Morning</option>
@@ -195,148 +246,54 @@ export function CreateItemModal({
                 <option value="evening">Evening</option>
               </Select>
             </div>
-
-            {frequency !== 'daily' && (
-              <div>
-                <label className="field__label" style={{ display: 'block', marginBottom: '6px' }}>
-                  Active Days
-                </label>
-                <div className="row" style={{ gap: '6px', flexWrap: 'wrap' }}>
-                  {DAYS.map((day) => {
-                    const selected = daysOfWeek.includes(day.value)
-                    return (
-                      <button
-                        key={day.value}
-                        type="button"
-                        onClick={() => toggleDay(day.value)}
-                        className={`btn btn--sm ${selected ? 'btn--primary' : 'btn--ghost'}`}
-                        style={{
-                          minWidth: '42px',
-                          padding: '4px 8px',
-                          fontSize: 'var(--text-caption)',
-                        }}
-                      >
-                        {day.label}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
+            {needsActiveDays(frequency) && <DayPicker value={daysOfWeek} onToggle={toggleDay} />}
           </div>
         )}
 
         <div className="grid grid--2" style={{ gap: 'var(--space-3)' }}>
           <Input
-            label="Target Quantity"
+            label="Target quantity"
             type="number"
+            inputMode="numeric"
             min="1"
+            max={String(MAX_TARGET)}
             step="1"
-            value={targetCount}
-            onChange={(e) => setTargetCount(Math.max(1, parseInt(e.target.value, 10) || 1))}
+            value={targetInput}
+            onChange={(e) => setTargetInput(e.target.value)}
             hint="Amount to complete (default 1)"
           />
-
           <Input
-            label="Unit (Optional)"
-            placeholder="e.g. reps, pages, km, min, glasses"
+            label="Unit (optional)"
+            placeholder="e.g. reps, pages, km"
             value={unit}
             onChange={(e) => setUnit(e.target.value)}
-            hint="Measurement unit"
+            maxLength={30}
           />
         </div>
 
         <div className="grid grid--2" style={{ gap: 'var(--space-3)' }}>
-          <Select
-            label="Priority"
-            value={priority}
-            onChange={(e) => setPriority(e.target.value as ItemPriority)}
-          >
+          <Select label="Priority" value={priority} onChange={(e) => setPriority(e.target.value as ItemPriority)}>
             <option value="low">Low</option>
             <option value="medium">Medium</option>
             <option value="high">High</option>
             <option value="urgent">Urgent</option>
           </Select>
-
-          <Input
-            label="Due Date (Optional)"
-            type="date"
-            value={dueDate}
-            onChange={(e) => setDueDate(e.target.value)}
-          />
+          <Input label="Due date (optional)" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
         </div>
 
-        <div
-          className="stack"
-          style={{
-            padding: 'var(--space-3)',
-            background: 'var(--surface-muted)',
-            borderRadius: 'var(--radius-md)',
-            border: '1px solid var(--border)',
-            gap: 'var(--space-3)',
+        <ReminderFields
+          preset={reminderPreset}
+          onPresetChange={(preset) => {
+            setPresetTouched(true)
+            setReminderPreset(preset)
           }}
-        >
-          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-            <span className="t-meta" style={{ fontWeight: 600 }}>
-              Smart Reminders
-            </span>
-            <span className="t-caption" style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
-              Client-side / device-local
-            </span>
-          </div>
-
-          <div className="grid grid--2" style={{ gap: 'var(--space-3)' }}>
-            <Select
-              label="Reminder Timing"
-              value={reminderPreset}
-              onChange={(e) => setReminderPreset(e.target.value as ReminderPreset)}
-              hint={
-                reminderPreset.endsWith('_before') && !dueDate && type !== 'habit'
-                  ? 'Set a due date so Track.now knows when to alert you before.'
-                  : reminderPreset.endsWith('_in')
-                  ? 'Alert triggers countdown relative to right now.'
-                  : undefined
-              }
-            >
-              <option value="none">No reminder (Default)</option>
-              <optgroup label="From Now (Countdown)">
-                <option value="10m_in">In 10 minutes</option>
-                <option value="30m_in">In 30 minutes</option>
-                <option value="1h_in">In 1 hour</option>
-                <option value="2h_in">In 2 hours</option>
-              </optgroup>
-              <optgroup label="Relative to Due / Scheduled Time">
-                <option value="scheduled_time">At scheduled time</option>
-                <option value="10m_before">10 minutes before due time</option>
-                <option value="30m_before">30 minutes before due time</option>
-                <option value="1h_before">1 hour before due time</option>
-                <option value="2h_before">2 hours before due time</option>
-              </optgroup>
-              <optgroup label="Custom">
-                <option value="exact_time">Custom date & time…</option>
-              </optgroup>
-            </Select>
-
-            {reminderPreset === 'exact_time' && (
-              <Input
-                label="Reminder Date & Time"
-                type="datetime-local"
-                value={exactReminderTime}
-                onChange={(e) => setExactReminderTime(e.target.value)}
-                required
-              />
-            )}
-
-            {type === 'habit' && reminderPreset === 'scheduled_time' && (
-              <Input
-                label="Scheduled Habit Time"
-                type="time"
-                value={habitReminderTime}
-                onChange={(e) => setHabitReminderTime(e.target.value)}
-              />
-            )}
-          </div>
-        </div>
+          exactTime={exactReminderTime}
+          onExactTimeChange={setExactReminderTime}
+          showHabitTime={type === 'habit'}
+          habitTime={habitReminderTime}
+          onHabitTimeChange={setHabitReminderTime}
+          hint={reminderHint(reminderPreset, Boolean(dueDate), type === 'habit', !presetTouched)}
+        />
       </form>
     </Modal>
   )

@@ -13,7 +13,7 @@
   --surface-raised: #ffffff;
   --text-primary: #141414;
   --text-secondary: #6b665c;
-  --text-tertiary: #9a9487;
+  --text-tertiary: #716b5e;
   --border: #ddd5c5;
   --border-strong: #c4bba8;
 
@@ -29,6 +29,7 @@
   --success: #2f7d4f;
   --warning: #b7791f;
   --danger: #c0392b;
+  --danger-text: #ffffff;
   --focus-ring: #141414;
 
   /* Palette available to Tracks (stored by key, e.g. "lime") */
@@ -76,7 +77,7 @@
   --surface-raised: #1d1d19;
   --text-primary: #f4efe6;
   --text-secondary: #a8a396;
-  --text-tertiary: #77736a;
+  --text-tertiary: #8f8a7f;
   --border: #2c2c27;
   --border-strong: #46463f;
   --control-bg: #f4efe6;
@@ -85,6 +86,7 @@
   --success: #6fcf97;
   --warning: #e0a94b;
   --danger: #ef7a6c;
+  --danger-text: #141414;
   --focus-ring: #f4efe6;
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 40%);
   --shadow-md: 0 8px 24px rgb(0 0 0 / 45%);
@@ -99,7 +101,7 @@
     --surface-raised: #1d1d19;
     --text-primary: #f4efe6;
     --text-secondary: #a8a396;
-    --text-tertiary: #77736a;
+    --text-tertiary: #8f8a7f;
     --border: #2c2c27;
     --border-strong: #46463f;
     --control-bg: #f4efe6;
@@ -108,6 +110,7 @@
     --success: #6fcf97;
     --warning: #e0a94b;
     --danger: #ef7a6c;
+    --danger-text: #141414;
     --focus-ring: #f4efe6;
     --shadow-sm: 0 1px 2px rgb(0 0 0 / 40%);
     --shadow-md: 0 8px 24px rgb(0 0 0 / 45%);

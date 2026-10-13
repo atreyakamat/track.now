@@ -1,3 +1,6 @@
+// Fail closed: only runs against a bundle built with a fake Supabase project (see scripts/lib/e2eMock.cjs).
+const E2E_MOCK = require('./lib/e2eMock.cjs');
+E2E_MOCK.assertMockBuild();
 const { spawn } = require('child_process');
 const http = require('http');
 const fs = require('fs');
@@ -9,6 +12,8 @@ function createSpaServer(distDir) {
   return http.createServer((req, res) => {
     let reqPath = req.url.split('?')[0];
     let filePath = path.join(distDir, reqPath);
+    // Confine to the build directory (no ../ path traversal out of dist).
+    if (!path.resolve(filePath).startsWith(path.resolve(distDir) + path.sep)) filePath = path.join(distDir, 'index.html');
     if (filePath.endsWith(path.sep) || reqPath === '/') {
       filePath = path.join(distDir, 'index.html');
     }
@@ -108,6 +113,7 @@ async function runNumericBrowserE2E() {
     `--remote-debugging-port=${cdpPort}`,
     '--headless=new',
     `--user-data-dir=${tempDir}`,
+    '--host-resolver-rules=MAP *.supabase.co ~NOTFOUND, MAP *.supabase.in ~NOTFOUND',
     '--no-first-run',
     '--no-default-browser-check',
     '--window-size=1280,900',
@@ -366,7 +372,8 @@ async function runNumericBrowserE2E() {
         });
       } catch (err) {
         console.error('Fetch intercept error:', err);
-        await cdpClient.send('Fetch.continueRequest', { requestId });
+        // Fail closed: an intercepted Supabase request must never reach the live network.
+        await cdpClient.send('Fetch.failRequest', { requestId, errorReason: 'BlockedByClient' });
       }
     });
 
@@ -386,7 +393,7 @@ async function runNumericBrowserE2E() {
           token_type: 'bearer',
           user: ${JSON.stringify(state.user)}
         };
-        localStorage.setItem('sb-bjejovuayqtxqhevvvuu-auth-token', JSON.stringify(session));
+        localStorage.setItem('${E2E_MOCK.AUTH_STORAGE_KEY}', JSON.stringify(session));
       })()
     `);
 

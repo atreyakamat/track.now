@@ -1,6 +1,6 @@
 import type { ExecutionItem } from '@/types/domain'
 import type { WidgetDataPayload, WidgetItemSummary, WidgetTodayProgress } from '@/types/widget'
-import { getTodayDateString, isOverdue } from '@/domain/dates'
+import { getTodayDateString, isHabitScheduledForToday, isOverdue } from '@/domain/dates'
 import type { HabitStreakSummary } from '@/domain/streaks'
 import { syncNativeWidgetData, clearNativeWidgetData } from './nativeMobileBridge'
 
@@ -10,38 +10,59 @@ export function getWidgetStorageKey(userId: string): string {
   return `${WIDGET_STORAGE_PREFIX}${userId}`
 }
 
+export type WidgetCompletionContext =
+  | Record<string, HabitStreakSummary>
+  | string[]
+  | { completedTodayIds: string[]; streaks?: Record<string, HabitStreakSummary> }
+
 /**
- * Builds a clean, minimal, versioned widget projection from execution items.
+ * Builds a clean, minimal, versioned widget projection of TODAY's queue.
  * Strictly free of passwords, tokens, or sensitive account information.
+ *
+ * "Today" means: habits scheduled today (or completed today), plus one-off items that are
+ * open and due today/overdue/undated, plus one-off items completed today. Items finished
+ * on earlier days and future-dated items are not counted, so the percentage is honest.
  */
 export async function buildWidgetDataPayload(
   userId: string,
   items: ExecutionItem[],
-  streaksOrCompleted?: Record<string, HabitStreakSummary> | string[],
+  context?: WidgetCompletionContext,
   dateStr = getTodayDateString(),
   now = new Date(),
 ): Promise<WidgetDataPayload> {
-  let todayCompletedIds: string[] = []
-  let activeStreakDays = 0
+  const completed = new Set<string>()
+  let streaks: Record<string, HabitStreakSummary> | undefined
+  if (Array.isArray(context)) {
+    context.forEach((id) => completed.add(id))
+  } else if (context && Array.isArray((context as { completedTodayIds?: unknown }).completedTodayIds)) {
+    const ctx = context as { completedTodayIds: string[]; streaks?: Record<string, HabitStreakSummary> }
+    ctx.completedTodayIds.forEach((id) => completed.add(id))
+    streaks = ctx.streaks
+  } else if (context) {
+    streaks = context as Record<string, HabitStreakSummary>
+  }
 
-  if (Array.isArray(streaksOrCompleted)) {
-    todayCompletedIds = streaksOrCompleted
-  } else if (streaksOrCompleted && typeof streaksOrCompleted === 'object') {
-    Object.values(streaksOrCompleted).forEach((s) => {
-      if (s.isCompletedToday) {
-        todayCompletedIds.push(s.itemId)
-      }
-      if (s.isActiveStreak && s.currentStreak > activeStreakDays) {
-        activeStreakDays = s.currentStreak
-      }
+  let activeStreakDays = 0
+  if (streaks) {
+    Object.values(streaks).forEach((s) => {
+      if (s.isCompletedToday) completed.add(s.itemId)
+      if (s.isActiveStreak && s.currentStreak > activeStreakDays) activeStreakDays = s.currentStreak
     })
   }
 
-  const totalItems = items.length
-  const completedCount = items.filter(
-    (item) => todayCompletedIds.includes(item.id) || item.status === 'done',
-  ).length
+  // Completion "today" comes from the completion log (track_now_item_completions).
+  const isDoneToday = (item: ExecutionItem) => completed.has(item.id)
 
+  const todayItems = items.filter((item) => {
+    if (item.status === 'archived') return false
+    if (item.type === 'habit') return completed.has(item.id) || isHabitScheduledForToday(item.schedule, now)
+    if (completed.has(item.id)) return true
+    if (item.status === 'done') return false // finished on an earlier day
+    return !item.due_date || item.due_date <= dateStr
+  })
+
+  const totalItems = todayItems.length
+  const completedCount = todayItems.filter(isDoneToday).length
   const percent = totalItems > 0 ? Math.min(100, Math.round((completedCount / totalItems) * 100)) : 0
   const statusText = totalItems > 0 ? `${completedCount} of ${totalItems} done` : 'No items scheduled'
 
@@ -57,8 +78,8 @@ export async function buildWidgetDataPayload(
   }
 
   // Map items to lightweight widget summaries
-  const summaries: WidgetItemSummary[] = items.map((item) => {
-    const isDone = todayCompletedIds.includes(item.id) || item.status === 'done'
+  const summaries: WidgetItemSummary[] = todayItems.map((item) => {
+    const isDone = isDoneToday(item)
     const itemOverdue = !isDone && isOverdue(item.due_date, now)
 
     let timeLabel: string | null = null
@@ -131,29 +152,18 @@ export async function saveWidgetData(payload: WidgetDataPayload): Promise<void> 
 }
 
 /**
- * Loads the current user's widget data payload from local storage.
+ * Loads the given user's widget data payload from local storage.
+ * There is deliberately no "any user" fallback: on a shared device that would expose the
+ * previous account's items.
  */
-export function loadWidgetData(userId?: string): WidgetDataPayload | null {
-  if (typeof localStorage === 'undefined') return null
-
+export function loadWidgetData(userId: string): WidgetDataPayload | null {
+  if (typeof localStorage === 'undefined' || !userId) return null
   try {
-    if (userId) {
-      const raw = localStorage.getItem(getWidgetStorageKey(userId))
-      if (!raw) return null
-      return JSON.parse(raw) as WidgetDataPayload
-    }
-
-    // Fall back to first matching widget key
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i)
-      if (k && k.startsWith(WIDGET_STORAGE_PREFIX)) {
-        const raw = localStorage.getItem(k)
-        if (raw) return JSON.parse(raw) as WidgetDataPayload
-      }
-    }
-    return null
-  } catch (err) {
-    console.warn('Failed to load widget data from localStorage:', err)
+    const raw = localStorage.getItem(getWidgetStorageKey(userId))
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as WidgetDataPayload
+    return parsed && parsed.userId === userId ? parsed : null
+  } catch {
     return null
   }
 }
