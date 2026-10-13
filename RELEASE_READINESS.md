@@ -68,13 +68,13 @@ multi-tab/sign-out); Settings (profile, theme, notification permission states, t
 ## Owner actions, in order (none performed)
 
 1. **Database migrations** (status: **NOT APPLIED**) — follow "Applying the migrations" below.
-2. **Password-reset redirect:** Supabase → Authentication → URL Configuration → Redirect URLs → add
-   `https://trackapp.atreyakamat.dev/reset-password` (plus your local dev origin if needed). Optionally set
-   `VITE_APP_URL` on the app site.
+2. **Password-reset redirect:** ✅ done by the owner on 2026-10-14 (`https://trackapp.atreyakamat.dev/reset-password`
+   added to Supabase Auth redirect URLs). `VITE_APP_URL` intentionally not set (the web origin is used).
 3. **PKCE note:** default email templates (`{{ .ConfirmationURL }}`) work unchanged. Links must be opened in the browser
    that requested them; tell users that in support copy if needed.
 4. **Signup rate limit / bounced emails:** review Supabase Auth logs and SMTP settings (the frontend only reports them).
-5. **Deploy** the app site, then the landing site (independent).
+5. **Deploy:** ✅ both sites deployed on 2026-10-14 from `main` @ `4bf8096` (Netlify `apptracknow`, `tracknowapp`);
+   verified over HTTP (routes 200, SW v3, `/assets/*` 404, CSP, PKCE bundle). Signed-in smoke test pending.
 6. Optional: run the live scripts against a **disposable** project only:
    `SUPABASE_SERVICE_ROLE_KEY=… ALLOW_LIVE_SUPABASE=<dev-ref> PRODUCTION_SUPABASE_REFS=<prod-ref> node scripts/verify_rls_security.cjs`.
 
@@ -103,7 +103,8 @@ back; they refuse to run when `auth.users` has more than 25 rows).
    - Old payload with `p_user_id` → `PGRST202`.
    - As user A on their own item → success; rename a habit, press + on the next day → count restarts at 1.
 4. **Production pre-flight:** run `preflight_function_inventory.sql`, save the output.
-5. **Migration history:** `supabase migration list --linked`. If `20261005000000`/`20261008000000` were applied by hand,
+5. **Migration history:** the production migration history table is **empty** (checked read-only on 2026-10-14): the
+   earlier files were applied by hand. Do **not** use `supabase db push`. `supabase migration list --linked`. If `20261005000000`/`20261008000000` were applied by hand,
    either `supabase migration repair --status applied 20261005000000 20261008000000` or apply only the two new files in
    the SQL editor, in order. Never let `db push` re-run `20261008000000` after the fix (it would recreate the
    vulnerable overload until step 1's file runs again).

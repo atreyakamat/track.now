@@ -50,7 +50,7 @@ Security findings and remediations are in `SECURITY_AUDIT.md`.
 ## Blocked — owner actions
 
 1. Review and apply `supabase/migrations/20261012000000_secure_increment_item_count_rpc.sql`, then `20261013000000_habit_daily_counter.sql` (see `RELEASE_READINESS.md`).
-2. Add `https://trackapp.atreyakamat.dev/reset-password` to Supabase Auth → URL Configuration → Redirect URLs.
+2. ~~Add `https://trackapp.atreyakamat.dev/reset-password` to Supabase Auth redirect URLs~~ — done 2026-10-14 (owner).
 3. Investigate the live signup rate limit / bounced emails in the Supabase dashboard (Auth logs, SMTP settings).
 4. Run a cross-tenant RLS test against an isolated (non-production) Supabase project.
 
