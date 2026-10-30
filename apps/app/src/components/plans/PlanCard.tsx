@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom'
 import { Archive, ArrowRight, Calendar, RotateCcw } from 'lucide-react'
-import type { PlanSummary } from '@/domain/progress'
+import type { PlanSummary } from '@tracknow/core/domain/progress'
 import { Badge, Button, ProgressBar } from '@/components/ui'
-import { formatDateRange, pluralize } from '@/utils/format'
+import { formatDateRange, pluralize } from '@tracknow/core/utils/format'
 
 interface PlanCardProps {
   summary: PlanSummary

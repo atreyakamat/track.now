@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { buildDailyBriefing, buildOverdueAlert, shouldRunDaily, summarizeDay } from '@/domain/briefing'
-import type { ExecutionItem } from '@/types/domain'
+import { buildDailyBriefing, buildOverdueAlert, shouldRunDaily, summarizeDay } from '@tracknow/core/domain/briefing'
+import type { ExecutionItem } from '@tracknow/core/types/domain'
 
 const now = new Date(2026, 9, 12, 9, 30) // Monday 09:30 local
 const base: ExecutionItem = {

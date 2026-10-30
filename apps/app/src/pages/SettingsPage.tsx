@@ -2,14 +2,14 @@ import { useEffect, useState } from 'react'
 import { AlertCircle, Bell, Info, LogOut, Moon, RefreshCw, Save, Smartphone, Sun, User } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useTheme } from '@/hooks/useTheme'
-import { updateProfile } from '@/services/tracksService'
+import { updateProfile } from '@tracknow/core/services/tracksService'
 import { Button, Input, PageHeader, Select } from '@/components/ui'
 import { useToast } from '@/features/notifications/ToastContext'
 import {
   getNotificationCapabilityStatus,
   loadNotificationPreferences,
   saveNotificationPreferences,
-} from '@/services/notificationPreferences'
+} from '@tracknow/core/services/notificationPreferences'
 import {
   dispatchBrowserNotification,
   isNotificationSupported,
@@ -17,8 +17,8 @@ import {
 } from '@/services/webNotificationEngine'
 import { buildWidgetDataPayload, loadWidgetData, saveWidgetData } from '@/services/widgetDataService'
 import { isNativePlatform } from '@/services/nativeMobileBridge'
-import { listCompletionsForDate, listTodayExecutionItems } from '@/services/executionService'
-import type { NotificationPreferences, ReminderPreset } from '@/types/notifications'
+import { listCompletionsForDate, listTodayExecutionItems } from '@tracknow/core/services/executionService'
+import type { NotificationPreferences, ReminderPreset } from '@tracknow/core/types/notifications'
 
 type PermissionState = NotificationPermission | 'unsupported'
 

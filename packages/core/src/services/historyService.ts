@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase/client'
+import { supabase } from '../lib/supabase'
 
 /** One row of completion history (track_now_item_completions projection). */
 export interface CompletionRecord {

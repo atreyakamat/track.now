@@ -19,7 +19,7 @@ import {
   setReminderForItem,
   snoozeReminder,
   cancelReminderForItem,
-} from '../src/services/reminderService'
+} from '@tracknow/core/services/reminderService'
 import {
   reconcileRemindersFromServer,
   resolveDeliveryMode,
@@ -33,8 +33,8 @@ import {
   needsActiveDays,
   resolveCreateReminderChoice,
 } from '../src/components/execution/ItemFormParts'
-import type { ExecutionItem } from '../src/types/domain'
-import type { ItemReminder } from '../src/types/notifications'
+import type { ExecutionItem } from '@tracknow/core/types/domain'
+import type { ItemReminder } from '@tracknow/core/types/notifications'
 
 if (typeof globalThis.localStorage === 'undefined') {
   let store: Record<string, string> = {}

@@ -91,7 +91,7 @@ describe('database boundary across all migrations', () => {
 
 describe('client contract matches the remediated RPC', () => {
   it('executionService calls the RPC without a user id parameter', () => {
-    const src = readFileSync(resolve(__dirname, '../src/services/executionService.ts'), 'utf-8')
+    const src = readFileSync(resolve(__dirname, '../../../packages/core/src/services/executionService.ts'), 'utf-8')
     const call = src.slice(src.indexOf("supabase.rpc('track_now_increment_item_count'"))
     const args = call.slice(0, call.indexOf('})'))
     expect(args).toContain('p_item_id')

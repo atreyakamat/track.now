@@ -8,10 +8,10 @@ import {
   setReminderForItem,
   settleRemindersAfterCompletion,
   snoozeReminder,
-} from '@/services/reminderService'
+} from '@tracknow/core/services/reminderService'
 import { doneTodayAfterEdit } from '@/hooks/useExecutionItemActions'
-import { getTodayDateString } from '@/domain/dates'
-import type { ExecutionItem } from '@/types/domain'
+import { getTodayDateString } from '@tracknow/core/domain/dates'
+import type { ExecutionItem } from '@tracknow/core/types/domain'
 
 /**
  * Regressions found by the independent review of this change set:

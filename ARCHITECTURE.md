@@ -14,6 +14,22 @@ Track.now intentionally avoids microservice fragmentation, multi-repo overhead, 
 3. **Repository/Service Separation:** Components never construct ad-hoc Supabase queries. All database operations are channeled through strongly typed services in `src/services/`.
 4. **Tokenized Design System:** All UI components rely exclusively on semantic design tokens (`src/styles/tokens.css`), eliminating arbitrary inline styling and making dark/light theme switching zero-friction.
 
+### Shared core package (`packages/core`, `@tracknow/core`)
+The domain layer, types, constants, Supabase services, device-local storage services (reminders, notification
+preferences, review notes) and auth logic live in `packages/core` and are shared by the web app (`apps/app`)
+and the React Native app (`apps/mobile`). Core is compiled without the DOM library, so browser-only APIs
+cannot leak into it. Each app registers its platform pieces once at startup:
+
+| Seam | Web (`apps/app`) | Mobile (`apps/mobile`) |
+| :--- | :--- | :--- |
+| `configureSupabase` (`lib/supabase`) | PKCE client from `src/lib/supabase/client.ts` | client with device session storage |
+| `configureStorage` (`platform/storage`) | not called: falls back to `localStorage` | synchronous SQLite key-value store |
+| `configureAuth` (`auth/authService`) | reset link → `<origin>/reset-password` | app deep link |
+| `onAppEvent` / `emitAppEvent` (`platform/events`) | also re-dispatched as `window` `CustomEvent`s | in-process listeners |
+
+Paths below such as `src/domain/` and `src/services/` refer to `packages/core/src/` for shared modules.
+Browser-only services (`webNotificationEngine`, `widgetDataService`, `nativeMobileBridge`) stay in `apps/app`.
+
 ---
 
 ## 2. Layered Architecture Diagram

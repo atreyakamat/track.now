@@ -1,4 +1,4 @@
-import type { ExecutionItemSummary, Plan, Progress, Track } from '@/types/domain'
+import type { ExecutionItemSummary, Plan, Progress, Track } from '../types/domain'
 import { isHabitScheduledForToday } from './dates'
 
 /**

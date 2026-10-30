@@ -13,26 +13,26 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthProvider'
-import { getTrack } from '@/services/tracksService'
-import { deletePlan, getPlan, setPlanArchived, updatePlan } from '@/services/plansService'
+import { getTrack } from '@tracknow/core/services/tracksService'
+import { deletePlan, getPlan, setPlanArchived, updatePlan } from '@tracknow/core/services/plansService'
 import {
   createExecutionItem,
   listCompletionsForDate,
   listCompletionsForItems,
   listExecutionItems,
-} from '@/services/executionService'
-import { getTodayDateString } from '@/domain/dates'
-import { addDays } from '@/domain/streaks'
+} from '@tracknow/core/services/executionService'
+import { getTodayDateString } from '@tracknow/core/domain/dates'
+import { addDays } from '@tracknow/core/domain/streaks'
 import { CalendarHeatmap } from '@/components/analytics/CalendarHeatmap'
-import { summarizePlan } from '@/domain/progress'
-import { formatDateRange } from '@/utils/format'
+import { summarizePlan } from '@tracknow/core/domain/progress'
+import { formatDateRange } from '@tracknow/core/utils/format'
 import type {
   ExecutionItem,
   ItemType,
   NewExecutionItemInput,
   Plan,
   Track,
-} from '@/types/domain'
+} from '@tracknow/core/types/domain'
 import {
   Badge,
   Button,
@@ -53,9 +53,9 @@ import { ExecutionItemCard } from '@/components/execution/ExecutionItemCard'
 import { CreateItemModal } from '@/components/execution/CreateItemModal'
 import { EditItemModal } from '@/components/execution/EditItemModal'
 import { useToast } from '@/features/notifications/ToastContext'
-import { cancelRemindersForPlan, setReminderForItem } from '@/services/reminderService'
+import { cancelRemindersForPlan, setReminderForItem } from '@tracknow/core/services/reminderService'
 import { useExecutionItemActions } from '@/hooks/useExecutionItemActions'
-import type { ReminderPreset } from '@/types/notifications'
+import type { ReminderPreset } from '@tracknow/core/types/notifications'
 
 export function PlanDetailPage() {
   const { trackId, planId } = useParams<{ trackId?: string; planId?: string }>()

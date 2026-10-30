@@ -2,16 +2,16 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Check, Plus } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthProvider'
-import { createTrack, listTracks, listTrackTemplates } from '@/services/tracksService'
-import { createPlan } from '@/services/plansService'
-import { createExecutionItem } from '@/services/executionService'
-import { getTodayDateString } from '@/domain/dates'
-import type { TemplateType, Track, TrackTemplate } from '@/types/domain'
+import { createTrack, listTracks, listTrackTemplates } from '@tracknow/core/services/tracksService'
+import { createPlan } from '@tracknow/core/services/plansService'
+import { createExecutionItem } from '@tracknow/core/services/executionService'
+import { getTodayDateString } from '@tracknow/core/domain/dates'
+import type { TemplateType, Track, TrackTemplate } from '@tracknow/core/types/domain'
 import {
   DEFAULT_TRACK_TEMPLATES,
   TRACK_COLORS,
   TRACK_ICONS,
-} from '@/constants/trackTemplates'
+} from '@tracknow/core/constants/trackTemplates'
 import {
   Button,
   ButtonLink,

@@ -3,8 +3,8 @@ import {
   getNotificationCapabilityStatus,
   loadNotificationPreferences,
   saveNotificationPreferences,
-} from '../src/services/notificationPreferences'
-import { DEFAULT_NOTIFICATION_PREFERENCES } from '../src/types/notifications'
+} from '@tracknow/core/services/notificationPreferences'
+import { DEFAULT_NOTIFICATION_PREFERENCES } from '@tracknow/core/types/notifications'
 
 if (typeof globalThis.localStorage === 'undefined') {
   let store: Record<string, string> = {}

@@ -14,9 +14,9 @@ import {
   setReminderForItem,
   snoozeReminder,
   toLocalDateTimeInputValue,
-} from '../src/services/reminderService'
-import type { ExecutionItem } from '../src/types/domain'
-import type { ItemReminder } from '../src/types/notifications'
+} from '@tracknow/core/services/reminderService'
+import type { ExecutionItem } from '@tracknow/core/types/domain'
+import type { ItemReminder } from '@tracknow/core/types/notifications'
 
 if (typeof globalThis.localStorage === 'undefined') {
   let store: Record<string, string> = {}
@@ -235,7 +235,7 @@ describe('recurrence and cleanup', () => {
 
 describe('recurring habit reminders survive delivery', () => {
   it('re-arms a delivered daily habit reminder for the next day', async () => {
-    const { rescheduleRecurringAfterDelivery } = await import('../src/services/reminderService')
+    const { rescheduleRecurringAfterDelivery } = await import('@tracknow/core/services/reminderService')
     setReminderForItem(userId, habit, 'scheduled_time', undefined, now) // 09:00 today
     const at0905 = new Date(2026, 9, 12, 9, 5)
     const sweep = collectDueReminders(userId, at0905)
@@ -248,7 +248,7 @@ describe('recurring habit reminders survive delivery', () => {
   })
 
   it('does not re-arm one-off task reminders', async () => {
-    const { rescheduleRecurringAfterDelivery } = await import('../src/services/reminderService')
+    const { rescheduleRecurringAfterDelivery } = await import('@tracknow/core/services/reminderService')
     setReminderForItem(userId, task, '10m_in', undefined, now)
     const sweep = collectDueReminders(userId, new Date(now.getTime() + 11 * 60 * 1000))
     expect(rescheduleRecurringAfterDelivery(userId, sweep.deliver, now)).toHaveLength(0)

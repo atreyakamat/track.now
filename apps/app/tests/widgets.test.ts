@@ -5,8 +5,8 @@ import {
   loadWidgetData,
   saveWidgetData,
 } from '../src/services/widgetDataService'
-import type { ExecutionItem } from '../src/types/domain'
-import type { HabitStreakSummary } from '../src/domain/streaks'
+import type { ExecutionItem } from '@tracknow/core/types/domain'
+import type { HabitStreakSummary } from '@tracknow/core/domain/streaks'
 
 if (typeof globalThis.localStorage === 'undefined') {
   let store: Record<string, string> = {}

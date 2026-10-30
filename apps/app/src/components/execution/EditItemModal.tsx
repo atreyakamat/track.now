@@ -1,6 +1,6 @@
 import { useEffect, useId, useState } from 'react'
-import type { ExecutionItem, ItemPriority, ItemType, UpdateExecutionItemInput } from '@/types/domain'
-import type { ItemReminder, ReminderPreset } from '@/types/notifications'
+import type { ExecutionItem, ItemPriority, ItemType, UpdateExecutionItemInput } from '@tracknow/core/types/domain'
+import type { ItemReminder, ReminderPreset } from '@tracknow/core/types/notifications'
 import {
   cancelReminderForItem,
   endOfLocalDay,
@@ -11,11 +11,11 @@ import {
   setReminderForItem,
   toLocalDateTimeInputValue,
   type ReminderTimingOptions,
-} from '@/services/reminderService'
+} from '@tracknow/core/services/reminderService'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useToast } from '@/features/notifications/ToastContext'
 import { Button, Input, Modal, Select, Textarea } from '@/components/ui'
-import { effectiveCurrentCount } from '@/domain/habitCounter'
+import { effectiveCurrentCount } from '@tracknow/core/domain/habitCounter'
 import {
   DayPicker,
   ReminderFields,

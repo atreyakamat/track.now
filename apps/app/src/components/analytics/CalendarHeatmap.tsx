@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { generateHeatmapMatrix, type HeatmapCell, type HeatmapMatrix } from '@/domain/streaks'
+import { generateHeatmapMatrix, type HeatmapCell, type HeatmapMatrix } from '@tracknow/core/domain/streaks'
 
 const parseCellDate = (date: string): Date => {
   const [y, m, d] = date.split('-').map(Number)

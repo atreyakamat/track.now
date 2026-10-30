@@ -5,7 +5,7 @@ import {
   generateHeatmapMatrix,
   isHabitScheduledForDate,
   parseDate,
-} from '../src/domain/streaks'
+} from '@tracknow/core/domain/streaks'
 
 describe('Domain Streaks Engine - Dates & Schedules', () => {
   it('correctly parses YYYY-MM-DD into local Date and adds days', () => {

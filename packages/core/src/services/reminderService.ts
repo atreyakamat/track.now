@@ -1,10 +1,12 @@
-import type { ItemReminder, ReminderPreset, ReminderStatus } from '@/types/notifications'
-import type { ExecutionItem } from '@/types/domain'
+import type { ItemReminder, ReminderPreset, ReminderStatus } from '../types/notifications'
+import type { ExecutionItem } from '../types/domain'
+import { emitAppEvent } from '../platform/events'
+import { getStorage } from '../platform/storage'
 
 /**
  * Device-local smart reminders.
  *
- * Reminders live in user-namespaced localStorage (`tracknow_reminders_<userId>`). They are
+ * Reminders live in user-namespaced device storage (`tracknow_reminders_<userId>`). They are
  * NOT synced to the server or to other devices, and they can only fire while Track.now is
  * open in a browser tab (see webNotificationEngine). Reminders that came due while the app
  * was closed are caught up when it is reopened.
@@ -90,9 +92,10 @@ function isValidScheduleSnapshot(value: unknown): boolean {
 }
 
 export function loadUserReminders(userId: string): ItemReminder[] {
-  if (!userId || typeof localStorage === 'undefined') return []
+  const storage = getStorage()
+  if (!userId || !storage) return []
   try {
-    const raw = localStorage.getItem(getRemindersKey(userId))
+    const raw = storage.getItem(getRemindersKey(userId))
     if (!raw) return []
     const parsed: unknown = JSON.parse(raw)
     if (!Array.isArray(parsed)) return []
@@ -123,14 +126,8 @@ export function saveUserReminders(userId: string, reminders: ItemReminder[]): bo
   if (!userId) return false
   try {
     const pruned = pruneReminders(reminders)
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(getRemindersKey(userId), JSON.stringify(pruned))
-    }
-    if (typeof window !== 'undefined' && typeof CustomEvent !== 'undefined') {
-      window.dispatchEvent(
-        new CustomEvent('tracknow:reminders-updated', { detail: { userId, count: pruned.length } }),
-      )
-    }
+    getStorage()?.setItem(getRemindersKey(userId), JSON.stringify(pruned))
+    emitAppEvent('tracknow:reminders-updated', { userId, count: pruned.length })
     return true
   } catch {
     return false
@@ -713,9 +710,10 @@ export function checkDueReminders(userId: string, now = new Date()): ItemReminde
 
 /** Clears all reminders for a user (manual sign-out). */
 export function clearRemindersForUser(userId: string): void {
-  if (!userId || typeof localStorage === 'undefined') return
+  const storage = getStorage()
+  if (!userId || !storage) return
   try {
-    localStorage.removeItem(getRemindersKey(userId))
+    storage.removeItem(getRemindersKey(userId))
   } catch {
     /* storage unavailable */
   }

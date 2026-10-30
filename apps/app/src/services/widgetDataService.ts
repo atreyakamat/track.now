@@ -1,7 +1,7 @@
-import type { ExecutionItem } from '@/types/domain'
-import type { WidgetDataPayload, WidgetItemSummary, WidgetTodayProgress } from '@/types/widget'
-import { getTodayDateString, isHabitScheduledForToday, isOverdue } from '@/domain/dates'
-import type { HabitStreakSummary } from '@/domain/streaks'
+import type { ExecutionItem } from '@tracknow/core/types/domain'
+import type { WidgetDataPayload, WidgetItemSummary, WidgetTodayProgress } from '@tracknow/core/types/widget'
+import { getTodayDateString, isHabitScheduledForToday, isOverdue } from '@tracknow/core/domain/dates'
+import type { HabitStreakSummary } from '@tracknow/core/domain/streaks'
 import { syncNativeWidgetData, clearNativeWidgetData } from './nativeMobileBridge'
 
 const WIDGET_STORAGE_PREFIX = 'tracknow_widget_data_'

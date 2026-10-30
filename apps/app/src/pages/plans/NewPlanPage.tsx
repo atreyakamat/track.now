@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthProvider'
-import { getTrack } from '@/services/tracksService'
-import { createPlan } from '@/services/plansService'
-import type { Track } from '@/types/domain'
+import { getTrack } from '@tracknow/core/services/tracksService'
+import { createPlan } from '@tracknow/core/services/plansService'
+import type { Track } from '@tracknow/core/types/domain'
 import { SearchX } from 'lucide-react'
 import { Button, ButtonLink, EmptyState, ErrorState, Input, LoadingState, PageHeader, Textarea } from '@/components/ui'
-import { getTodayDateString } from '@/domain/dates'
+import { getTodayDateString } from '@tracknow/core/domain/dates'
 
 /** Track ids are UUIDs; anything else cannot exist, so treat it as not-found instead of a server error. */
 const RECORD_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
-import type { ExecutionItem, UpdateExecutionItemInput } from '@/types/domain'
+import type { ExecutionItem, UpdateExecutionItemInput } from '@tracknow/core/types/domain'
 import {
   deleteExecutionItem,
   editExecutionItem,
@@ -7,17 +7,17 @@ import {
   stepItemCount,
   toggleItemStatus,
   updateItemProgress,
-} from '@/services/executionService'
+} from '@tracknow/core/services/executionService'
 import {
   settleRemindersAfterCompletion,
   cancelReminderForItem,
   getReminderForItem,
   snoozeReminder,
-} from '@/services/reminderService'
-import { loadNotificationPreferences } from '@/services/notificationPreferences'
-import { calcHabitStreak, type HabitStreakSummary } from '@/domain/streaks'
-import { getTodayDateString } from '@/domain/dates'
-import { effectiveCurrentCount } from '@/domain/habitCounter'
+} from '@tracknow/core/services/reminderService'
+import { loadNotificationPreferences } from '@tracknow/core/services/notificationPreferences'
+import { calcHabitStreak, type HabitStreakSummary } from '@tracknow/core/domain/streaks'
+import { getTodayDateString } from '@tracknow/core/domain/dates'
+import { effectiveCurrentCount } from '@tracknow/core/domain/habitCounter'
 import { useToast } from '@/features/notifications/ToastContext'
 
 interface Options {

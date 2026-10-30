@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { pluralize } from '@/utils/format'
+import { pluralize } from '@tracknow/core/utils/format'
 import { readFileSync } from 'fs'
 import { resolve } from 'path'
 

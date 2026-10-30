@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { Plan, Track, ExecutionItemSummary, ItemStatus, ItemCompletion } from '@/types/domain'
-import { calcProgress, summarizeTrack } from '@/domain/progress'
+import type { Plan, Track, ExecutionItemSummary, ItemStatus, ItemCompletion } from '@tracknow/core/types/domain'
+import { calcProgress, summarizeTrack } from '@tracknow/core/domain/progress'
 
 /**
  * Pure helper function matching the duplicate detection logic in NewTrackPage

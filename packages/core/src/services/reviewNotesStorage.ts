@@ -1,8 +1,9 @@
 /**
  * Device-local, user-namespaced storage for review notes (weekly reviews and monthly
- * reflections). Notes live only in this browser's localStorage — they are NOT synced to
+ * reflections). Notes live only in this device's storage (localStorage on the web) — they are NOT synced to
  * the user's account or other devices. Only the user's own notes are stored here.
  */
+import { getStorage } from '../platform/storage'
 
 export type ReviewNoteKind = 'weekly' | 'monthly'
 
@@ -86,14 +87,6 @@ export function sanitizeReviewNote(value: unknown, expectedKey?: string): Review
     answers: sanitizeAnswers(value.answers),
     priorities: sanitizePriorities(value.priorities),
     updatedAt,
-  }
-}
-
-function getStorage(): Storage | null {
-  try {
-    return typeof localStorage === 'undefined' ? null : localStorage
-  } catch {
-    return null
   }
 }
 

@@ -1,4 +1,4 @@
-import type { TemplateType, TrackTemplate } from '@/types/domain'
+import type { TemplateType, TrackTemplate } from '../types/domain'
 
 export interface TrackColorOption {
   key: string

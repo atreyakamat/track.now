@@ -1,4 +1,4 @@
-import type { WidgetDataPayload } from '@/types/widget'
+import type { WidgetDataPayload } from '@tracknow/core/types/widget'
 
 export interface NativeNotificationScheduleOptions {
   id: number

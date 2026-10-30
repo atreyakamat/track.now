@@ -3,20 +3,20 @@ import { Link } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, ClipboardCheck, Plus } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useToast } from '@/features/notifications/ToastContext'
-import { listTracks } from '@/services/tracksService'
-import { listPlans } from '@/services/plansService'
+import { listTracks } from '@tracknow/core/services/tracksService'
+import { listPlans } from '@tracknow/core/services/plansService'
 import {
   listCompletionsForDate,
   listExecutionItems,
   setItemDone,
   updateExecutionItem,
-} from '@/services/executionService'
+} from '@tracknow/core/services/executionService'
 import {
   settleRemindersAfterCompletion,
   cancelReminderForItem,
   rescheduleReminderForItem,
-} from '@/services/reminderService'
-import { listCompletionHistory, type CompletionRecord } from '@/services/historyService'
+} from '@tracknow/core/services/reminderService'
+import { listCompletionHistory, type CompletionRecord } from '@tracknow/core/services/historyService'
 import {
   loadReviewNote,
   saveReviewNote,
@@ -25,17 +25,17 @@ import {
   MAX_PRIORITIES,
   MAX_PRIORITY_LENGTH,
   type ReviewNoteKind,
-} from '@/services/reviewNotesStorage'
-import { getTodayDateString } from '@/domain/dates'
-import { formatDateRangeLabel, formatLocalDate, itemDisplayName, type DateRange, type OverdueItem } from '@/domain/analytics'
+} from '@tracknow/core/services/reviewNotesStorage'
+import { getTodayDateString } from '@tracknow/core/domain/dates'
+import { formatDateRangeLabel, formatLocalDate, itemDisplayName, type DateRange, type OverdueItem } from '@tracknow/core/domain/analytics'
 import {
   buildReviewSummary,
   getMonthRange,
   getWeekRange,
   makePeriodKey,
   type ReviewSummary,
-} from '@/domain/reviews'
-import type { ExecutionItem, ItemType, Plan, Track } from '@/types/domain'
+} from '@tracknow/core/domain/reviews'
+import type { ExecutionItem, ItemType, Plan, Track } from '@tracknow/core/types/domain'
 import {
   Badge,
   Button,
@@ -50,7 +50,7 @@ import {
   Tabs,
   Textarea,
 } from '@/components/ui'
-import { pluralize } from '@/utils/format'
+import { pluralize } from '@tracknow/core/utils/format'
 import '@/styles/insights.css'
 
 interface Prompt {

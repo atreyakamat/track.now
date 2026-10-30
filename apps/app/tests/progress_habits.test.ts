@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { calcProgress, isItemDone, summarizePlan, summarizeTrack } from '@/domain/progress'
-import type { ExecutionItemSummary, Plan, Track } from '@/types/domain'
+import { calcProgress, isItemDone, summarizePlan, summarizeTrack } from '@tracknow/core/domain/progress'
+import type { ExecutionItemSummary, Plan, Track } from '@tracknow/core/types/domain'
 
 /**
  * Habits are recurring. Their persisted status can read 'done' from a previous day,

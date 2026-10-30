@@ -7,7 +7,7 @@ import {
   isHabitScheduledForToday,
   isOverdue,
   isUpcoming,
-} from '@/domain/dates'
+} from '@tracknow/core/domain/dates'
 
 describe('dates domain logic', () => {
   const fixedNow = new Date('2026-03-15T12:00:00Z')

@@ -10,7 +10,7 @@ import {
 } from '../src/features/notifications/ToastContext'
 import { startAppShellSession } from '../src/components/layout/AppShell'
 import type { NotificationMonitorHandlers } from '../src/services/webNotificationEngine'
-import type { ItemReminder } from '../src/types/notifications'
+import type { ItemReminder } from '@tracknow/core/types/notifications'
 
 const entry = (id: string, duration: number): ToastEntry => ({ id, title: id, duration })
 

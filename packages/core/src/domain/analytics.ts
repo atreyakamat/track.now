@@ -1,4 +1,4 @@
-import type { ExecutionItem, ItemPriority, ItemType, Plan, Progress, Track } from '@/types/domain'
+import type { ExecutionItem, ItemPriority, ItemType, Plan, Progress, Track } from '../types/domain'
 import { getTodayDateString } from './dates'
 import { summarizeTrack } from './progress'
 import { addDays, calcHabitStreak, isHabitScheduledForDate, parseDate } from './streaks'

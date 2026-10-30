@@ -1,0 +1,16 @@
+{
+  "name": "@tracknow/core",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Platform-neutral Track.now logic shared by the web and mobile apps: domain rules, types, Supabase services, device-local storage.",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@supabase/supabase-js": "^2.45.0"
+  }
+}

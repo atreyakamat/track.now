@@ -1,6 +1,6 @@
-import { supabase } from '@/lib/supabase/client'
-import type { Profile, Track, NewTrackInput, TemplateType, TrackTemplate } from '@/types/domain'
-import { DEFAULT_TRACK_TEMPLATES } from '@/constants/trackTemplates'
+import { supabase } from '../lib/supabase'
+import type { Profile, Track, NewTrackInput, TemplateType, TrackTemplate } from '../types/domain'
+import { DEFAULT_TRACK_TEMPLATES } from '../constants/trackTemplates'
 import { unwrap } from './helpers'
 
 function mapTrackRow(row: Track & { template_key?: string | null }): Track {

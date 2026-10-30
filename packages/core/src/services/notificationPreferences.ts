@@ -1,8 +1,11 @@
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
+  type BrowserNotificationPermission,
   type NotificationCapabilityStatus,
   type NotificationPreferences,
-} from '@/types/notifications'
+} from '../types/notifications'
+import { emitAppEvent } from '../platform/events'
+import { getStorage } from '../platform/storage'
 
 const PREFS_STORAGE_PREFIX = 'tracknow_notification_prefs_'
 
@@ -11,9 +14,10 @@ export function getPreferencesKey(userId: string): string {
 }
 
 export function loadNotificationPreferences(userId: string): NotificationPreferences {
-  if (!userId || typeof localStorage === 'undefined') return DEFAULT_NOTIFICATION_PREFERENCES
+  const storage = getStorage()
+  if (!userId || !storage) return DEFAULT_NOTIFICATION_PREFERENCES
   try {
-    const raw = localStorage.getItem(getPreferencesKey(userId))
+    const raw = storage.getItem(getPreferencesKey(userId))
     if (!raw) return DEFAULT_NOTIFICATION_PREFERENCES
     const parsed = JSON.parse(raw)
     return {
@@ -21,7 +25,7 @@ export function loadNotificationPreferences(userId: string): NotificationPrefere
       ...parsed,
     }
   } catch (err) {
-    console.warn('Failed to parse notification preferences from localStorage:', err)
+    console.warn('Failed to parse stored notification preferences:', err)
     return DEFAULT_NOTIFICATION_PREFERENCES
   }
 }
@@ -32,14 +36,10 @@ export function saveNotificationPreferences(
 ): NotificationPreferences {
   if (!userId) return prefs
   try {
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(getPreferencesKey(userId), JSON.stringify(prefs))
-    }
-    if (typeof window !== 'undefined' && typeof CustomEvent !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('tracknow:notification-prefs-changed', { detail: { userId, prefs } }))
-    }
+    getStorage()?.setItem(getPreferencesKey(userId), JSON.stringify(prefs))
+    emitAppEvent('tracknow:notification-prefs-changed', { userId, prefs })
   } catch (err) {
-    console.error('Failed to save notification preferences to localStorage:', err)
+    console.error('Failed to save notification preferences:', err)
   }
   return prefs
 }
@@ -56,15 +56,16 @@ export function saveNotificationPreferences(
 export function getNotificationCapabilityStatus(
   env: {
     notificationSupported?: boolean
-    permission?: NotificationPermission
+    permission?: BrowserNotificationPermission
     /** The user's "System notifications" switch. Callers should always pass it. */
     masterEnabled?: boolean
   } = {},
 ): NotificationCapabilityStatus {
-  const isSupported =
-    env.notificationSupported ?? (typeof window !== 'undefined' && 'Notification' in window)
-  const permission: NotificationPermission | 'unsupported' = isSupported
-    ? env.permission ?? Notification.permission
+  const browserNotification = (globalThis as { Notification?: { permission: BrowserNotificationPermission } })
+    .Notification
+  const isSupported = env.notificationSupported ?? browserNotification !== undefined
+  const permission: BrowserNotificationPermission | 'unsupported' = isSupported
+    ? env.permission ?? browserNotification?.permission ?? 'default'
     : 'unsupported'
 
   let explanation: string

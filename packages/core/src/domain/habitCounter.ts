@@ -1,4 +1,4 @@
-import type { ExecutionItem } from '@/types/domain'
+import type { ExecutionItem } from '../types/domain'
 import { getTodayDateString } from './dates'
 
 type CounterFields = Pick<ExecutionItem, 'type' | 'updated_at'> &

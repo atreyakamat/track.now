@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { calcProgress, summarizePlan, summarizeTrack } from '@/domain/progress'
-import type { ExecutionItemSummary, Plan, Track } from '@/types/domain'
+import { calcProgress, summarizePlan, summarizeTrack } from '@tracknow/core/domain/progress'
+import type { ExecutionItemSummary, Plan, Track } from '@tracknow/core/types/domain'
 
 describe('calcProgress', () => {
   it('returns 0% when there are no items', () => {

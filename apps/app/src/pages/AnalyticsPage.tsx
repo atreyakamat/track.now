@@ -2,12 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { Link } from 'react-router-dom'
 import { ArrowDownRight, ArrowRight, ArrowUpRight, BarChart3, Plus } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthProvider'
-import { listTracks } from '@/services/tracksService'
-import { listPlans } from '@/services/plansService'
-import { listCompletionsForDate, listExecutionItems } from '@/services/executionService'
-import { listCompletionHistory, type CompletionRecord } from '@/services/historyService'
-import { getTodayDateString } from '@/domain/dates'
-import { addDays } from '@/domain/streaks'
+import { listTracks } from '@tracknow/core/services/tracksService'
+import { listPlans } from '@tracknow/core/services/plansService'
+import { listCompletionsForDate, listExecutionItems } from '@tracknow/core/services/executionService'
+import { listCompletionHistory, type CompletionRecord } from '@tracknow/core/services/historyService'
+import { getTodayDateString } from '@tracknow/core/domain/dates'
+import { addDays } from '@tracknow/core/domain/streaks'
 import {
   ANALYTICS_HISTORY_DAYS,
   ANALYTICS_RANGE_OPTIONS,
@@ -17,10 +17,10 @@ import {
   itemDisplayName,
   type AnalyticsRangeDays,
   type AnalyticsResult,
-} from '@/domain/analytics'
-import type { ExecutionItem, Plan, Track } from '@/types/domain'
+} from '@tracknow/core/domain/analytics'
+import type { ExecutionItem, Plan, Track } from '@tracknow/core/types/domain'
 import { Badge, ButtonLink, EmptyState, ErrorState, LoadingState, PageHeader, ProgressBar } from '@/components/ui'
-import { pluralize } from '@/utils/format'
+import { pluralize } from '@tracknow/core/utils/format'
 import '@/styles/insights.css'
 
 interface LoadedData {

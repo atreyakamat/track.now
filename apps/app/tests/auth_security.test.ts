@@ -12,7 +12,7 @@ import {
 } from '@/features/auth/recoveryMarker'
 import { AuthNetworkError, appOrigin, authService, friendlyAuthError, isRetryableAuthError } from '@/features/auth/authService'
 import { ResetPasswordPage, readLinkError } from '@/pages/auth/ResetPasswordPage'
-import { supabase } from '@/lib/supabase/client'
+import { supabase } from '@tracknow/core/lib/supabase'
 
 /**
  * Security regressions for authentication and session handling:
@@ -32,7 +32,7 @@ const authState = vi.hoisted(() => ({
   },
 }))
 vi.mock('@/features/auth/AuthProvider', () => ({ useAuth: () => authState.value }))
-vi.mock('@/lib/supabase/client', () => ({
+vi.mock('@tracknow/core/lib/supabase', () => ({
   supabase: { auth: { getSession: vi.fn(), resetPasswordForEmail: vi.fn() } },
 }))
 

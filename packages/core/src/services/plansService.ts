@@ -1,5 +1,5 @@
-import { supabase } from '@/lib/supabase/client'
-import type { ExecutionItemSummary, NewPlanInput, Plan } from '@/types/domain'
+import { supabase } from '../lib/supabase'
+import type { ExecutionItemSummary, NewPlanInput, Plan } from '../types/domain'
 import { fetchAllPages, unwrap } from './helpers'
 
 export async function listPlans(trackId?: string): Promise<Plan[]> {

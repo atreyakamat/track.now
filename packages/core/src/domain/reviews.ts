@@ -1,4 +1,4 @@
-import type { ExecutionItem, ItemType, Plan, Track } from '@/types/domain'
+import type { ExecutionItem, ItemType, Plan, Track } from '../types/domain'
 import { getTodayDateString } from './dates'
 import { summarizePlan, summarizeTrack } from './progress'
 import { addDays } from './streaks'
@@ -20,7 +20,7 @@ import {
   type OverdueItem,
   type TrackCompletionCount,
 } from './analytics'
-import type { Progress } from '@/types/domain'
+import type { Progress } from '../types/domain'
 
 /**
  * Pure review derivations (weekly review / monthly reflection). Local dates only;

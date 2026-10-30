@@ -5,8 +5,8 @@ import type {
   ItemCompletion,
   ItemStatus,
   NewExecutionItemInput,
-} from '@/types/domain'
-import { calcProgress } from '@/domain/progress'
+} from '@tracknow/core/types/domain'
+import { calcProgress } from '@tracknow/core/domain/progress'
 
 /**
  * Pure domain stepper simulator matching executionService logic.

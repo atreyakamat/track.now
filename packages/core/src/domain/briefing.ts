@@ -1,4 +1,4 @@
-import type { ExecutionItem } from '@/types/domain'
+import type { ExecutionItem } from '../types/domain'
 import { getTodayDateString, isHabitScheduledForToday } from './dates'
 
 /**

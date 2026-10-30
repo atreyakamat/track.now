@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { groupTodayItems } from '@/domain/today'
-import type { ExecutionItem } from '@/types/domain'
+import { groupTodayItems } from '@tracknow/core/domain/today'
+import type { ExecutionItem } from '@tracknow/core/types/domain'
 
 const now = new Date(2026, 9, 12, 10, 0) // Monday 2026-10-12, 10:00 local
 

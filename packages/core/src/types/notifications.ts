@@ -78,9 +78,12 @@ export type DeliveryPlatformCapability =
 
 export interface NotificationCapabilityStatus {
   isSupported: boolean
-  permission: NotificationPermission | 'unsupported'
+  permission: BrowserNotificationPermission | 'unsupported'
   canDeliverForeground: boolean
   canDeliverBackground: boolean
   canDeliverAppClosed: boolean
   explanation: string
 }
+
+/** Mirrors the DOM `NotificationPermission` type so core does not depend on DOM typings. */
+export type BrowserNotificationPermission = 'default' | 'denied' | 'granted'

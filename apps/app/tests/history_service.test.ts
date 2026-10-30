@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { HISTORY_PAGE_SIZE, listCompletionHistory } from '@/services/historyService'
-import { supabase } from '@/lib/supabase/client'
+import { HISTORY_PAGE_SIZE, listCompletionHistory } from '@tracknow/core/services/historyService'
+import { supabase } from '@tracknow/core/lib/supabase'
 
-vi.mock('@/lib/supabase/client', () => ({
+vi.mock('@tracknow/core/lib/supabase', () => ({
   supabase: {
     from: vi.fn(),
   },

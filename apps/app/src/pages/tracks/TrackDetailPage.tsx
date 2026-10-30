@@ -10,19 +10,19 @@ import {
   SearchX,
   Trash2,
 } from 'lucide-react'
-import { getTrack, updateTrack } from '@/services/tracksService'
-import { listItemSummaries, listPlans } from '@/services/plansService'
+import { getTrack, updateTrack } from '@tracknow/core/services/tracksService'
+import { listItemSummaries, listPlans } from '@tracknow/core/services/plansService'
 import {
   deleteTrackWithCleanup,
   setPlanArchivedWithCleanup,
   setTrackArchivedWithCleanup,
-} from '@/services/trackLifecycle'
-import { listCompletionsForDate } from '@/services/executionService'
+} from '@tracknow/core/services/trackLifecycle'
+import { listCompletionsForDate } from '@tracknow/core/services/executionService'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useToast } from '@/features/notifications/ToastContext'
-import { summarizeTrack, type TrackSummary } from '@/domain/progress'
-import { TRACK_COLORS, TRACK_ICONS } from '@/constants/trackTemplates'
-import type { Track } from '@/types/domain'
+import { summarizeTrack, type TrackSummary } from '@tracknow/core/domain/progress'
+import { TRACK_COLORS, TRACK_ICONS } from '@tracknow/core/constants/trackTemplates'
+import type { Track } from '@tracknow/core/types/domain'
 import {
   Badge,
   Button,
@@ -40,7 +40,7 @@ import {
 } from '@/components/ui'
 import { TrackIcon } from '@/components/tracks/TrackIcon'
 import { PlanCard } from '@/components/plans/PlanCard'
-import { pluralize } from '@/utils/format'
+import { pluralize } from '@tracknow/core/utils/format'
 
 /** Track ids are UUIDs; anything else cannot exist, so treat it as not-found instead of a server error. */
 const RECORD_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

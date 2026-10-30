@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ExecutionItem } from '@/types/domain'
+import type { ExecutionItem } from '@tracknow/core/types/domain'
 import {
   createExecutionItem,
   editExecutionItem,
@@ -8,10 +8,10 @@ import {
   stepItemCount,
   toggleItemStatus,
   updateItemProgress,
-} from '@/services/executionService'
-import { setTrackArchived } from '@/services/tracksService'
-import { setPlanArchived } from '@/services/plansService'
-import { supabase } from '@/lib/supabase/client'
+} from '@tracknow/core/services/executionService'
+import { setTrackArchived } from '@tracknow/core/services/tracksService'
+import { setPlanArchived } from '@tracknow/core/services/plansService'
+import { supabase } from '@tracknow/core/lib/supabase'
 
 /**
  * Regression suite for the security + data-integrity fixes in the execution service:
@@ -21,7 +21,7 @@ import { supabase } from '@/lib/supabase/client'
  *  - completion-log failures are surfaced instead of swallowed
  *  - archive/restore never writes the non-existent archived_at column
  */
-vi.mock('@/lib/supabase/client', () => ({
+vi.mock('@tracknow/core/lib/supabase', () => ({
   supabase: {
     from: vi.fn(),
     rpc: vi.fn(),

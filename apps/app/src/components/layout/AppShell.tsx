@@ -10,8 +10,8 @@ import {
   startNotificationMonitor,
   type NotificationMonitorHandlers,
 } from '@/services/webNotificationEngine'
-import { snoozeReminder } from '@/services/reminderService'
-import { listCompletionsForDate, listTodayExecutionItems } from '@/services/executionService'
+import { snoozeReminder } from '@tracknow/core/services/reminderService'
+import { listCompletionsForDate, listTodayExecutionItems } from '@tracknow/core/services/executionService'
 
 export interface AppShellSessionDeps {
   showToast: (options: ToastOptions) => void

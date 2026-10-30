@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useTheme } from '@/hooks/useTheme'
-import { initials } from '@/utils/format'
+import { initials } from '@tracknow/core/utils/format'
 import { useToast } from '@/features/notifications/ToastContext'
 
 interface SidebarProps {

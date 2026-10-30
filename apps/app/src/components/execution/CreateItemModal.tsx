@@ -1,10 +1,10 @@
 import { useEffect, useId, useState } from 'react'
-import type { ItemPriority, ItemType, NewExecutionItemInput } from '@/types/domain'
-import type { ReminderPreset } from '@/types/notifications'
+import type { ItemPriority, ItemType, NewExecutionItemInput } from '@tracknow/core/types/domain'
+import type { ReminderPreset } from '@tracknow/core/types/notifications'
 import { Button, Input, Modal, Select, Textarea } from '@/components/ui'
 import { useAuth } from '@/features/auth/AuthProvider'
-import { loadNotificationPreferences } from '@/services/notificationPreferences'
-import { previewReminder } from '@/services/reminderService'
+import { loadNotificationPreferences } from '@tracknow/core/services/notificationPreferences'
+import { previewReminder } from '@tracknow/core/services/reminderService'
 import { useToast } from '@/features/notifications/ToastContext'
 import {
   DayPicker,

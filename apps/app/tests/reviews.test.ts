@@ -5,9 +5,9 @@ import {
   getWeekRange,
   isFutureRange,
   makePeriodKey,
-} from '@/domain/reviews'
-import type { CompletionEntry } from '@/domain/analytics'
-import type { ExecutionItem, Plan, Track } from '@/types/domain'
+} from '@tracknow/core/domain/reviews'
+import type { CompletionEntry } from '@tracknow/core/domain/analytics'
+import type { ExecutionItem, Plan, Track } from '@tracknow/core/types/domain'
 
 // Wednesday, 14 October 2026, 10:00 local time.
 const NOW = new Date(2026, 9, 14, 10)

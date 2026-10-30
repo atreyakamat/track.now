@@ -1,4 +1,4 @@
-import type { ExecutionItem } from '@/types/domain'
+import type { ExecutionItem } from '../types/domain'
 import { isDueToday, isHabitScheduledForToday, isOverdue, isUpcoming } from './dates'
 
 const PRIORITY_RANK: Record<ExecutionItem['priority'], number> = { urgent: 0, high: 1, medium: 2, low: 3 }

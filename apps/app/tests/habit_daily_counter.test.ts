@@ -6,15 +6,15 @@ import {
   isHabitCountStale,
   isStaleDayWrite,
   supportsCountDate,
-} from '@/domain/habitCounter'
+} from '@tracknow/core/domain/habitCounter'
 import {
   editExecutionItem,
   listCompletionsForItems,
   setItemDone,
   stepItemCount,
   updateItemProgress,
-} from '@/services/executionService'
-import { supabase } from '@/lib/supabase/client'
+} from '@tracknow/core/services/executionService'
+import { supabase } from '@tracknow/core/lib/supabase'
 
 /**
  * Regression suite for the habit daily-counter edge case: a habit edited/renamed on a
@@ -22,7 +22,7 @@ import { supabase } from '@/lib/supabase/client'
  * previous day's count. `count_date` (migration 20261013000000) records which local day
  * `current_count` belongs to; legacy rows fall back to the `updated_at` heuristic.
  */
-vi.mock('@/lib/supabase/client', () => ({
+vi.mock('@tracknow/core/lib/supabase', () => ({
   supabase: { from: vi.fn(), rpc: vi.fn() },
 }))
 

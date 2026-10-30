@@ -7,7 +7,7 @@ import {
   loadReviewNote,
   loadReviewNotes,
   saveReviewNote,
-} from '@/services/reviewNotesStorage'
+} from '@tracknow/core/services/reviewNotesStorage'
 
 /** In-memory localStorage shim (tests run in a node environment). */
 function createStorage() {

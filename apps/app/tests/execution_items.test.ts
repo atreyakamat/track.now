@@ -1,15 +1,15 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import type { ItemType, ItemStatus, ItemPriority, ExecutionItem } from '@/types/domain'
+import type { ItemType, ItemStatus, ItemPriority, ExecutionItem } from '@tracknow/core/types/domain'
 import {
   mapExecutionItemRow,
   listCompletionsForDate,
   toggleHabitTodayCompletion,
   deleteCompletionForDate,
-} from '@/services/executionService'
-import { supabase } from '@/lib/supabase/client'
+} from '@tracknow/core/services/executionService'
+import { supabase } from '@tracknow/core/lib/supabase'
 
 // Mock Supabase client
-vi.mock('@/lib/supabase/client', () => {
+vi.mock('@tracknow/core/lib/supabase', () => {
   return {
     supabase: {
       from: vi.fn(),

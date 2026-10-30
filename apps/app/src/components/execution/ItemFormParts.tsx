@@ -1,7 +1,7 @@
 import { useId } from 'react'
-import type { ItemSchedule } from '@/types/domain'
-import type { ReminderPreset } from '@/types/notifications'
-import type { ReminderPreview } from '@/services/reminderService'
+import type { ItemSchedule } from '@tracknow/core/types/domain'
+import type { ReminderPreset } from '@tracknow/core/types/notifications'
+import type { ReminderPreview } from '@tracknow/core/services/reminderService'
 import { Input, Select } from '@/components/ui'
 
 /** Shared pieces of the Create / Edit item forms. */

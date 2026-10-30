@@ -13,8 +13,8 @@ import {
   rescheduleReminderForItem,
   setReminderForItem,
   snoozeReminder,
-} from '../src/services/reminderService'
-import type { ExecutionItem } from '../src/types/domain'
+} from '@tracknow/core/services/reminderService'
+import type { ExecutionItem } from '@tracknow/core/types/domain'
 
 if (typeof globalThis.localStorage === 'undefined') {
   let store: Record<string, string> = {}

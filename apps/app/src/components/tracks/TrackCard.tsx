@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom'
 import { Archive, ArrowRight, RotateCcw } from 'lucide-react'
-import type { TrackSummary } from '@/domain/progress'
+import type { TrackSummary } from '@tracknow/core/domain/progress'
 import { Badge, Button, ProgressBar } from '@/components/ui'
 import { TrackIcon } from './TrackIcon'
-import { pluralize } from '@/utils/format'
+import { pluralize } from '@tracknow/core/utils/format'
 
 interface TrackCardProps {
   summary: TrackSummary

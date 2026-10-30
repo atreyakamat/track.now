@@ -5,17 +5,17 @@ import {
   listCompletionsForDate,
   listCompletionsForItems,
   listTodayExecutionItems,
-} from '@/services/executionService'
-import { getTodayDateString } from '@/domain/dates'
-import { groupTodayItems } from '@/domain/today'
-import type { ExecutionItem } from '@/types/domain'
+} from '@tracknow/core/services/executionService'
+import { getTodayDateString } from '@tracknow/core/domain/dates'
+import { groupTodayItems } from '@tracknow/core/domain/today'
+import type { ExecutionItem } from '@tracknow/core/types/domain'
 import { EmptyState, ErrorState, LoadingState, PageHeader } from '@/components/ui'
 import { ExecutionItemCard } from '@/components/execution/ExecutionItemCard'
 import { EditItemModal } from '@/components/execution/EditItemModal'
-import { reconcileRemindersWithActiveItems } from '@/services/reminderService'
+import { reconcileRemindersWithActiveItems } from '@tracknow/core/services/reminderService'
 import { buildWidgetDataPayload, saveWidgetData } from '@/services/widgetDataService'
 import { useExecutionItemActions } from '@/hooks/useExecutionItemActions'
-import { addDays } from '@/domain/streaks'
+import { addDays } from '@tracknow/core/domain/streaks'
 
 export function TodayPage() {
   const { user } = useAuth()

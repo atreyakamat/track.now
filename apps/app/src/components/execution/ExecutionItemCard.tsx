@@ -1,16 +1,16 @@
 import { useEffect, useState } from 'react'
 import { Bell, Calendar, Check, Clock, Edit2, Flame, Repeat, Trash2 } from 'lucide-react'
-import type { ExecutionItem } from '@/types/domain'
+import type { ExecutionItem } from '@tracknow/core/types/domain'
 import { Badge, Button } from '@/components/ui'
-import { isOverdue } from '@/domain/dates'
-import { effectiveCurrentCount } from '@/domain/habitCounter'
-import type { HabitStreakSummary } from '@/domain/streaks'
+import { isOverdue } from '@tracknow/core/domain/dates'
+import { effectiveCurrentCount } from '@tracknow/core/domain/habitCounter'
+import type { HabitStreakSummary } from '@tracknow/core/domain/streaks'
 import {
   cancelReminderForItem,
   formatReminderLabel,
   getReminderForItem,
   snoozeReminder,
-} from '@/services/reminderService'
+} from '@tracknow/core/services/reminderService'
 
 interface ExecutionItemCardProps {
   item: ExecutionItem

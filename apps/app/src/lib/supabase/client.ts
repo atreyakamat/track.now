@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { configureSupabase } from '@tracknow/core/lib/supabase'
 import { writeRecoveryMarker } from '@/features/auth/recoveryMarker'
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
@@ -30,6 +31,10 @@ export const supabase: SupabaseClient = isSupabaseConfigured
       },
     })
   : (null as unknown as SupabaseClient)
+
+// Core services (@tracknow/core) use this client. Registered at module load, which happens
+// at startup because `<App />` imports `isSupabaseConfigured` from this module.
+configureSupabase(isSupabaseConfigured ? supabase : null)
 
 // Subscribe at module load, before the client finishes reading the email link: auth-js
 // emits PASSWORD_RECOVERY while initialising, which can happen before React subscribes.

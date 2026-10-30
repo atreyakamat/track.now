@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase/client'
+import { supabase } from '../lib/supabase'
 import type {
   ExecutionItem,
   ItemSchedule,
@@ -6,16 +6,16 @@ import type {
   NewExecutionItemInput,
   NewItemScheduleInput,
   UpdateExecutionItemInput,
-} from '@/types/domain'
-import { getTodayDateString } from '@/domain/dates'
-import { calcHabitStreak, type HabitStreakSummary } from '@/domain/streaks'
+} from '../types/domain'
+import { getTodayDateString } from '../domain/dates'
+import { calcHabitStreak, type HabitStreakSummary } from '../domain/streaks'
 import {
   STALE_DAY_MESSAGE,
   effectiveCurrentCount,
   isHabitCountStale,
   isStaleDayWrite,
   supportsCountDate,
-} from '@/domain/habitCounter'
+} from '../domain/habitCounter'
 import { chunk, fetchAllPages, unwrap } from './helpers'
 
 export function mapExecutionItemRow(row: any): ExecutionItem {

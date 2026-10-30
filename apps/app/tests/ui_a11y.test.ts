@@ -16,10 +16,10 @@ import {
   formatHeatmapDate,
   heatmapAccessibleDays,
 } from '@/components/analytics/CalendarHeatmap'
-import { generateHeatmapMatrix } from '@/domain/streaks'
+import { generateHeatmapMatrix } from '@tracknow/core/domain/streaks'
 import { checkForDuplicateTrack, findDuplicateTrack } from '@/pages/tracks/NewTrackPage'
-import type { TrackSummary } from '@/domain/progress'
-import type { Track } from '@/types/domain'
+import type { TrackSummary } from '@tracknow/core/domain/progress'
+import type { Track } from '@tracknow/core/types/domain'
 
 const src = (rel: string) => readFileSync(resolve(__dirname, '..', rel), 'utf-8')
 

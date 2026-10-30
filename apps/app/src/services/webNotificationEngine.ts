@@ -3,17 +3,17 @@ import {
   getRemindersKey,
   reconcileRemindersWithSnapshot,
   rescheduleRecurringAfterDelivery,
-} from './reminderService'
-import { loadNotificationPreferences } from './notificationPreferences'
-import type { ItemReminder } from '@/types/notifications'
+} from '@tracknow/core/services/reminderService'
+import { loadNotificationPreferences } from '@tracknow/core/services/notificationPreferences'
+import type { ItemReminder } from '@tracknow/core/types/notifications'
 import {
   buildDailyBriefing,
   buildOverdueAlert,
   shouldRunDaily,
   type DailyAlert,
   type DailySnapshot,
-} from '@/domain/briefing'
-import { getTodayDateString } from '@/domain/dates'
+} from '@tracknow/core/domain/briefing'
+import { getTodayDateString } from '@tracknow/core/domain/dates'
 
 /**
  * Client-side reminder delivery.

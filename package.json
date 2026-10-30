@@ -4,7 +4,8 @@
   "version": "0.1.0",
   "type": "module",
   "workspaces": [
-    "apps/*"
+    "apps/*",
+    "packages/*"
   ],
   "scripts": {
     "dev": "npm --workspace=app run dev",
@@ -13,7 +14,7 @@
     "build": "npm run build:landing && npm run build:app",
     "build:landing": "npm --workspace=landing run build",
     "build:app": "npm --workspace=app run build",
-    "typecheck": "npm --workspace=landing run typecheck && npm --workspace=app run typecheck",
+    "typecheck": "npm --workspace=@tracknow/core run typecheck && npm --workspace=landing run typecheck && npm --workspace=app run typecheck",
     "test": "npm --workspace=app run test",
     "test:app": "npm --workspace=app run test",
     "preview:landing": "npm --workspace=landing run preview",
