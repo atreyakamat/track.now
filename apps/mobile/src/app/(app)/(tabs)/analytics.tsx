@@ -1,18 +1,215 @@
 import { Feather } from '@expo/vector-icons'
-import { EmptyState, Screen } from '@/components/ui'
+import { useMemo, useState } from 'react'
+import { RefreshControl, ScrollView, View } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
+import { listTracks } from '@tracknow/core/services/tracksService'
+import { listPlans } from '@tracknow/core/services/plansService'
+import { listExecutionItems } from '@tracknow/core/services/executionService'
+import { listCompletionHistory } from '@tracknow/core/services/historyService'
+import { getTodayDateString } from '@tracknow/core/domain/dates'
+import { addDays } from '@tracknow/core/domain/streaks'
+import {
+  ANALYTICS_HISTORY_DAYS,
+  ANALYTICS_RANGE_OPTIONS,
+  buildAnalytics,
+  type AnalyticsRangeDays,
+} from '@tracknow/core/domain/analytics'
+import { pluralize } from '@tracknow/core/utils/format'
 import { PageHeader } from '@/components/PageHeader'
+import { Card, EmptyState, ErrorState, LoadingState, ProgressBar, Segmented, Text } from '@/components/ui'
+import { useAuth } from '@/features/auth/AuthProvider'
+import { useAsync } from '@/hooks/useAsync'
 import { useTheme } from '@/theme/ThemeProvider'
+import { resolveTrackColor, spacing } from '@/theme/tokens'
 
-export default function InsightsScreen() {
-  const { colors } = useTheme()
+function StatTile({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <Screen>
-      <PageHeader title="Insights" />
-      <EmptyState
-        icon={<Feather name="bar-chart-2" size={22} color={colors.textSecondary} />}
-        title="Coming together"
-        description="Your analytics will appear here."
-      />
-    </Screen>
+    <Card style={{ flex: 1, gap: 2, minWidth: 140 }}>
+      <Text variant="meta" tone="tertiary">
+        {label}
+      </Text>
+      <Text variant="display" style={{ fontSize: 28 }}>
+        {value}
+      </Text>
+      {sub ? (
+        <Text variant="meta" tone="secondary">
+          {sub}
+        </Text>
+      ) : null}
+    </Card>
+  )
+}
+
+export default function AnalyticsScreen() {
+  const { user } = useAuth()
+  const { colors } = useTheme()
+  const [rangeDays, setRangeDays] = useState<AnalyticsRangeDays>(30)
+
+  const { data, loading, error, reload, refreshing } = useAsync(async () => {
+    if (!user) return null
+    const today = getTodayDateString()
+    const historyStart = addDays(today, -(ANALYTICS_HISTORY_DAYS - 1))
+    const [tracks, plans, items, completions, completedTodayIds] = await Promise.all([
+      listTracks(),
+      listPlans(),
+      listExecutionItems(),
+      listCompletionHistory(user.id, historyStart, today),
+      Promise.resolve([] as string[]),
+    ])
+    return { tracks, plans, items, completions, completedTodayIds }
+  }, [user?.id])
+
+  const analytics = useMemo(
+    () =>
+      data
+        ? buildAnalytics({
+            tracks: data.tracks,
+            plans: data.plans,
+            items: data.items,
+            completions: data.completions,
+            completedTodayIds: data.completedTodayIds,
+            now: new Date(),
+            rangeDays,
+          })
+        : null,
+    [data, rangeDays],
+  )
+
+  const chart = analytics?.weekly
+    ? analytics.weekly.map((b) => ({ label: b.start.slice(5), count: b.count }))
+    : (analytics?.daily ?? []).map((d) => ({ label: d.date.slice(5), count: d.count }))
+  const maxCount = Math.max(1, ...chart.map((c) => c.count))
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'left', 'right']}>
+      <ScrollView
+        contentContainerStyle={{ paddingHorizontal: spacing[4], paddingTop: spacing[4], paddingBottom: spacing[7] }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={reload} tintColor={colors.textSecondary} />}
+        showsVerticalScrollIndicator={false}
+      >
+        <PageHeader title="Insights" subtitle="Built only from your real completions." />
+
+        {loading ? (
+          <LoadingState label="Crunching your numbers…" />
+        ) : error ? (
+          <ErrorState description={error} onRetry={reload} />
+        ) : !analytics || !analytics.hasAnyData ? (
+          <EmptyState
+            icon={<Feather name="bar-chart-2" size={22} color={colors.textSecondary} />}
+            title="No analytics yet"
+            description="Create a track, add a habit or task, and complete it to see your first numbers here."
+          />
+        ) : (
+          <View style={{ gap: spacing[4] }}>
+            <Segmented
+              value={String(rangeDays)}
+              onChange={(v) => setRangeDays(Number(v) as AnalyticsRangeDays)}
+              options={ANALYTICS_RANGE_OPTIONS.map((d) => ({ key: String(d), label: `${d}d` }))}
+            />
+
+            <View style={{ flexDirection: 'row', gap: spacing[3] }}>
+              <StatTile
+                label="Completions"
+                value={String(analytics.totals.completions)}
+                sub={
+                  analytics.totals.comparison
+                    ? `${analytics.totals.comparison.percentChange >= 0 ? '+' : ''}${analytics.totals.comparison.percentChange}% vs prev`
+                    : 'this range'
+                }
+              />
+              <StatTile
+                label="Active days"
+                value={String(analytics.totals.activeDays)}
+                sub={analytics.totals.averagePerActiveDay !== null ? `${analytics.totals.averagePerActiveDay}/day avg` : 'no active days'}
+              />
+            </View>
+
+            <Card style={{ gap: spacing[3] }}>
+              <Text variant="h3">Completions over time</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 4, height: 120 }}>
+                {chart.map((c, i) => (
+                  <View key={i} style={{ flex: 1, alignItems: 'center', gap: 4 }}>
+                    <View
+                      style={{
+                        width: '70%',
+                        height: Math.max(2, (c.count / maxCount) * 96),
+                        backgroundColor: colors.accentPrimary,
+                        borderRadius: 3,
+                      }}
+                    />
+                  </View>
+                ))}
+              </View>
+              <Text variant="meta" tone="tertiary">
+                {analytics.weekly ? 'Per week' : 'Per day'} · {pluralize(analytics.totals.completions, 'completion')}
+              </Text>
+            </Card>
+
+            {analytics.habitTotals.rate !== null ? (
+              <Card style={{ gap: spacing[2] }}>
+                <Text variant="h3">Habit consistency</Text>
+                <ProgressBar value={analytics.habitTotals.rate} />
+                <Text variant="meta" tone="secondary">
+                  {analytics.habitTotals.completed}/{analytics.habitTotals.expected} scheduled habit days completed
+                </Text>
+              </Card>
+            ) : null}
+
+            {analytics.trackProgress.length > 0 ? (
+              <Card style={{ gap: spacing[3] }}>
+                <Text variant="h3">Progress by track</Text>
+                {analytics.trackProgress.map((row) => (
+                  <View key={row.track.id} style={{ gap: spacing[1] }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                      <Text variant="caption" weight="medium" numberOfLines={1} style={{ flex: 1 }}>
+                        {row.track.name}
+                      </Text>
+                      <Text variant="caption" tone="secondary">
+                        {pluralize(row.completionsInRange, 'completion')}
+                      </Text>
+                    </View>
+                    <ProgressBar value={row.progress.percent} color={resolveTrackColor(row.track.color)} />
+                  </View>
+                ))}
+              </Card>
+            ) : null}
+
+            {analytics.overdue.length > 0 ? (
+              <Card style={{ gap: spacing[2] }}>
+                <Text variant="h3" tone="danger">
+                  Overdue ({analytics.overdue.length})
+                </Text>
+                {analytics.overdue.slice(0, 5).map((o) => (
+                  <View key={o.item.id} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: spacing[2] }}>
+                    <Text variant="caption" numberOfLines={1} style={{ flex: 1 }}>
+                      {o.item.name}
+                    </Text>
+                    <Text variant="caption" tone="secondary">
+                      {o.item.due_date}
+                    </Text>
+                  </View>
+                ))}
+              </Card>
+            ) : null}
+
+            {analytics.recent.length > 0 ? (
+              <Card style={{ gap: spacing[2] }}>
+                <Text variant="h3">Recent activity</Text>
+                {analytics.recent.slice(0, 8).map((r, i) => (
+                  <View key={`${r.itemId}-${i}`} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: spacing[2] }}>
+                    <Text variant="caption" numberOfLines={1} style={{ flex: 1 }}>
+                      {r.itemName}
+                    </Text>
+                    <Text variant="caption" tone="secondary">
+                      {r.date.slice(5)}
+                    </Text>
+                  </View>
+                ))}
+              </Card>
+            ) : null}
+          </View>
+        )}
+      </ScrollView>
+    </SafeAreaView>
   )
 }
