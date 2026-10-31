@@ -17,7 +17,7 @@ import {
 import { loadNotificationPreferences } from '@tracknow/core/services/notificationPreferences'
 import { calcHabitStreak, type HabitStreakSummary } from '@tracknow/core/domain/streaks'
 import { getTodayDateString } from '@tracknow/core/domain/dates'
-import { effectiveCurrentCount } from '@tracknow/core/domain/habitCounter'
+import { doneTodayAfterEdit } from '@tracknow/core/domain/itemEdit'
 import { useToast } from '@/features/notifications/ToastContext'
 
 interface Options {
@@ -36,27 +36,8 @@ const localDay = (iso?: string) => {
   return d && !Number.isNaN(d.getTime()) ? getTodayDateString(d) : null
 }
 
-/**
- * Whether an item counts as "completed today" after an edit. An edit that does not touch
- * progress (rename, description, priority…) leaves it exactly as it was: a habit's stored
- * count may belong to an earlier day and must not mark it done today.
- */
-export function doneTodayAfterEdit(
-  input: UpdateExecutionItemInput,
-  before: Pick<ExecutionItem, 'type'> | undefined,
-  updated: ExecutionItem,
-  wasDoneToday: boolean,
-): boolean {
-  const touchesProgress =
-    input.current_count !== undefined ||
-    input.target_count !== undefined ||
-    (input.type !== undefined && input.type !== before?.type)
-  if (!touchesProgress) return wasDoneToday
-  if (updated.type === 'habit') {
-    return effectiveCurrentCount(updated, wasDoneToday) >= Math.max(1, updated.target_count ?? 1)
-  }
-  return updated.status === 'done'
-}
+// doneTodayAfterEdit is shared with the mobile app; re-exported here for existing imports.
+export { doneTodayAfterEdit }
 
 const errorMessage = (err: unknown, fallback: string) => (err instanceof Error && err.message ? err.message : fallback)
 

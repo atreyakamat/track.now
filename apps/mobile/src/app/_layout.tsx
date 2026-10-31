@@ -12,6 +12,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { Button, LoadingState, Text } from '@/components/ui'
 import { AuthProvider, useAuth } from '@/features/auth/AuthProvider'
+import { ToastProvider } from '@/features/notifications/ToastContext'
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider'
 import { spacing } from '@/theme/tokens'
 
@@ -100,7 +101,9 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <ThemeProvider>
           <AuthProvider>
-            <RootNavigator />
+            <ToastProvider>
+              <RootNavigator />
+            </ToastProvider>
           </AuthProvider>
         </ThemeProvider>
       </SafeAreaProvider>
