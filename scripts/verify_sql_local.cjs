@@ -32,8 +32,9 @@ const MIGRATIONS = {
   harden: path.join(MIG, '20261008000000_harden_constraints_and_rls.sql'),
   secure: path.join(MIG, '20261012000000_secure_increment_item_count_rpc.sql'),
   habit: path.join(MIG, '20261013000000_habit_daily_counter.sql'),
+  revokeTrigger: path.join(MIG, '20261014000000_revoke_trigger_function_execute.sql'),
 }
-const ALL_IN_ORDER = [MIGRATIONS.init, MIGRATIONS.harden, MIGRATIONS.secure, MIGRATIONS.habit]
+const ALL_IN_ORDER = [MIGRATIONS.init, MIGRATIONS.harden, MIGRATIONS.secure, MIGRATIONS.habit, MIGRATIONS.revokeTrigger]
 
 const exe = (name) => (process.platform === 'win32' ? `${name}.exe` : name)
 
@@ -188,10 +189,20 @@ async function main() {
     record('verify_increment_rpc_security.sql (after habit migration)', r.status === 0 && /ALL \d+ CHECKS PASSED/.test(out(r)))
     if (r.status !== 0) console.log(out(r))
 
+    // 6b. Trigger function no longer callable over the API; sign-up provisioning still works.
+    apply(DB, MIGRATIONS.revokeTrigger, 'revoke trigger function execute')
+    record('handle_new_track_now_user not executable by anon/authenticated',
+      scalar(DB, `SELECT has_function_privilege('anon', 'public.handle_new_track_now_user()', 'EXECUTE')::text || ',' ||
+                         has_function_privilege('authenticated', 'public.handle_new_track_now_user()', 'EXECUTE')::text`) === 'false,false')
+    apply(DB, writeTemp(tmp, 'signup_after_revoke.sql', `
+      INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES ('00000000-0000-4000-8000-0000000000f1', 'after-revoke@example.invalid', '{"display_name":"After Revoke"}');`), 'sign-up after revoke')
+    record('profile provisioning trigger still fires after the revoke',
+      scalar(DB, `SELECT full_name FROM public.track_now_profiles WHERE id = '00000000-0000-4000-8000-0000000000f1'`) === 'After Revoke')
+
     // 7. Re-applying migrations is safe and always ends in the secure state.
     let reapplyOk = true
     let reapplyErr = ''
-    for (const file of [...ALL_IN_ORDER, MIGRATIONS.secure, MIGRATIONS.habit]) {
+    for (const file of [...ALL_IN_ORDER, MIGRATIONS.secure, MIGRATIONS.habit, MIGRATIONS.revokeTrigger]) {
       const a = psqlFile(DB, file)
       if (a.status !== 0) {
         reapplyOk = false
