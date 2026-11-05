@@ -114,6 +114,7 @@ let activeSignUpPromise: Promise<SignUpResult> | null = null
 
 export const authService = {
   async getSession(): Promise<Session | null> {
+    if (!supabase) return null
     const { data, error } = await supabase.auth.getSession()
     if (error) {
       if (isRetryableAuthError(error)) throw new AuthNetworkError(friendlyAuthError(error))
@@ -189,6 +190,9 @@ export const authService = {
   },
 
   onAuthStateChange(callback: (event: string, session: Session | null) => void): () => void {
+    // No client configured (e.g. a build shipped without Supabase env vars): don't crash at
+    // mount — behave as "no session" so the app renders the login screen instead of dying.
+    if (!supabase) return () => undefined
     const { data } = supabase.auth.onAuthStateChange((event, session) => callback(event, session))
     return () => data.subscription.unsubscribe()
   },
