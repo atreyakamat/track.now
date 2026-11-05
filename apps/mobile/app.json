@@ -7,6 +7,12 @@
     "icon": "./assets/images/icon.png",
     "scheme": "tracknow",
     "userInterfaceStyle": "automatic",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/e39c3178-f25b-40be-b09a-3508fd4c8327"
+    },
     "ios": {
       "icon": "./assets/expo.icon",
       "bundleIdentifier": "dev.atreyakamat.tracknow"

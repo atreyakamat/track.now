@@ -182,6 +182,20 @@ export function getGoalTemplate(key: string): GoalTemplate | undefined {
   return GOAL_TEMPLATES.find((g) => g.key === key)
 }
 
+/** A sensible default clock time (HH:MM) for each time-of-day, used for habit reminders. */
+const TIME_OF_DAY_CLOCK: Record<string, string> = {
+  morning: '08:00',
+  afternoon: '13:00',
+  evening: '20:00',
+  anytime: '09:00',
+}
+
+/** The reminder clock time a wizard habit should fire at, or null for non-habits. */
+export function goalItemReminderTime(item: GoalItemTemplate): string | null {
+  if (item.type !== 'habit' || !item.cadence) return null
+  return TIME_OF_DAY_CLOCK[item.cadence.time_of_day ?? 'anytime'] ?? '09:00'
+}
+
 /**
  * Turns a goal item template into the exact payload createExecutionItem expects, given the
  * created plan/track ids. Pure and side-effect free so the wizard and tests share one source.
@@ -206,6 +220,7 @@ export function buildGoalItemInput(
             frequency: item.cadence.frequency,
             days_of_week: item.cadence.days_of_week ?? null,
             time_of_day: item.cadence.time_of_day ?? 'anytime',
+            reminder_time: goalItemReminderTime(item),
           }
         : null,
   }

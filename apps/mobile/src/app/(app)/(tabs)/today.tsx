@@ -3,6 +3,8 @@ import { useFocusEffect, useRouter } from 'expo-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { RefreshControl, ScrollView, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable'
+import * as Haptics from 'expo-haptics'
 import {
   listCompletionsForDate,
   listCompletionsForItems,
@@ -21,7 +23,54 @@ import { Card, EmptyState, ErrorState, LoadingState, Text } from '@/components/u
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useExecutionItemActions } from '@/hooks/useExecutionItemActions'
 import { useTheme } from '@/theme/ThemeProvider'
-import { spacing } from '@/theme/tokens'
+import { radius, spacing } from '@/theme/tokens'
+
+/** Wraps a card so a left-swipe reveals a "Done" action that completes the item. */
+function SwipeToComplete({
+  children,
+  onComplete,
+  actionColor,
+  iconColor,
+}: {
+  children: React.ReactNode
+  onComplete: () => void
+  actionColor: string
+  iconColor: string
+}) {
+  const ref = useRef<React.ComponentRef<typeof ReanimatedSwipeable>>(null)
+  return (
+    <ReanimatedSwipeable
+      ref={ref}
+      friction={2}
+      rightThreshold={48}
+      overshootRight={false}
+      onSwipeableOpen={() => {
+        ref.current?.close()
+        onComplete()
+      }}
+      renderRightActions={() => (
+        <View
+          style={{
+            width: 96,
+            marginLeft: spacing[2],
+            borderRadius: radius.lg,
+            backgroundColor: actionColor,
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 2,
+          }}
+        >
+          <Feather name="check" size={22} color={iconColor} />
+          <Text variant="meta" style={{ color: iconColor }} weight="semibold">
+            Done
+          </Text>
+        </View>
+      )}
+    >
+      {children}
+    </ReanimatedSwipeable>
+  )
+}
 
 export default function TodayScreen() {
   const { user, displayName } = useAuth()
@@ -88,34 +137,56 @@ export default function TodayScreen() {
     }, [loadData]),
   )
 
-  const renderCard = (item: ExecutionItem) => (
-    <ExecutionItemCard
-      key={item.id}
-      item={item}
-      busy={actions.busyIds.has(item.id)}
-      isCompletedOverride={item.type === 'habit' ? actions.completedTodayIds.has(item.id) : undefined}
-      streakSummary={item.type === 'habit' ? actions.streakSummaries[item.id] : undefined}
-      onToggle={actions.toggle}
-      onStep={actions.step}
-      onEdit={(it) => router.push(`/item/${it.id}/edit`)}
-      onSnooze={actions.snooze}
-      onRemoveReminder={actions.removeReminder}
-    />
-  )
+  const renderCard = (item: ExecutionItem, swipe = false) => {
+    const card = (
+      <ExecutionItemCard
+        item={item}
+        busy={actions.busyIds.has(item.id)}
+        isCompletedOverride={item.type === 'habit' ? actions.completedTodayIds.has(item.id) : undefined}
+        streakSummary={item.type === 'habit' ? actions.streakSummaries[item.id] : undefined}
+        onToggle={actions.toggle}
+        onStep={actions.step}
+        onEdit={(it) => router.push(`/item/${it.id}/edit`)}
+        onSnooze={actions.snooze}
+        onRemoveReminder={actions.removeReminder}
+      />
+    )
+    if (!swipe) return <View key={item.id}>{card}</View>
+    return (
+      <SwipeToComplete
+        key={item.id}
+        onComplete={() => actions.toggle(item)}
+        actionColor={colors.success}
+        iconColor={colors.controlText}
+      >
+        {card}
+      </SwipeToComplete>
+    )
+  }
 
-  const section = (title: string, list: ExecutionItem[], tone?: 'danger' | 'muted') =>
+  const section = (title: string, list: ExecutionItem[], opts?: { tone?: 'danger' | 'muted'; swipe?: boolean }) =>
     list.length > 0 ? (
       <View style={{ gap: spacing[2] }}>
-        <Text variant="meta" style={{ color: tone === 'danger' ? colors.danger : tone === 'muted' ? colors.textTertiary : colors.textSecondary }}>
+        <Text variant="meta" style={{ color: opts?.tone === 'danger' ? colors.danger : opts?.tone === 'muted' ? colors.textTertiary : colors.textSecondary }}>
           {title} ({list.length})
         </Text>
-        {list.map(renderCard)}
+        {list.map((it) => renderCard(it, opts?.swipe ?? false))}
       </View>
     ) : null
 
   const groups = groupTodayItems(items, actions.completedTodayIds)
   const totalOpen = groups.overdue.length + groups.dueToday.length + groups.anytime.length
   const nothingAtAll = items.filter((i) => i.status !== 'archived').length === 0
+  const allDone = !loading && !nothingAtAll && totalOpen === 0 && groups.completedToday.length > 0
+
+  // Celebrate the moment the last item of the day is cleared (once per transition).
+  const wasAllDone = useRef(false)
+  useEffect(() => {
+    if (allDone && !wasAllDone.current) {
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined)
+    }
+    wasAllDone.current = allDone
+  }, [allDone])
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'left', 'right']}>
@@ -140,19 +211,39 @@ export default function TodayScreen() {
         ) : (
           <View style={{ gap: spacing[5] }}>
             {totalOpen === 0 ? (
-              <Card style={{ borderColor: colors.success }}>
-                <Text variant="caption" style={{ color: colors.success }}>
-                  {groups.completedToday.length > 0
-                    ? 'All caught up for today. Completed items are below if you need to undo one.'
-                    : 'Nothing is due today.'}
-                </Text>
+              <Card style={{ borderColor: colors.success, alignItems: 'center', gap: spacing[1], paddingVertical: spacing[4] }}>
+                {allDone ? (
+                  <>
+                    <Text variant="display" style={{ fontSize: 32 }}>
+                      🎉
+                    </Text>
+                    <Text variant="h3" style={{ color: colors.success }} center>
+                      All done for today
+                    </Text>
+                    <Text variant="meta" tone="tertiary" center>
+                      {groups.completedToday.length} completed. Completed items are below if you need to undo one.
+                    </Text>
+                  </>
+                ) : (
+                  <Text variant="caption" style={{ color: colors.success }} center>
+                    Nothing is due today.
+                  </Text>
+                )}
               </Card>
             ) : null}
-            {section('Overdue', groups.overdue, 'danger')}
-            {section('Due today', groups.dueToday)}
-            {section('Anytime', groups.anytime)}
+            {totalOpen > 0 ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Feather name="chevrons-left" size={13} color={colors.textTertiary} />
+                <Text variant="meta" tone="tertiary">
+                  Tap to complete, or swipe a card left.
+                </Text>
+              </View>
+            ) : null}
+            {section('Overdue', groups.overdue, { tone: 'danger', swipe: true })}
+            {section('Due today', groups.dueToday, { swipe: true })}
+            {section('Anytime', groups.anytime, { swipe: true })}
             {section('Upcoming', groups.upcoming)}
-            {section('Completed today', groups.completedToday, 'muted')}
+            {section('Completed today', groups.completedToday, { tone: 'muted' })}
           </View>
         )}
       </ScrollView>

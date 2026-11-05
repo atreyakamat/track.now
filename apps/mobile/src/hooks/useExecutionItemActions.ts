@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
+import * as Haptics from 'expo-haptics'
 import type { ExecutionItem, UpdateExecutionItemInput } from '@tracknow/core/types/domain'
 import {
   deleteExecutionItem,
@@ -119,6 +120,8 @@ export function useExecutionItemActions({ userId, items, setItems, reload, onCha
 
   const completionFeedback = (item: ExecutionItem, nextItems: ExecutionItem[], nextCompleted: ReadonlySet<string>) => {
     if (!userId) return
+    // A little tactile reward on every new completion (no-op where haptics are unavailable).
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined)
     // Habits repeat: move their reminder to the next scheduled day. One-off items: cancel.
     settleRemindersAfterCompletion(userId, item)
 

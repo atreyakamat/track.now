@@ -1,6 +1,7 @@
 import { Feather } from '@expo/vector-icons'
 import { useFocusEffect, useRouter } from 'expo-router'
-import { useCallback } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
+import { hasCompletedOnboarding } from '@tracknow/core/services/onboardingService'
 import { RefreshControl, ScrollView, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { listCompletionsForDate, listUserDailyCompletionCounts } from '@tracknow/core/services/executionService'
@@ -84,6 +85,14 @@ export default function DashboardScreen() {
   const { user, displayName } = useAuth()
   const { colors } = useTheme()
   const router = useRouter()
+
+  // First run on this device: send the user to the welcome screen once.
+  const onboardingChecked = useRef(false)
+  useEffect(() => {
+    if (onboardingChecked.current) return
+    onboardingChecked.current = true
+    if (!hasCompletedOnboarding()) router.replace('/welcome')
+  }, [router])
 
   const { data, loading, error, reload, refreshing } = useAsync(async () => {
     if (!user) return null

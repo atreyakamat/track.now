@@ -5,6 +5,7 @@ import { Pressable, View } from 'react-native'
 import { createExecutionItem } from '@tracknow/core/services/executionService'
 import { createPlan } from '@tracknow/core/services/plansService'
 import { createTrack } from '@tracknow/core/services/tracksService'
+import { setReminderForItem } from '@tracknow/core/services/reminderService'
 import { getTodayDateString } from '@tracknow/core/domain/dates'
 import {
   GOAL_TEMPLATES,
@@ -111,7 +112,16 @@ export default function GuidedPlannerScreen() {
       let failed = 0
       for (const item of chosen) {
         try {
-          await createExecutionItem(user.id, buildGoalItemInput(item, { planId: plan.id, trackId: track.id }))
+          const created = await createExecutionItem(user.id, buildGoalItemInput(item, { planId: plan.id, trackId: track.id }))
+          // Habits get an automatic daily reminder at their scheduled time so notifications
+          // just work — no need to open each item and set one by hand.
+          if (created.type === 'habit' && created.schedule?.reminder_time) {
+            try {
+              setReminderForItem(user.id, created, 'scheduled_time')
+            } catch {
+              /* reminder is best-effort; the habit itself is created */
+            }
+          }
         } catch {
           failed += 1
         }

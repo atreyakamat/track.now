@@ -3,6 +3,7 @@ import {
   GOAL_TEMPLATES,
   buildGoalItemInput,
   getGoalTemplate,
+  goalItemReminderTime,
 } from '@tracknow/core/constants/goalTemplates'
 import { TRACK_COLORS, TRACK_ICONS } from '@tracknow/core/constants/trackTemplates'
 
@@ -90,5 +91,19 @@ describe('buildGoalItemInput', () => {
     const input = buildGoalItemInput(water, ctx)
     expect(input.target_count).toBe(8)
     expect(input.unit).toBe('glasses')
+  })
+
+  it('gives every habit a HH:MM reminder time and non-habits none', () => {
+    for (const g of GOAL_TEMPLATES) {
+      for (const item of g.items) {
+        const rt = goalItemReminderTime(item)
+        if (item.type === 'habit') {
+          expect(rt, `${g.key}/${item.key}`).toMatch(/^\d{2}:\d{2}$/)
+          expect(buildGoalItemInput(item, ctx).schedule?.reminder_time).toBe(rt)
+        } else {
+          expect(rt, `${g.key}/${item.key}`).toBeNull()
+        }
+      }
+    }
   })
 })
