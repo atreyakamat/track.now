@@ -1,4 +1,6 @@
 import { installSupabase } from '@/lib/supabase'
+// Side effect: registers the Android home-screen widget task handler at startup.
+import '@/widgets/register'
 
 // Register the Supabase client, device storage and auth redirect with @tracknow/core
 // before anything renders or any core service runs.

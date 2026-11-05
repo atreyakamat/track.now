@@ -1,159 +1,174 @@
 import { Feather } from '@expo/vector-icons'
 import { useFocusEffect, useRouter } from 'expo-router'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback } from 'react'
 import { RefreshControl, ScrollView, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import {
-  listCompletionsForDate,
-  listCompletionsForItems,
-  listTodayExecutionItems,
-} from '@tracknow/core/services/executionService'
-import { getTodayDateString } from '@tracknow/core/domain/dates'
-import { reconcileRemindersWithActiveItems } from '@tracknow/core/services/reminderService'
+import { listCompletionsForDate, listUserDailyCompletionCounts } from '@tracknow/core/services/executionService'
+import { listItemSummaries, listPlans } from '@tracknow/core/services/plansService'
+import { listTracks } from '@tracknow/core/services/tracksService'
+import { summarizeTrack, type TrackSummary } from '@tracknow/core/domain/progress'
 import { addDays } from '@tracknow/core/domain/streaks'
-import { groupTodayItems } from '@tracknow/core/domain/today'
-import { greeting } from '@tracknow/core/utils/format'
-import type { ExecutionItem } from '@tracknow/core/types/domain'
-import { ExecutionItemCard } from '@/components/execution/ExecutionItemCard'
+import { getTodayDateString, greeting } from '@tracknow/core/domain/dates'
+import { Button, Card, EmptyState, ErrorState, LoadingState, ProgressBar, Text } from '@/components/ui'
 import { PageHeader } from '@/components/PageHeader'
-import { Card, EmptyState, ErrorState, LoadingState, Text } from '@/components/ui'
+import { TrackCard } from '@/components/tracks/TrackCard'
 import { useAuth } from '@/features/auth/AuthProvider'
-import { useExecutionItemActions } from '@/hooks/useExecutionItemActions'
+import { useAsync } from '@/hooks/useAsync'
 import { useTheme } from '@/theme/ThemeProvider'
-import { spacing } from '@/theme/tokens'
+import { radius, spacing } from '@/theme/tokens'
 
-export default function TodayScreen() {
+const HEATMAP_WEEKS = 12
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <Card style={{ flex: 1, gap: 2, minWidth: 100 }}>
+      <Text variant="meta" tone="tertiary">
+        {label}
+      </Text>
+      <Text variant="display" style={{ fontSize: 26 }}>
+        {value}
+      </Text>
+    </Card>
+  )
+}
+
+/** A compact GitHub-style completion heatmap for the last ~12 weeks. */
+function Heatmap({ counts }: { counts: Record<string, number> }) {
+  const { colors } = useTheme()
+  const today = getTodayDateString()
+  // Start on the Sunday that begins the window so columns are whole weeks.
+  const start = addDays(today, -(HEATMAP_WEEKS * 7 - 1))
+  const startDow = new Date(`${start}T00:00:00`).getDay()
+  const gridStart = addDays(start, -startDow)
+  const max = Math.max(1, ...Object.values(counts))
+
+  const weeks: string[][] = []
+  for (let w = 0; w < HEATMAP_WEEKS + 1; w++) {
+    const col: string[] = []
+    for (let d = 0; d < 7; d++) col.push(addDays(gridStart, w * 7 + d))
+    weeks.push(col)
+  }
+
+  const shade = (date: string): string => {
+    if (date > today) return 'transparent'
+    const n = counts[date] ?? 0
+    if (n === 0) return colors.surfaceMuted
+    const t = Math.min(1, n / max)
+    // Blend from a faint accent to the full accent.
+    return t < 0.34 ? colors.border : t < 0.67 ? colors.accentSecondary : colors.accentPrimary
+  }
+
+  return (
+    <Card style={{ gap: spacing[2] }}>
+      <Text variant="h3">Consistency</Text>
+      <View style={{ flexDirection: 'row', gap: 3 }}>
+        {weeks.map((col, wi) => (
+          <View key={wi} style={{ gap: 3 }}>
+            {col.map((date) => (
+              <View
+                key={date}
+                style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: shade(date) }}
+              />
+            ))}
+          </View>
+        ))}
+      </View>
+      <Text variant="meta" tone="tertiary">
+        Last {HEATMAP_WEEKS} weeks of completions
+      </Text>
+    </Card>
+  )
+}
+
+export default function DashboardScreen() {
   const { user, displayName } = useAuth()
-  const userId = user?.id
   const { colors } = useTheme()
   const router = useRouter()
-  const [items, setItems] = useState<ExecutionItem[]>([])
-  const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [loadedDate, setLoadedDate] = useState(getTodayDateString())
-  const requestRef = useRef(0)
-  const actionsRef = useRef<ReturnType<typeof useExecutionItemActions> | null>(null)
 
-  const loadData = useCallback(
-    async (opts: { silent?: boolean } = {}) => {
-      if (!userId) return
-      const requestId = ++requestRef.current
-      try {
-        if (!opts.silent) setLoading(true)
-        else setRefreshing(true)
-        setError(null)
-        const today = getTodayDateString()
-        const [allItems, todayIds] = await Promise.all([
-          listTodayExecutionItems(),
-          listCompletionsForDate(userId, today),
-        ])
-        const habitIds = allItems.filter((i) => i.type === 'habit').map((h) => h.id)
-        const history = habitIds.length ? await listCompletionsForItems(habitIds, addDays(today, -400)) : {}
-        if (requestId !== requestRef.current) return
-        setItems(allItems)
-        actionsRef.current?.setCompletionState(todayIds, history)
-        setLoadedDate(today)
-        reconcileRemindersWithActiveItems(userId, allItems.map((i) => i.id))
-      } catch (err) {
-        if (requestId !== requestRef.current) return
-        setError(err instanceof Error ? err.message : 'Failed to load today’s items.')
-      } finally {
-        if (requestId === requestRef.current) {
-          setLoading(false)
-          setRefreshing(false)
-        }
-      }
-    },
-    [userId],
-  )
+  const { data, loading, error, reload, refreshing } = useAsync(async () => {
+    if (!user) return null
+    const today = getTodayDateString()
+    const [tracks, plans, items, completedTodayIds, dailyCounts] = await Promise.all([
+      listTracks(),
+      listPlans(),
+      listItemSummaries(),
+      listCompletionsForDate(user.id, today),
+      listUserDailyCompletionCounts(user.id, addDays(today, -7 * 13)).catch(() => ({}) as Record<string, number>),
+    ])
+    const options = { completedTodayIds: new Set(completedTodayIds) }
+    const summaries: TrackSummary[] = tracks.map((t) => summarizeTrack(t, plans, items, options))
+    return { summaries, dailyCounts }
+  }, [user?.id])
 
-  const actions = useExecutionItemActions({
-    userId,
-    items,
-    setItems,
-    reload: () => loadData({ silent: true }),
-  })
-  actionsRef.current = actions
-
-  useEffect(() => {
-    void loadData()
-  }, [loadData])
-
-  // Reload when returning to the tab (e.g. after adding/editing an item elsewhere).
   useFocusEffect(
     useCallback(() => {
-      if (getTodayDateString() !== loadedDate) void loadData({ silent: true })
-      else void loadData({ silent: true })
+      reload()
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [loadedDate]),
+    }, []),
   )
 
-  const renderCard = (item: ExecutionItem) => (
-    <ExecutionItemCard
-      key={item.id}
-      item={item}
-      busy={actions.busyIds.has(item.id)}
-      isCompletedOverride={item.type === 'habit' ? actions.completedTodayIds.has(item.id) : undefined}
-      streakSummary={item.type === 'habit' ? actions.streakSummaries[item.id] : undefined}
-      onToggle={actions.toggle}
-      onStep={actions.step}
-      onEdit={(it) => router.push(`/item/${it.id}/edit`)}
-      onSnooze={actions.snooze}
-      onRemoveReminder={actions.removeReminder}
-    />
-  )
-
-  const section = (title: string, list: ExecutionItem[], tone?: 'danger' | 'muted') =>
-    list.length > 0 ? (
-      <View style={{ gap: spacing[2] }}>
-        <Text variant="meta" style={{ color: tone === 'danger' ? colors.danger : tone === 'muted' ? colors.textTertiary : colors.textSecondary }}>
-          {title} ({list.length})
-        </Text>
-        {list.map(renderCard)}
-      </View>
-    ) : null
-
-  const groups = groupTodayItems(items, actions.completedTodayIds)
-  const totalOpen = groups.overdue.length + groups.dueToday.length + groups.anytime.length
-  const nothingAtAll = items.filter((i) => i.status !== 'archived').length === 0
+  const active = (data?.summaries ?? []).filter((s) => s.track.status === 'active')
+  const totalItems = active.reduce((a, s) => a + s.progress.total, 0)
+  const doneItems = active.reduce((a, s) => a + s.progress.done, 0)
+  const overall = totalItems > 0 ? Math.round((doneItems / totalItems) * 100) : 0
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'left', 'right']}>
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: spacing[4], paddingTop: spacing[4], paddingBottom: spacing[7] }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadData({ silent: true })} tintColor={colors.textSecondary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={reload} tintColor={colors.textSecondary} />}
         showsVerticalScrollIndicator={false}
       >
-        <PageHeader title="Today" subtitle={`${greeting()}, ${displayName}.`} />
+        <PageHeader
+          title={displayName}
+          subtitle={`${greeting()} — here's your execution snapshot.`}
+          right={
+            <Button
+              title="Track"
+              size="sm"
+              icon={<Feather name="plus" size={16} color={colors.controlText} />}
+              onPress={() => router.push('/track/new')}
+            />
+          }
+        />
 
         {loading ? (
-          <LoadingState label="Preparing today’s queue…" />
+          <LoadingState label="Loading your personal OS…" />
         ) : error ? (
-          <ErrorState description={error} onRetry={() => loadData()} />
-        ) : nothingAtAll ? (
+          <ErrorState description={error} onRetry={reload} />
+        ) : !data || active.length === 0 ? (
           <EmptyState
-            icon={<Feather name="check-circle" size={22} color={colors.textSecondary} />}
-            title="No items yet"
-            description="Create a plan inside one of your tracks and add habits or tasks to see them here."
-            action={{ label: 'Go to tracks', onPress: () => router.push('/(app)/(tabs)/tracks') }}
+            icon={<Feather name="target" size={22} color={colors.textSecondary} />}
+            title="Start your first track"
+            description="Create a track, add a plan with habits and tasks, and your snapshot will build here."
+            action={{ label: 'Create a track', onPress: () => router.push('/track/new') }}
           />
         ) : (
-          <View style={{ gap: spacing[5] }}>
-            {totalOpen === 0 ? (
-              <Card style={{ borderColor: colors.success }}>
-                <Text variant="caption" style={{ color: colors.success }}>
-                  {groups.completedToday.length > 0
-                    ? 'All caught up for today. Completed items are below if you need to undo one.'
-                    : 'Nothing is due today.'}
-                </Text>
-              </Card>
-            ) : null}
-            {section('Overdue', groups.overdue, 'danger')}
-            {section('Due today', groups.dueToday)}
-            {section('Anytime', groups.anytime)}
-            {section('Upcoming', groups.upcoming)}
-            {section('Completed today', groups.completedToday, 'muted')}
+          <View style={{ gap: spacing[4] }}>
+            <View style={{ flexDirection: 'row', gap: spacing[3] }}>
+              <Stat label="Active tracks" value={String(active.length)} />
+              <Stat label="Today" value={`${overall}%`} />
+              <Stat label="Done" value={`${doneItems}/${totalItems}`} />
+            </View>
+
+            <Card style={{ gap: spacing[2] }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Text variant="h3">Overall progress</Text>
+                <Button title="Open today" variant="ghost" size="sm" onPress={() => router.push('/(app)/(tabs)/today')} />
+              </View>
+              <ProgressBar value={overall} />
+            </Card>
+
+            <Heatmap counts={data.dailyCounts} />
+
+            <View style={{ gap: spacing[2] }}>
+              <Text variant="meta" tone="tertiary">
+                Active tracks
+              </Text>
+              {active.map((s) => (
+                <TrackCard key={s.track.id} summary={s} onPress={() => router.push(`/track/${s.track.id}`)} />
+              ))}
+            </View>
           </View>
         )}
       </ScrollView>
