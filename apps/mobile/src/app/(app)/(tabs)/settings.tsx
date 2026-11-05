@@ -1,7 +1,12 @@
 import { Feather } from '@expo/vector-icons'
 import { useEffect, useState } from 'react'
-import { View } from 'react-native'
+import { Switch, View } from 'react-native'
 import { updateProfile } from '@tracknow/core/services/tracksService'
+import {
+  loadNotificationPreferences,
+  saveNotificationPreferences,
+} from '@tracknow/core/services/notificationPreferences'
+import type { NotificationPreferences } from '@tracknow/core/types/notifications'
 import { Button, Card, ConfirmDialog, Screen, Text, TextField } from '@/components/ui'
 import { PageHeader } from '@/components/PageHeader'
 import { useAuth } from '@/features/auth/AuthProvider'
@@ -52,6 +57,18 @@ export default function SettingsScreen() {
   const [confirmSignOut, setConfirmSignOut] = useState(false)
   const [notifEnabled, setNotifEnabled] = useState<boolean | null>(null)
   const [enablingNotif, setEnablingNotif] = useState(false)
+  const [prefs, setPrefs] = useState<NotificationPreferences | null>(null)
+
+  useEffect(() => {
+    if (user?.id) setPrefs(loadNotificationPreferences(user.id))
+  }, [user?.id])
+
+  const setPref = (patch: Partial<NotificationPreferences>) => {
+    if (!user?.id || !prefs) return
+    const next = { ...prefs, ...patch }
+    setPrefs(next)
+    saveNotificationPreferences(user.id, next)
+  }
 
   // Sync the field once the profile resolves (it can load after first render).
   useEffect(() => {
@@ -182,6 +199,31 @@ export default function SettingsScreen() {
               loading={enablingNotif}
               onPress={enableNotifications}
             />
+          ) : null}
+
+          {notifEnabled && prefs ? (
+            <View style={{ gap: spacing[2], marginTop: spacing[1] }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text variant="caption" style={{ flex: 1, paddingRight: spacing[3] }}>
+                  Weekly review nudge
+                </Text>
+                <Switch
+                  value={prefs.weeklyReviewNudge}
+                  onValueChange={(v) => setPref({ weeklyReviewNudge: v })}
+                  trackColor={{ true: colors.accentPrimary, false: colors.surfaceMuted }}
+                />
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text variant="caption" style={{ flex: 1, paddingRight: spacing[3] }}>
+                  Evening streak reminder
+                </Text>
+                <Switch
+                  value={prefs.streakNudge}
+                  onValueChange={(v) => setPref({ streakNudge: v })}
+                  trackColor={{ true: colors.accentPrimary, false: colors.surfaceMuted }}
+                />
+              </View>
+            </View>
           ) : null}
         </Card>
 

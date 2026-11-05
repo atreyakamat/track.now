@@ -2,6 +2,7 @@ import * as Device from 'expo-device'
 import * as Notifications from 'expo-notifications'
 import { Platform } from 'react-native'
 import { loadUserReminders } from '@tracknow/core/services/reminderService'
+import { loadNotificationPreferences } from '@tracknow/core/services/notificationPreferences'
 import { onAppEvent } from '@tracknow/core/platform/events'
 import type { ItemReminder } from '@tracknow/core/types/notifications'
 
@@ -103,27 +104,32 @@ function bodyFor(reminder: ItemReminder): string {
  * prompt and a gentle evening streak check. Rescheduled on every sync (which clears all
  * scheduled notifications first), so they never pile up into duplicates.
  */
-async function scheduleNudges(): Promise<void> {
+async function scheduleNudges(userId: string): Promise<void> {
   const channelId = Platform.OS === 'android' ? ANDROID_CHANNEL_ID : undefined
+  const prefs = loadNotificationPreferences(userId)
   try {
     // Weekly review — Sunday 6pm (weekday 1 = Sunday in expo-notifications).
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: 'Your week in review',
-        body: 'See your streaks, wins, and what to adjust for next week.',
-        data: { nudge: 'weekly' },
-      },
-      trigger: { type: Notifications.SchedulableTriggerInputTypes.WEEKLY, weekday: 1, hour: 18, minute: 0, channelId },
-    })
+    if (prefs.weeklyReviewNudge) {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Your week in review',
+          body: 'See your streaks, wins, and what to adjust for next week.',
+          data: { nudge: 'weekly' },
+        },
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.WEEKLY, weekday: 1, hour: 18, minute: 0, channelId },
+      })
+    }
     // Evening streak check — daily 8pm.
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: 'Keep your streak alive',
-        body: 'Anything left for today? A quick check keeps your habits going.',
-        data: { nudge: 'streak' },
-      },
-      trigger: { type: Notifications.SchedulableTriggerInputTypes.DAILY, hour: 20, minute: 0, channelId },
-    })
+    if (prefs.streakNudge) {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Keep your streak alive',
+          body: 'Anything left for today? A quick check keeps your habits going.',
+          data: { nudge: 'streak' },
+        },
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.DAILY, hour: 20, minute: 0, channelId },
+      })
+    }
   } catch {
     /* scheduling unavailable */
   }
@@ -152,7 +158,7 @@ export async function syncScheduledNotifications(userId: string | undefined): Pr
         trigger: toTrigger(reminder.remindAt),
       })
     }
-    await scheduleNudges()
+    await scheduleNudges(userId)
   } catch {
     /* scheduling unavailable (e.g. Expo Go on Android); the in-app list still works */
   }
@@ -164,8 +170,15 @@ export async function syncScheduledNotifications(userId: string | undefined): Pr
  */
 export function startReminderSync(userId: string | undefined): () => void {
   void syncScheduledNotifications(userId)
-  const off = onAppEvent('tracknow:reminders-updated', () => {
+  const offReminders = onAppEvent('tracknow:reminders-updated', () => {
     void syncScheduledNotifications(userId)
   })
-  return off
+  // Re-sync when nudge/notification preferences change, so toggles take effect immediately.
+  const offPrefs = onAppEvent('tracknow:notification-prefs-changed', () => {
+    void syncScheduledNotifications(userId)
+  })
+  return () => {
+    offReminders()
+    offPrefs()
+  }
 }

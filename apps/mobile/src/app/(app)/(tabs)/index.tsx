@@ -94,20 +94,24 @@ export default function DashboardScreen() {
     if (!hasCompletedOnboarding()) router.replace('/welcome')
   }, [router])
 
-  const { data, loading, error, reload, refreshing } = useAsync(async () => {
-    if (!user) return null
-    const today = getTodayDateString()
-    const [tracks, plans, items, completedTodayIds, dailyCounts] = await Promise.all([
-      listTracks(),
-      listPlans(),
-      listItemSummaries(),
-      listCompletionsForDate(user.id, today),
-      listUserDailyCompletionCounts(user.id, addDays(today, -7 * 13)).catch(() => ({}) as Record<string, number>),
-    ])
-    const options = { completedTodayIds: new Set(completedTodayIds) }
-    const summaries: TrackSummary[] = tracks.map((t) => summarizeTrack(t, plans, items, options))
-    return { summaries, dailyCounts }
-  }, [user?.id])
+  const { data, loading, error, reload, refreshing, stale } = useAsync(
+    async () => {
+      if (!user) return null
+      const today = getTodayDateString()
+      const [tracks, plans, items, completedTodayIds, dailyCounts] = await Promise.all([
+        listTracks(),
+        listPlans(),
+        listItemSummaries(),
+        listCompletionsForDate(user.id, today),
+        listUserDailyCompletionCounts(user.id, addDays(today, -7 * 13)).catch(() => ({}) as Record<string, number>),
+      ])
+      const options = { completedTodayIds: new Set(completedTodayIds) }
+      const summaries: TrackSummary[] = tracks.map((t) => summarizeTrack(t, plans, items, options))
+      return { summaries, dailyCounts }
+    },
+    [user?.id],
+    { cacheKey: user ? `dash_${user.id}` : undefined },
+  )
 
   useFocusEffect(
     useCallback(() => {
@@ -140,6 +144,15 @@ export default function DashboardScreen() {
             />
           }
         />
+
+        {stale ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: spacing[3] }}>
+            <Feather name="wifi-off" size={13} color={colors.warning} />
+            <Text variant="meta" style={{ color: colors.warning }}>
+              Offline — showing your last saved snapshot.
+            </Text>
+          </View>
+        ) : null}
 
         {loading ? (
           <LoadingState label="Loading your personal OS…" />

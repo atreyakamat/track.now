@@ -16,7 +16,7 @@ export default function TracksScreen() {
   const { colors } = useTheme()
   const router = useRouter()
   const [filter, setFilter] = useState<'active' | 'archived'>('active')
-  const { data, loading, error, reload, refreshing } = useTracksOverview(user?.id)
+  const { data, loading, error, reload, refreshing, stale } = useTracksOverview(user?.id)
 
   const list = data ? data[filter] : []
 
@@ -39,6 +39,15 @@ export default function TracksScreen() {
             />
           }
         />
+
+        {stale ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: spacing[3] }}>
+            <Feather name="wifi-off" size={13} color={colors.warning} />
+            <Text variant="meta" style={{ color: colors.warning }}>
+              Offline — showing your last saved data.
+            </Text>
+          </View>
+        ) : null}
 
         <View style={{ marginBottom: spacing[4] }}>
           <Segmented

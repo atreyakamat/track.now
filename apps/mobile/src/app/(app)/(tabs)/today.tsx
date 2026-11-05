@@ -1,10 +1,12 @@
 import { Feather } from '@expo/vector-icons'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { RefreshControl, ScrollView, View } from 'react-native'
+import { ActivityIndicator, Modal, Pressable, RefreshControl, ScrollView, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable'
 import * as Haptics from 'expo-haptics'
+import { listPlans } from '@tracknow/core/services/plansService'
+import type { Plan } from '@tracknow/core/types/domain'
 import {
   listCompletionsForDate,
   listCompletionsForItems,
@@ -69,6 +71,131 @@ function SwipeToComplete({
     >
       {children}
     </ReanimatedSwipeable>
+  )
+}
+
+/** Floating "+" to quickly add an item: pick an active plan, or go to the planner if none. */
+function QuickAddFab() {
+  const { colors } = useTheme()
+  const router = useRouter()
+  const [open, setOpen] = useState(false)
+  const [plans, setPlans] = useState<Plan[] | null>(null)
+  const [loadingPlans, setLoadingPlans] = useState(false)
+
+  const press = async () => {
+    setOpen(true)
+    if (plans) return
+    setLoadingPlans(true)
+    try {
+      const all = await listPlans()
+      setPlans(all.filter((p) => p.status === 'active'))
+    } catch {
+      setPlans([])
+    } finally {
+      setLoadingPlans(false)
+    }
+  }
+
+  const choose = (plan: Plan) => {
+    setOpen(false)
+    router.push(`/item/new?planId=${plan.id}${plan.track_id ? `&trackId=${plan.track_id}` : ''}`)
+  }
+
+  return (
+    <>
+      <Pressable
+        onPress={press}
+        accessibilityLabel="Quick add item"
+        accessibilityRole="button"
+        style={{
+          position: 'absolute',
+          right: spacing[4],
+          bottom: spacing[5],
+          width: 56,
+          height: 56,
+          borderRadius: 28,
+          backgroundColor: colors.controlBg,
+          alignItems: 'center',
+          justifyContent: 'center',
+          shadowColor: '#000',
+          shadowOpacity: 0.25,
+          shadowRadius: 8,
+          shadowOffset: { width: 0, height: 4 },
+          elevation: 6,
+        }}
+      >
+        <Feather name="plus" size={26} color={colors.controlText} />
+      </Pressable>
+
+      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+        <Pressable onPress={() => setOpen(false)} style={{ flex: 1, backgroundColor: colors.scrim, justifyContent: 'flex-end' }}>
+          <Pressable
+            onPress={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: colors.surface,
+              borderTopLeftRadius: radius.lg,
+              borderTopRightRadius: radius.lg,
+              padding: spacing[4],
+              paddingBottom: spacing[7],
+              gap: spacing[3],
+            }}
+          >
+            <Text variant="h3">Add to a plan</Text>
+            {loadingPlans ? (
+              <ActivityIndicator color={colors.textSecondary} />
+            ) : plans && plans.length > 0 ? (
+              <View style={{ gap: spacing[2] }}>
+                {plans.map((p) => (
+                  <Pressable
+                    key={p.id}
+                    onPress={() => choose(p)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Add an item to ${p.name}`}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      paddingVertical: spacing[3],
+                      paddingHorizontal: spacing[3],
+                      borderRadius: radius.md,
+                      backgroundColor: colors.surfaceMuted,
+                    }}
+                  >
+                    <Text variant="caption" weight="medium" numberOfLines={1} style={{ flex: 1 }}>
+                      {p.name}
+                    </Text>
+                    <Feather name="chevron-right" size={18} color={colors.textTertiary} />
+                  </Pressable>
+                ))}
+              </View>
+            ) : (
+              <View style={{ gap: spacing[3] }}>
+                <Text variant="caption" tone="secondary">
+                  You don’t have a plan yet. Start with a goal and we’ll set one up.
+                </Text>
+                <Pressable
+                  onPress={() => {
+                    setOpen(false)
+                    router.push('/guide')
+                  }}
+                  accessibilityRole="button"
+                  style={{
+                    paddingVertical: spacing[3],
+                    borderRadius: radius.md,
+                    backgroundColor: colors.controlBg,
+                    alignItems: 'center',
+                  }}
+                >
+                  <Text variant="caption" weight="semibold" style={{ color: colors.controlText }}>
+                    Plan a goal
+                  </Text>
+                </Pressable>
+              </View>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </>
   )
 }
 
@@ -248,6 +375,7 @@ export default function TodayScreen() {
           </View>
         )}
       </ScrollView>
+      {!loading && !error ? <QuickAddFab /> : null}
     </SafeAreaView>
   )
 }

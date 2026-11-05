@@ -157,7 +157,12 @@ export default function GuidedPlannerScreen() {
           </Text>
           <View style={{ gap: spacing[3] }}>
             {GOAL_TEMPLATES.map((g) => (
-              <Pressable key={g.key} onPress={() => chooseGoal(g)}>
+              <Pressable
+                key={g.key}
+                onPress={() => chooseGoal(g)}
+                accessibilityRole="button"
+                accessibilityLabel={`Plan a goal: ${g.goal}. ${g.summary}`}
+              >
                 <Card style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[3] }}>
                   <TrackIcon icon={g.icon} color={g.color} size={48} />
                   <View style={{ flex: 1, gap: 2 }}>
@@ -220,7 +225,13 @@ export default function GuidedPlannerScreen() {
             {goal.items.map((item) => {
               const included = !excluded.has(item.key)
               return (
-                <Pressable key={item.key} onPress={() => toggleItem(item.key)}>
+                <Pressable
+                  key={item.key}
+                  onPress={() => toggleItem(item.key)}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: included }}
+                  accessibilityLabel={`${item.name}. ${included ? 'Included' : 'Excluded'}. Tap to toggle.`}
+                >
                   <Card
                     style={{
                       flexDirection: 'row',

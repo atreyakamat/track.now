@@ -56,6 +56,10 @@ export interface NotificationPreferences {
   dailySummaryTime: string // HH:mm format, e.g. "09:00"
   defaultPreset: ReminderPreset
   soundEnabled: boolean
+  /** Weekly review nudge (mobile: Sunday evening local notification). */
+  weeklyReviewNudge: boolean
+  /** Evening "keep your streak alive" nudge (mobile: daily local notification). */
+  streakNudge: boolean
 }
 
 export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
@@ -67,6 +71,8 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   dailySummaryTime: '09:00',
   defaultPreset: 'none',
   soundEnabled: false,
+  weeklyReviewNudge: true,
+  streakNudge: true,
 }
 
 export type DeliveryPlatformCapability =

@@ -26,5 +26,5 @@ export function useTracksOverview(userId: string | undefined): AsyncState<Tracks
       active: summaries.filter((s) => s.track.status === 'active'),
       archived: summaries.filter((s) => s.track.status === 'archived'),
     }
-  }, [userId])
+  }, [userId], { cacheKey: userId ? `tracks_${userId}` : undefined })
 }
