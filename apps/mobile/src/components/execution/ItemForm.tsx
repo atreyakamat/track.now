@@ -14,6 +14,7 @@ import {
   type HabitFrequency,
   type TimeOfDayChoice,
 } from '@tracknow/core/domain/habitSchedule'
+import type { ReminderPreset } from '@tracknow/core/types/notifications'
 import { Button, Card, ChoiceChips, DateField, Text, TextField } from '@/components/ui'
 import { useTheme } from '@/theme/ThemeProvider'
 import { spacing } from '@/theme/tokens'
@@ -63,6 +64,8 @@ export interface ItemFormInitial {
   habitTime: string
   /** The habit's existing schedule, so a legacy monthly cadence is preserved on edit. */
   originalSchedule?: Pick<ItemSchedule, 'frequency' | 'days_of_week'> | null
+  /** The item's existing reminder preset (edit flow), or 'none'. */
+  reminderPreset?: ReminderPreset
 }
 
 export function defaultItemForm(type: ItemType = 'task'): ItemFormInitial {
@@ -79,6 +82,7 @@ export function defaultItemForm(type: ItemType = 'task'): ItemFormInitial {
     timeOfDay: 'anytime',
     habitTime: '',
     originalSchedule: null,
+    reminderPreset: 'none',
   }
 }
 
@@ -90,6 +94,7 @@ interface ItemFormProps {
   allowTypeChange?: boolean
   onSubmit: (payload: {
     base: Omit<NewExecutionItemInput, 'plan_id' | 'track_id'> & UpdateExecutionItemInput
+    reminderPreset: ReminderPreset
   }) => void
 }
 
@@ -106,9 +111,25 @@ export function ItemForm({ initial, submitLabel, busy, allowTypeChange = true, o
   const [frequency, setFrequency] = useState<HabitFrequency>(initial.frequency)
   const [daysOfWeek, setDaysOfWeek] = useState<number[]>(initial.daysOfWeek)
   const [timeOfDay, setTimeOfDay] = useState<TimeOfDayChoice>(initial.timeOfDay)
+  const [reminderPreset, setReminderPreset] = useState<ReminderPreset>(initial.reminderPreset ?? 'none')
   const [error, setError] = useState<string | null>(null)
 
   const isHabit = type === 'habit'
+  const hasDueOrSchedule = isHabit || Boolean(dueDate)
+
+  // "From now" presets always work; relative presets need a due date or habit schedule.
+  const reminderOptions: { value: ReminderPreset; label: string }[] = [
+    { value: 'none', label: 'None' },
+    { value: '30m_in', label: 'In 30m' },
+    { value: '1h_in', label: 'In 1h' },
+    { value: '2h_in', label: 'In 2h' },
+    ...(hasDueOrSchedule
+      ? ([
+          { value: 'scheduled_time', label: 'At time' },
+          { value: '1h_before', label: '1h before' },
+        ] as { value: ReminderPreset; label: string }[])
+      : []),
+  ]
 
   const toggleDay = (day: number) =>
     setDaysOfWeek((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day].sort()))
@@ -134,6 +155,9 @@ export function ItemForm({ initial, submitLabel, busy, allowTypeChange = true, o
       ? buildHabitScheduleInput({ frequency, daysOfWeek, timeOfDay, habitTime: initial.habitTime, original: initial.originalSchedule })
       : null
 
+    // A relative preset that no longer applies (e.g. due date cleared) falls back to none.
+    const effectivePreset = reminderOptions.some((o) => o.value === reminderPreset) ? reminderPreset : 'none'
+
     onSubmit({
       base: {
         type,
@@ -145,6 +169,7 @@ export function ItemForm({ initial, submitLabel, busy, allowTypeChange = true, o
         unit: unit.trim() || null,
         schedule,
       },
+      reminderPreset: effectivePreset,
     })
   }
 
@@ -214,6 +239,15 @@ export function ItemForm({ initial, submitLabel, busy, allowTypeChange = true, o
           <ChoiceChips label="Time of day" options={TIME_OF_DAY_OPTIONS} value={timeOfDay} onChange={setTimeOfDay} />
         </View>
       ) : null}
+
+      <View style={{ gap: spacing[1] }}>
+        <ChoiceChips label="Reminder" options={reminderOptions} value={reminderPreset} onChange={setReminderPreset} />
+        <Text variant="meta" tone="tertiary">
+          {reminderPreset === 'none'
+            ? 'No reminder.'
+            : 'Fires as a notification. Works even when the app is closed on a dev build.'}
+        </Text>
+      </View>
 
       <Button title={submitLabel} block loading={busy} onPress={submit} />
     </View>

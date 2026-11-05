@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useState } from 'react'
 import { createExecutionItem } from '@tracknow/core/services/executionService'
+import { setReminderForItem } from '@tracknow/core/services/reminderService'
 import type { ItemType } from '@tracknow/core/types/domain'
 import { AppBar } from '@/components/AppBar'
 import { defaultItemForm, ItemForm } from '@/components/execution/ItemForm'
@@ -26,15 +27,26 @@ export default function NewItemScreen() {
         initial={defaultItemForm(initialType)}
         submitLabel={busy ? 'Adding…' : 'Add item'}
         busy={busy}
-        onSubmit={async ({ base }) => {
+        onSubmit={async ({ base, reminderPreset }) => {
           if (!user || typeof planId !== 'string' || busy) return
           setBusy(true)
           try {
-            await createExecutionItem(user.id, {
+            const created = await createExecutionItem(user.id, {
               ...base,
               plan_id: planId,
               track_id: typeof trackId === 'string' ? trackId : undefined,
             })
+            if (reminderPreset !== 'none') {
+              try {
+                setReminderForItem(user.id, created, reminderPreset)
+              } catch (remErr) {
+                showToast({
+                  title: 'Item added, reminder not set',
+                  message: remErr instanceof Error ? remErr.message : 'Could not schedule the reminder.',
+                  type: 'warning',
+                })
+              }
+            }
             router.back()
           } catch (err) {
             showToast({

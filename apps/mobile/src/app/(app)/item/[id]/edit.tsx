@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useEffect, useState } from 'react'
 import { editExecutionItem, getExecutionItem } from '@tracknow/core/services/executionService'
+import { getReminderForItem, setReminderForItem } from '@tracknow/core/services/reminderService'
 import type { ExecutionItem } from '@tracknow/core/types/domain'
 import type { HabitFrequency, TimeOfDayChoice } from '@tracknow/core/domain/habitSchedule'
 import { AppBar } from '@/components/AppBar'
@@ -34,16 +35,20 @@ export default function EditItemScreen() {
   const { showToast } = useToast()
   const router = useRouter()
   const [item, setItem] = useState<ExecutionItem | null>(null)
+  const [reminderPreset, setReminderPreset] = useState<ItemFormInitial['reminderPreset']>('none')
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     if (typeof id !== 'string') return
     getExecutionItem(id)
-      .then(setItem)
+      .then((loaded) => {
+        setItem(loaded)
+        if (loaded && user) setReminderPreset(getReminderForItem(user.id, loaded.id)?.preset ?? 'none')
+      })
       .catch(() => setItem(null))
       .finally(() => setLoading(false))
-  }, [id])
+  }, [id, user?.id])
 
   if (loading) {
     return (
@@ -67,14 +72,23 @@ export default function EditItemScreen() {
     <Screen>
       <AppBar title="Edit item" />
       <ItemForm
-        initial={toInitial(item)}
+        initial={{ ...toInitial(item), reminderPreset }}
         submitLabel={busy ? 'Saving…' : 'Save changes'}
         busy={busy}
-        onSubmit={async ({ base }) => {
+        onSubmit={async ({ base, reminderPreset: nextPreset }) => {
           if (!user || typeof id !== 'string' || busy) return
           setBusy(true)
           try {
-            await editExecutionItem(id, base, user.id)
+            const updated = await editExecutionItem(id, base, user.id)
+            try {
+              setReminderForItem(user.id, updated, nextPreset)
+            } catch (remErr) {
+              showToast({
+                title: 'Saved, reminder not set',
+                message: remErr instanceof Error ? remErr.message : 'Could not schedule the reminder.',
+                type: 'warning',
+              })
+            }
             router.back()
           } catch (err) {
             showToast({
