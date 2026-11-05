@@ -4,10 +4,15 @@ import { useEffect } from 'react'
 import { configureNotifications, startReminderSync } from '@/lib/notifications'
 import { useAuth } from '@/features/auth/AuthProvider'
 
-/** Routes a notification tap to the item's plan, when the payload carries one. */
-function openFromResponse(response: Notifications.NotificationResponse | null, go: (planId: string) => void) {
-  const data = response?.notification.request.content.data as { planId?: unknown } | undefined
-  if (data && typeof data.planId === 'string' && data.planId) go(data.planId)
+type NotifData = { planId?: unknown; nudge?: unknown }
+
+/** Routes a notification tap: nudges open their tab; item reminders open the plan. */
+function openFromResponse(response: Notifications.NotificationResponse | null, go: (path: string) => void) {
+  const data = response?.notification.request.content.data as NotifData | undefined
+  if (!data) return
+  if (data.nudge === 'weekly') return go('/(app)/(tabs)/reviews')
+  if (data.nudge === 'streak') return go('/(app)/(tabs)/today')
+  if (typeof data.planId === 'string' && data.planId) go(`/plan/${data.planId}`)
 }
 
 /**
@@ -30,7 +35,7 @@ export function NotificationsBridge() {
       stopSync = startReminderSync(userId)
     })
 
-    const go = (planId: string) => router.push(`/plan/${planId}`)
+    const go = (path: string) => router.push(path as Parameters<typeof router.push>[0])
 
     // Cold start: the app may have been launched by tapping a notification.
     Notifications.getLastNotificationResponseAsync()

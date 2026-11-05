@@ -147,6 +147,7 @@ export default function TodayScreen() {
         onToggle={actions.toggle}
         onStep={actions.step}
         onEdit={(it) => router.push(`/item/${it.id}/edit`)}
+        onOpenDetail={(it) => router.push(`/item/${it.id}`)}
         onSnooze={actions.snooze}
         onRemoveReminder={actions.removeReminder}
       />

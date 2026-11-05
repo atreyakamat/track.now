@@ -99,9 +99,40 @@ function bodyFor(reminder: ItemReminder): string {
 }
 
 /**
- * Re-syncs the OS-scheduled notifications to exactly match the user's upcoming reminders.
- * All Track.now notifications are ours, so we clear and reschedule from the stored set.
- * Called at startup and whenever reminders change.
+ * Low-frequency "nudges" that aren't tied to a specific item reminder: a weekly review
+ * prompt and a gentle evening streak check. Rescheduled on every sync (which clears all
+ * scheduled notifications first), so they never pile up into duplicates.
+ */
+async function scheduleNudges(): Promise<void> {
+  const channelId = Platform.OS === 'android' ? ANDROID_CHANNEL_ID : undefined
+  try {
+    // Weekly review — Sunday 6pm (weekday 1 = Sunday in expo-notifications).
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: 'Your week in review',
+        body: 'See your streaks, wins, and what to adjust for next week.',
+        data: { nudge: 'weekly' },
+      },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.WEEKLY, weekday: 1, hour: 18, minute: 0, channelId },
+    })
+    // Evening streak check — daily 8pm.
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: 'Keep your streak alive',
+        body: 'Anything left for today? A quick check keeps your habits going.',
+        data: { nudge: 'streak' },
+      },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.DAILY, hour: 20, minute: 0, channelId },
+    })
+  } catch {
+    /* scheduling unavailable */
+  }
+}
+
+/**
+ * Re-syncs the OS-scheduled notifications to exactly match the user's upcoming reminders,
+ * plus the recurring nudges. All Track.now notifications are ours, so we clear and
+ * reschedule from the stored set. Called at startup and whenever reminders change.
  */
 export async function syncScheduledNotifications(userId: string | undefined): Promise<void> {
   if (!userId || !hasPermissionCached) return
@@ -121,6 +152,7 @@ export async function syncScheduledNotifications(userId: string | undefined): Pr
         trigger: toTrigger(reminder.remindAt),
       })
     }
+    await scheduleNudges()
   } catch {
     /* scheduling unavailable (e.g. Expo Go on Android); the in-app list still works */
   }

@@ -20,6 +20,7 @@ interface ExecutionItemCardProps {
   onStep?: (item: ExecutionItem, delta: number) => void
   onEdit?: (item: ExecutionItem) => void
   onDelete?: (item: ExecutionItem) => void
+  onOpenDetail?: (item: ExecutionItem) => void
   onSnooze?: (itemId: string, minutes?: number) => void
   onRemoveReminder?: (itemId: string) => void
   busy?: boolean
@@ -33,6 +34,7 @@ export function ExecutionItemCard({
   onStep,
   onEdit,
   onDelete,
+  onOpenDetail,
   onSnooze,
   onRemoveReminder,
   busy,
@@ -273,6 +275,17 @@ export function ExecutionItemCard({
           </View>
         ) : null}
 
+        {onOpenDetail && item.type === 'habit' ? (
+          <Pressable
+            onPress={() => onOpenDetail(item)}
+            disabled={busy}
+            hitSlop={6}
+            accessibilityLabel={`View ${item.name} history`}
+            style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Feather name="bar-chart-2" size={16} color={colors.textSecondary} />
+          </Pressable>
+        ) : null}
         {onEdit ? (
           <Pressable
             onPress={() => onEdit(item)}

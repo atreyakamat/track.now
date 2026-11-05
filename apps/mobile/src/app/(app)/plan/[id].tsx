@@ -180,6 +180,7 @@ export default function PlanDetailScreen() {
       onToggle={actions.toggle}
       onStep={actions.step}
       onEdit={(it) => router.push(`/item/${it.id}/edit`)}
+      onOpenDetail={(it) => router.push(`/item/${it.id}`)}
       onDelete={(it) => setItemToDelete(it)}
       onSnooze={actions.snooze}
       onRemoveReminder={actions.removeReminder}
