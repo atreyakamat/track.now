@@ -1,7 +1,10 @@
+# The app depends on the @tracknow/core workspace, so dependencies must be installed from
+# the repo root (where the workspaces and lockfile live), not from apps/app. Build from root
+# and publish the app's dist. If the Netlify site also sets a "Base directory" in the UI,
+# clear it (set it to the repo root) so this install resolves the workspace package.
 [build]
-  base = "apps/app"
-  command = "npm run build"
-  publish = "dist"
+  command = "npm run build:app"
+  publish = "apps/app/dist"
 
 # React Router 7 and Vite 6 need Node 20+.
 [build.environment]
