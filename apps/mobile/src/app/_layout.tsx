@@ -47,7 +47,7 @@ function AuthGate() {
     if (status === 'loading' || status === 'offline') return
     const inAuthGroup = segments[0] === '(auth)'
     if (status === 'authenticated' && inAuthGroup) {
-      router.replace('/(app)')
+      router.replace('/(app)/(tabs)')
     } else if (status === 'unauthenticated' && !inAuthGroup) {
       router.replace('/(auth)/login')
     }

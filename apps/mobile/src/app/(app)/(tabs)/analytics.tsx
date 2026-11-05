@@ -4,7 +4,7 @@ import { RefreshControl, ScrollView, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { listTracks } from '@tracknow/core/services/tracksService'
 import { listPlans } from '@tracknow/core/services/plansService'
-import { listExecutionItems } from '@tracknow/core/services/executionService'
+import { listExecutionItems, listCompletionsForDate } from '@tracknow/core/services/executionService'
 import { listCompletionHistory } from '@tracknow/core/services/historyService'
 import { getTodayDateString } from '@tracknow/core/domain/dates'
 import { addDays } from '@tracknow/core/domain/streaks'
@@ -54,7 +54,7 @@ export default function AnalyticsScreen() {
       listPlans(),
       listExecutionItems(),
       listCompletionHistory(user.id, historyStart, today),
-      Promise.resolve([] as string[]),
+      listCompletionsForDate(user.id, today),
     ])
     return { tracks, plans, items, completions, completedTodayIds }
   }, [user?.id])

@@ -20,8 +20,9 @@ export const isSupabaseConfigured = looksConfigured(url) && looksConfigured(anon
  * handles password recovery through a deep link instead. Authorization is enforced by
  * Postgres Row Level Security; only the public anon key is shipped.
  */
-export const supabase: SupabaseClient | null = isSupabaseConfigured
-  ? createClient(url, anonKey, {
+export const supabase: SupabaseClient | null =
+  isSupabaseConfigured && url && anonKey
+    ? createClient(url, anonKey, {
       auth: {
         storage: AsyncStorage,
         persistSession: true,

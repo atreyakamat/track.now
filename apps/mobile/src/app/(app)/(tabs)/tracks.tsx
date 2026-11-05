@@ -61,10 +61,10 @@ export default function TracksScreen() {
             title={filter === 'active' ? 'No tracks yet' : 'Nothing archived'}
             description={
               filter === 'active'
-                ? 'Create your first track to start organizing your plans and habits.'
+                ? 'Plan a goal for guided setup, or use + New to build a track from scratch.'
                 : 'Archived tracks will appear here.'
             }
-            action={filter === 'active' ? { label: 'Create a track', onPress: () => router.push('/track/new') } : undefined}
+            action={filter === 'active' ? { label: 'Plan a goal', onPress: () => router.push('/guide') } : undefined}
           />
         ) : (
           <View style={{ gap: spacing[3] }}>

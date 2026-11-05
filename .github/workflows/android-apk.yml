@@ -1,0 +1,79 @@
+name: Android APK
+
+# Builds an installable Android APK on EAS and makes it available two ways:
+#  1. A direct install link in the run summary (open it on your phone to install).
+#  2. The .apk uploaded as a workflow artifact you can download from the run page.
+#
+# Trigger it manually from the Actions tab → "Android APK" → "Run workflow".
+#
+# Requires one repository secret: EXPO_TOKEN
+#   Create at https://expo.dev/settings/access-tokens, then add it under
+#   GitHub repo → Settings → Secrets and variables → Actions → New repository secret.
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "EAS build profile"
+        type: choice
+        default: preview
+        options:
+          - preview
+          - development
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Set up EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build APK on EAS
+        run: eas build --platform android --profile ${{ inputs.profile }} --non-interactive --wait --json | tee build.json
+
+      - name: Extract APK URL
+        id: apk
+        run: |
+          URL=$(jq -r '.[0].artifacts.buildUrl // .[0].artifacts.applicationArchiveUrl' build.json)
+          if [ -z "$URL" ] || [ "$URL" = "null" ]; then
+            echo "Could not find an APK URL in the EAS build output." >&2
+            cat build.json >&2
+            exit 1
+          fi
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          {
+            echo "## 📱 Track.now APK ready"
+            echo ""
+            echo "**[Tap here on your Android phone to install]($URL)**"
+            echo ""
+            echo "(Allow \"install from unknown sources\" when prompted — it's your own signed build.)"
+            echo ""
+            echo "The same file is attached to this run as the \`tracknow-apk\` artifact below."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Download APK
+        run: curl -fL -o tracknow.apk "${{ steps.apk.outputs.url }}"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tracknow-apk
+          path: apps/mobile/tracknow.apk
+          if-no-files-found: error

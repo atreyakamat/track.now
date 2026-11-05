@@ -140,8 +140,8 @@ export default function DashboardScreen() {
           <EmptyState
             icon={<Feather name="target" size={22} color={colors.textSecondary} />}
             title="Start your first track"
-            description="Create a track, add a plan with habits and tasks, and your snapshot will build here."
-            action={{ label: 'Create a track', onPress: () => router.push('/track/new') }}
+            description="Tell us a goal and we’ll set up a track with habits, tasks and a milestone — or build one from scratch with the + Track button."
+            action={{ label: 'Plan a goal', onPress: () => router.push('/guide') }}
           />
         ) : (
           <View style={{ gap: spacing[4] }}>
@@ -160,6 +160,19 @@ export default function DashboardScreen() {
             </Card>
 
             <Heatmap counts={data.dailyCounts} />
+
+            <Card style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[3] }}>
+              <Feather name="compass" size={20} color={colors.accentPrimary} />
+              <View style={{ flex: 1 }}>
+                <Text variant="caption" weight="semibold">
+                  Plan a new goal
+                </Text>
+                <Text variant="meta" tone="secondary">
+                  Guided setup with ready-made habits & tasks.
+                </Text>
+              </View>
+              <Button title="Start" variant="secondary" size="sm" onPress={() => router.push('/guide')} />
+            </Card>
 
             <View style={{ gap: spacing[2] }}>
               <Text variant="meta" tone="tertiary">

@@ -28,6 +28,7 @@ import {
   Text,
 } from '@/components/ui'
 import { useAuth } from '@/features/auth/AuthProvider'
+import { useToast } from '@/features/notifications/ToastContext'
 import { useAsync } from '@/hooks/useAsync'
 import { useTheme } from '@/theme/ThemeProvider'
 import { radius, resolveTrackColor, spacing } from '@/theme/tokens'
@@ -37,6 +38,7 @@ const RECORD_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 export default function TrackDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const { user } = useAuth()
+  const { showToast } = useToast()
   const { colors } = useTheme()
   const router = useRouter()
   const [filter, setFilter] = useState<'active' | 'archived'>('active')
@@ -65,20 +67,33 @@ export default function TrackDetailScreen() {
       try {
         await setPlanArchivedWithCleanup(user?.id, planId, !isArchived)
         reload()
+      } catch (err) {
+        showToast({
+          title: isArchived ? 'Could not restore plan' : 'Could not archive plan',
+          message: err instanceof Error ? err.message : 'Please try again.',
+          type: 'warning',
+        })
       } finally {
         setPlanBusyId(null)
       }
     },
-    [user?.id, reload],
+    [user?.id, reload, showToast],
   )
 
   const handleArchiveTrack = async () => {
     if (!data) return
+    const archiving = data.track.status !== 'archived'
     setConfirmArchive(false)
     setArchiveBusy(true)
     try {
-      await setTrackArchivedWithCleanup(user?.id, data.track.id, data.track.status !== 'archived')
+      await setTrackArchivedWithCleanup(user?.id, data.track.id, archiving)
       reload()
+    } catch (err) {
+      showToast({
+        title: archiving ? 'Could not archive track' : 'Could not restore track',
+        message: err instanceof Error ? err.message : 'Please try again.',
+        type: 'warning',
+      })
     } finally {
       setArchiveBusy(false)
     }
@@ -90,8 +105,12 @@ export default function TrackDetailScreen() {
     try {
       await deleteTrackWithCleanup(user?.id, data.track.id)
       router.replace('/(app)/(tabs)/tracks')
-    } catch {
-      /* stay on the page; the next load surfaces any error */
+    } catch (err) {
+      showToast({
+        title: 'Could not delete track',
+        message: err instanceof Error ? err.message : 'Please try again.',
+        type: 'warning',
+      })
     }
   }
 

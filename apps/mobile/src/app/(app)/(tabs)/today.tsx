@@ -32,7 +32,6 @@ export default function TodayScreen() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [loadedDate, setLoadedDate] = useState(getTodayDateString())
   const requestRef = useRef(0)
   const actionsRef = useRef<ReturnType<typeof useExecutionItemActions> | null>(null)
 
@@ -54,7 +53,6 @@ export default function TodayScreen() {
         if (requestId !== requestRef.current) return
         setItems(allItems)
         actionsRef.current?.setCompletionState(todayIds, history)
-        setLoadedDate(today)
         reconcileRemindersWithActiveItems(userId, allItems.map((i) => i.id))
         updateTodayWidget(allItems, new Set(todayIds))
       } catch (err) {
@@ -82,13 +80,12 @@ export default function TodayScreen() {
     void loadData()
   }, [loadData])
 
-  // Reload when returning to the tab (e.g. after adding/editing an item elsewhere).
+  // Reload when returning to the tab (e.g. after adding/editing an item elsewhere, or when
+  // the day has rolled over). loadData re-reads today's date internally and re-buckets.
   useFocusEffect(
     useCallback(() => {
-      if (getTodayDateString() !== loadedDate) void loadData({ silent: true })
-      else void loadData({ silent: true })
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [loadedDate]),
+      void loadData({ silent: true })
+    }, [loadData]),
   )
 
   const renderCard = (item: ExecutionItem) => (

@@ -52,6 +52,17 @@ export async function configureNotifications(): Promise<boolean> {
 
 let hasPermissionCached = false
 
+/** Reads the current OS permission state without prompting. For status UIs (e.g. Settings). */
+export async function getNotificationPermission(): Promise<boolean> {
+  try {
+    const { status } = await Notifications.getPermissionsAsync()
+    hasPermissionCached = status === 'granted'
+    return hasPermissionCached
+  } catch {
+    return false
+  }
+}
+
 export async function requestPermission(): Promise<boolean> {
   // A simulator/emulator can schedule local notifications; only remote push needs a device.
   if (!Device.isDevice && Platform.OS !== 'android' && Platform.OS !== 'ios') {

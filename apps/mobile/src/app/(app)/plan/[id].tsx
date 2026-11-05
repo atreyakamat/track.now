@@ -26,6 +26,7 @@ import {
   Text,
 } from '@/components/ui'
 import { useAuth } from '@/features/auth/AuthProvider'
+import { useToast } from '@/features/notifications/ToastContext'
 import { useExecutionItemActions } from '@/hooks/useExecutionItemActions'
 import { useTheme } from '@/theme/ThemeProvider'
 import { radius, spacing } from '@/theme/tokens'
@@ -35,10 +36,12 @@ const RECORD_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 export default function PlanDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const { user } = useAuth()
+  const { showToast } = useToast()
   const { colors } = useTheme()
   const router = useRouter()
 
   const [plan, setPlan] = useState<Plan | null>(null)
+  const [archiveBusy, setArchiveBusy] = useState(false)
   const [items, setItems] = useState<ExecutionItem[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -266,9 +269,22 @@ export default function PlanDetailScreen() {
             title={isArchived ? 'Restore plan' : 'Archive plan'}
             variant="ghost"
             block
+            loading={archiveBusy}
             onPress={async () => {
-              await setPlanArchivedWithCleanup(user?.id, plan.id, !isArchived)
-              load({ silent: true })
+              if (archiveBusy) return
+              setArchiveBusy(true)
+              try {
+                await setPlanArchivedWithCleanup(user?.id, plan.id, !isArchived)
+                await load({ silent: true })
+              } catch (err) {
+                showToast({
+                  title: isArchived ? 'Could not restore plan' : 'Could not archive plan',
+                  message: err instanceof Error ? err.message : 'Please try again.',
+                  type: 'warning',
+                })
+              } finally {
+                setArchiveBusy(false)
+              }
             }}
           />
           <Pressable onPress={() => setConfirmDelete(true)} style={{ alignItems: 'center', paddingVertical: spacing[3] }}>
@@ -291,8 +307,12 @@ export default function PlanDetailScreen() {
           try {
             await deletePlanWithCleanup(user?.id, plan.id)
             router.back()
-          } catch {
-            /* next load surfaces errors */
+          } catch (err) {
+            showToast({
+              title: 'Could not delete plan',
+              message: err instanceof Error ? err.message : 'Please try again.',
+              type: 'warning',
+            })
           }
         }}
       />
