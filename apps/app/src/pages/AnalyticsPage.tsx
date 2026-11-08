@@ -22,6 +22,8 @@ import type { ExecutionItem, Plan, Track } from '@tracknow/core/types/domain'
 import { Badge, ButtonLink, EmptyState, ErrorState, LoadingState, PageHeader, ProgressBar } from '@/components/ui'
 import { pluralize } from '@tracknow/core/utils/format'
 import '@/styles/insights.css'
+import { ProgressPanel } from '@/components/insights/ProgressPanel'
+import { RetentionPanel } from '@/components/insights/RetentionPanel'
 
 interface LoadedData {
   tracks: Track[]
@@ -136,6 +138,11 @@ export function AnalyticsPage() {
             <RangeSelector value={rangeDays} onChange={setRangeDays} />
             <span className="t-caption">{formatDateRangeLabel(analytics.range)}</span>
           </div>
+
+          {userId && data && <ProgressPanel userId={userId} items={data.items} plans={data.plans} />}
+          {data && (
+            <RetentionPanel items={data.items} plans={data.plans} tracks={data.tracks} completions={data.completions} now={data.loadedAt} />
+          )}
 
           <MethodNote />
           <SummaryTiles analytics={analytics} />

@@ -23,8 +23,13 @@ Security findings and remediations are in `SECURITY_AUDIT.md`.
 | Sign-out that cannot leave the user signed in when offline | Done | Falls back to local sign-out and says so. |
 | Tracks: create (templates/custom), edit, duplicate-name confirmation, archive, restore, delete | Done | Duplicate names allowed after confirmation. |
 | Plans: create, edit (date validation), archive, restore, delete | Done | Archive/delete also cancel device reminders. |
+| Plans as Arcs: time-bound (30/60/90/custom days) or ongoing; outcome + success criteria; draft → active → paused → completed → archived; completion review; "start the next Arc" | Done | Needs migration `20261108000000` for outcome/criteria/review/pause. Before it: Plans still create; extra fields are dropped with a visible notice; pausing explains why it is unavailable. A Plan past its end date is flagged "Due for review", never auto-closed. |
+| Items: start date, weekly-target habits ("3× a week, any day"), checklist steps | Done | Same migration. Not-started items wait in Upcoming and never count against progress/streaks; weekly-target habits never "miss" a day and streak in weeks. |
+| Today as home: Focus (≤ 3, device-local per day), Overdue / Due Today / Anytime / Upcoming / Completed, quick add, Plan · Track context, day summary, Momentum | Done | Dashboard removed from navigation; `/dashboard` redirects to `/today`. |
+| Quiet gamification: Momentum, XP, levels, 7 achievements | Done | Derived only from completion records (no client-side points). Duplicates impossible; un-completing removes the points; daily cap on one-off items; no penalties, leaderboards or streak shaming. |
+| Plan file import (`tracknow.plan.v1`) in Settings | Done | Preview first, reuses Tracks by name, skips existing Plans (re-import is safe). Example: `docs/examples/90-day-arc.plan.json`. |
 | Execution items: habit, task, checklist, milestone, project — create/edit/delete | Done | Delete now asks for confirmation; schedule failures are never silent. |
-| Today view: Overdue / Due Today / Anytime / Upcoming / Completed Today | Done | Only active Tracks and Plans; midnight rollover reloads. |
+| Today view sections | Done | Only active Plans in active Tracks (paused/draft/completed Plans leave Today); midnight rollover reloads. |
 | Completion log, idempotent per item per day | Done | Unique index `(item_id, completed_date)`. |
 | Numeric targets with +/- stepper | Done | Atomic RPC once the prepared migrations are applied; RLS-protected fallback before that. Habits restart daily from `count_date` (renaming/editing a habit on a new day no longer carries yesterday's count or logs a fake completion). |
 | Progress rollups (item, plan, track, dashboard) | Done | Habits count as done only if completed today; habits not scheduled today are left out of today's total. Empty = 0%. History queries are paged (no 1000-row truncation). |
@@ -35,7 +40,8 @@ Security findings and remediations are in `SECURITY_AUDIT.md`.
 | Analytics v1 (trends, habit consistency, per-track progress, overdue, recent) | Done | Built only from real completions; no sample data. |
 | Reviews v1 (weekly review + monthly reflection) | Partial | Notes are stored on this device only (no table approved), per user; unsaved notes are kept when navigating away. "Mark done" is idempotent. |
 | PWA manifest + service worker (offline shell, notification click routing) | Partial | Shell + assets precached, old deploys pruned, in-app routing on notification click. No Web Push sender; SVG-only icon. |
-| Security remediation of `track_now_increment_item_count` + habit `count_date` | Blocked | Migrations `20261012000000` and `20261013000000` prepared and verified on a disposable local PostgreSQL (`node scripts/verify_sql_local.cjs`, 15/15); **not applied**; owner approval required. |
+| Security remediation of `track_now_increment_item_count` + habit `count_date` + trigger revoke | Done | `20261012000000`, `20261013000000`, `20261014000000` applied by the owner (verified read-only via anon REST, 2026-11-05). |
+| Plans/Arcs + flexible items schema | Blocked | `20261108000000_plans_arcs_and_flexible_items.sql` verified on a disposable local PostgreSQL (`node scripts/verify_sql_local.cjs`, 21/21); **not applied**; owner applies it in the SQL editor. |
 | Live multi-user RLS verification | Blocked | Requires an isolated Supabase project and admin credentials; not run. |
 
 ## Reminders — what actually works
@@ -49,7 +55,8 @@ Security findings and remediations are in `SECURITY_AUDIT.md`.
 
 ## Blocked — owner actions
 
-1. Review and apply `supabase/migrations/20261012000000_secure_increment_item_count_rpc.sql`, then `20261013000000_habit_daily_counter.sql` (see `RELEASE_READINESS.md`).
+1. ~~Apply `20261012000000`, `20261013000000`, `20261014000000`~~ — done by the owner.
+1a. Apply `supabase/migrations/20261108000000_plans_arcs_and_flexible_items.sql` in the Supabase SQL editor (additive; see `RELEASE_READINESS.md`).
 2. ~~Add `https://trackapp.atreyakamat.dev/reset-password` to Supabase Auth redirect URLs~~ — done 2026-10-14 (owner).
 3. Investigate the live signup rate limit / bounced emails in the Supabase dashboard (Auth logs, SMTP settings).
 4. Run a cross-tenant RLS test against an isolated (non-production) Supabase project.
@@ -63,7 +70,9 @@ Security findings and remediations are in `SECURITY_AUDIT.md`.
 
 ## Future (not in v1)
 
-- Hierarchical subtasks and checklist items inside projects.
+- Hierarchical subtasks inside projects (checklists now have steps).
+- Recurring Plan cycles (`plan_kind = 'recurring'` is stored; there is no automatic next-cycle creation by design).
+- Synced Today focus (device-local today).
 - Drag-and-drop reordering persisted to `position`.
 - True monthly habit cadence (schedule semantics + streak rules).
 - Synced review notes (needs an approved `track_now_reviews` table).

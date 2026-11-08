@@ -3,7 +3,6 @@ import {
   BarChart3,
   Calendar,
   CheckCircle2,
-  LayoutDashboard,
   Menu,
   Target,
 } from 'lucide-react'
@@ -18,9 +17,8 @@ interface MobileNavProps {
 
 export function MobileNav({ drawerOpen, onToggleDrawer, onCloseDrawer }: MobileNavProps) {
   const links = [
-    { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { to: '/tracks', label: 'Tracks', icon: Target },
     { to: '/today', label: 'Today', icon: Calendar },
+    { to: '/tracks', label: 'Tracks', icon: Target },
     { to: '/reviews', label: 'Reviews', icon: CheckCircle2 },
     { to: '/analytics', label: 'Analytics', icon: BarChart3 },
   ]

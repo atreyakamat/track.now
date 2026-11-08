@@ -1,5 +1,6 @@
 import type { ExecutionItem } from '../types/domain'
-import { getTodayDateString, isHabitScheduledForToday } from './dates'
+import { getTodayDateString } from './dates'
+import { isHabitRequiredToday } from './schedule'
 
 /**
  * Pure helpers for the once-a-day "Daily Execution Briefing" and "Overdue Item Alerts".
@@ -33,7 +34,7 @@ export function summarizeDay(snapshot: DailySnapshot, now = new Date()) {
   const today = getTodayDateString(now)
   const completed = new Set(snapshot.completedTodayIds)
   const open = snapshot.items.filter((i) => isOpen(i, completed))
-  const habitsRemaining = open.filter((i) => i.type === 'habit' && isHabitScheduledForToday(i.schedule, now)).length
+  const habitsRemaining = open.filter((i) => i.type === 'habit' && isHabitRequiredToday(i, now)).length
   const dueToday = open.filter((i) => i.type !== 'habit' && i.due_date === today).length
   const overdue = open.filter((i) => i.type !== 'habit' && Boolean(i.due_date) && (i.due_date as string) < today)
   return { habitsRemaining, dueToday, overdue }

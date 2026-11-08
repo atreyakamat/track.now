@@ -1,0 +1,54 @@
+{
+  "format": "tracknow.plan.v1",
+  "title": "Example · 90-day Arc with an ongoing routine",
+  "arc": "90-day Arc",
+  "tracks": [
+    {
+      "name": "Health & Fitness",
+      "icon": "Dumbbell",
+      "color": "#22c55e",
+      "plans": [
+        {
+          "name": "90-Day Fitness Arc",
+          "kind": "time_bound",
+          "start_date": "2027-01-04",
+          "end_date": "2027-04-03",
+          "outcome": "Establish a sustainable fitness routine.",
+          "success_criteria": "3 runs most weeks\nStrength training twice a week",
+          "items": [
+            { "type": "habit", "name": "Daily movement (20 min)", "schedule": { "time_of_day": "morning" } },
+            { "type": "habit", "name": "Run", "schedule": { "times_per_week": 3 } },
+            { "type": "habit", "name": "Strength training", "schedule": { "days_of_week": [2, 5], "time_of_day": "evening", "reminder_time": "18:00" } },
+            { "type": "habit", "name": "Weekly progress review", "schedule": { "days_of_week": [0], "time_of_day": "evening" } },
+            { "type": "milestone", "name": "Run 5 km without stopping", "due_date": "2027-02-01" },
+            { "type": "milestone", "name": "Monthly fitness check-in", "due_date": "2027-03-01" }
+          ]
+        },
+        {
+          "name": "Stay fit",
+          "kind": "ongoing",
+          "arc": null,
+          "items": [{ "type": "habit", "name": "Swim when the pool is free", "schedule": { "times_per_week": 1 } }]
+        }
+      ]
+    },
+    {
+      "name": "Career",
+      "icon": "Briefcase",
+      "color": "#3b82f6",
+      "plans": [
+        {
+          "name": "Professional Development Arc",
+          "kind": "time_bound",
+          "start_date": "2027-01-04",
+          "end_date": "2027-04-03",
+          "items": [
+            { "type": "habit", "name": "Learning session", "schedule": { "times_per_week": 2 } },
+            { "type": "checklist", "name": "Portfolio refresh", "steps": ["Update CV", "Add two projects", "Ask for one review"] },
+            { "type": "milestone", "name": "Ship a portfolio project", "due_date": "2027-03-15" }
+          ]
+        }
+      ]
+    }
+  ]
+}

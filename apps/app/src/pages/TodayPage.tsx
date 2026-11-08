@@ -1,29 +1,46 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { CheckCircle2, Clock } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { CheckCircle2, Clock, Layers, Plus, Star } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthProvider'
+import { useToast } from '@/features/notifications/ToastContext'
 import {
   listCompletionsForDate,
   listCompletionsForItems,
-  listTodayExecutionItems,
+  listTodayWorkspace,
+  type TodayWorkspace,
 } from '@tracknow/core/services/executionService'
-import { getTodayDateString } from '@tracknow/core/domain/dates'
-import { groupTodayItems } from '@tracknow/core/domain/today'
-import type { ExecutionItem } from '@tracknow/core/types/domain'
-import { EmptyState, ErrorState, LoadingState, PageHeader } from '@/components/ui'
+import { listCompletionHistory, type CompletionRecord } from '@tracknow/core/services/historyService'
+import { getTodayDateString, greeting } from '@tracknow/core/domain/dates'
+import { groupTodayItems, MAX_FOCUS, todaySummary } from '@tracknow/core/domain/today'
+import { calcMomentum, MOMENTUM_WINDOW_DAYS } from '@tracknow/core/domain/momentum'
+import { weeklyTargetStatus } from '@tracknow/core/domain/schedule'
+import { loadFocusIds, toggleFocusId } from '@tracknow/core/services/focusService'
+import type { ExecutionItem, Plan } from '@tracknow/core/types/domain'
+import { groupArcs } from '@tracknow/core/domain/arcs'
+import { arcPath } from '@/components/plans/ArcCard'
+import { Button, ButtonLink, EmptyState, ErrorState, LoadingState, PageHeader } from '@/components/ui'
 import { ExecutionItemCard } from '@/components/execution/ExecutionItemCard'
 import { EditItemModal } from '@/components/execution/EditItemModal'
+import { CreateItemModal } from '@/components/execution/CreateItemModal'
 import { reconcileRemindersWithActiveItems } from '@tracknow/core/services/reminderService'
 import { buildWidgetDataPayload, saveWidgetData } from '@/services/widgetDataService'
 import { useExecutionItemActions } from '@/hooks/useExecutionItemActions'
 import { addDays } from '@tracknow/core/domain/streaks'
 
+const EMPTY_WORKSPACE: TodayWorkspace = { items: [], plans: [], tracks: [] }
+
 export function TodayPage() {
-  const { user } = useAuth()
+  const { user, displayName } = useAuth()
+  const { showToast } = useToast()
   const userId = user?.id
   const [items, setItems] = useState<ExecutionItem[]>([])
+  const [workspace, setWorkspace] = useState<TodayWorkspace>(EMPTY_WORKSPACE)
+  const [recent, setRecent] = useState<CompletionRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [editingItem, setEditingItem] = useState<ExecutionItem | null>(null)
+  const [creating, setCreating] = useState(false)
+  const [focusIds, setFocusIds] = useState<string[]>(() => (userId ? loadFocusIds(userId) : []))
   const [loadedDate, setLoadedDate] = useState(getTodayDateString())
   const requestRef = useRef(0)
 
@@ -47,21 +64,26 @@ export function TodayPage() {
         if (!opts.silent) setLoading(true)
         setError(null)
         const today = getTodayDateString()
-        const [allItems, todayIds] = await Promise.all([
-          listTodayExecutionItems(),
+        const [ws, todayIds, recentRows] = await Promise.all([
+          listTodayWorkspace(),
           listCompletionsForDate(userId, today),
+          // Momentum only needs the last 14 days of completions (never the whole history).
+          listCompletionHistory(userId, addDays(today, -(MOMENTUM_WINDOW_DAYS - 1))).catch(() => [] as CompletionRecord[]),
         ])
-        const habitIds = allItems.filter((i) => i.type === 'habit').map((h) => h.id)
+        const habitIds = ws.items.filter((i) => i.type === 'habit').map((h) => h.id)
         // Streaks only need roughly the last year of history.
         const history = habitIds.length ? await listCompletionsForItems(habitIds, addDays(today, -400)) : {}
         if (requestId !== requestRef.current) return
 
-        setItems(allItems)
+        setItems(ws.items)
+        setWorkspace(ws)
+        setRecent(recentRows)
         actionsRef.current?.setCompletionState(todayIds, history)
         setLoadedDate(today)
+        setFocusIds(loadFocusIds(userId))
         // Reminders for items that were deleted elsewhere or whose plan/track is archived.
-        reconcileRemindersWithActiveItems(userId, allItems.map((i) => i.id))
-        persistWidget(allItems, todayIds)
+        reconcileRemindersWithActiveItems(userId, ws.items.map((i) => i.id))
+        persistWidget(ws.items, todayIds)
       } catch (err) {
         if (requestId !== requestRef.current) return
         setError(err instanceof Error ? err.message : 'Failed to load today’s items.')
@@ -98,52 +120,103 @@ export function TodayPage() {
     }
   }, [loadedDate, loadData])
 
+  const context = useMemo(() => {
+    const trackName = new Map(workspace.tracks.map((t) => [t.id, t.name]))
+    const map = new Map<string, { label: string; to: string }>()
+    for (const p of workspace.plans) {
+      const t = trackName.get(p.track_id)
+      map.set(p.id, { label: t ? `${p.name} · ${t}` : p.name, to: `/tracks/${p.track_id}/plans/${p.id}` })
+    }
+    return map
+  }, [workspace])
+
+  // Momentum uses the last 14 days of real completions, kept in step with today's toggles.
+  const momentum = useMemo(() => {
+    const today = getTodayDateString()
+    const rows = recent.filter((r) => r.completed_date !== today).map((r) => ({ item_id: r.item_id, completed_date: r.completed_date }))
+    actions.completedTodayIds.forEach((id) => rows.push({ item_id: id, completed_date: today }))
+    return calcMomentum(items, rows)
+  }, [recent, items, actions.completedTodayIds])
+
   if (loading) return <LoadingState label="Preparing today’s queue…" />
   if (error) return <ErrorState message={error} onRetry={() => void loadData()} />
 
-  const groups = groupTodayItems(items, actions.completedTodayIds)
-  const totalOpen = groups.overdue.length + groups.dueToday.length + groups.anytime.length
+  const groups = groupTodayItems(items, actions.completedTodayIds, new Date(), {
+    focusIds,
+    historyByItem: actions.completionDates,
+  })
+  const summary = todaySummary(groups)
+  const totalOpen = groups.focus.length + groups.overdue.length + groups.dueToday.length + groups.anytime.length
   const byId = new Map(items.map((i) => [i.id, i]))
+  const focusSet = new Set(focusIds)
 
-  const renderCard = (item: ExecutionItem) => (
-    <ExecutionItemCard
-      key={item.id}
-      item={item}
-      isCompletedOverride={item.type === 'habit' ? actions.completedTodayIds.has(item.id) : undefined}
-      streakSummary={item.type === 'habit' ? actions.streakSummaries[item.id] : undefined}
-      onToggleStatus={(id) => {
-        const it = byId.get(id)
-        if (it) void actions.toggle(it)
-      }}
-      onUpdateCount={(id, n) => {
-        const it = byId.get(id)
-        if (it) void actions.setCount(it, n)
-      }}
-      onStepCount={(id, delta) => {
-        const it = byId.get(id)
-        if (it) void actions.step(it, delta)
-      }}
-      onEdit={(it) => setEditingItem(it)}
-      onSnoozeReminder={actions.snooze}
-      onRemoveReminder={actions.removeReminder}
-      busy={actions.busyIds.has(item.id)}
-    />
-  )
+  const toggleFocus = (item: ExecutionItem) => {
+    if (!userId) return
+    const next = toggleFocusId(userId, item.id)
+    if (!next) {
+      showToast({
+        id: 'focus-full',
+        title: `Focus holds ${MAX_FOCUS} items`,
+        message: 'Remove one from today’s focus first. Keeping it short keeps it meaningful.',
+        type: 'info',
+      })
+      return
+    }
+    setFocusIds(next)
+  }
 
-  const section = (title: string, list: ExecutionItem[], opts: { danger?: boolean; icon?: boolean; muted?: boolean } = {}) =>
+  const renderCard = (item: ExecutionItem) => {
+    const weekly =
+      item.type === 'habit'
+        ? weeklyTargetStatus(item.schedule, actions.completionDates[item.id] ?? [], getTodayDateString())
+        : null
+    return (
+      <ExecutionItemCard
+        key={item.id}
+        item={item}
+        isCompletedOverride={item.type === 'habit' ? actions.completedTodayIds.has(item.id) : undefined}
+        streakSummary={item.type === 'habit' ? actions.streakSummaries[item.id] : undefined}
+        weekDone={weekly?.done}
+        context={context.get(item.plan_id) ?? null}
+        focused={focusSet.has(item.id)}
+        onToggleFocus={toggleFocus}
+        onToggleChecklistEntry={(it, entryId) => void actions.toggleChecklistEntry(it, entryId)}
+        onToggleStatus={(id) => {
+          const it = byId.get(id)
+          if (it) void actions.toggle(it)
+        }}
+        onUpdateCount={(id, n) => {
+          const it = byId.get(id)
+          if (it) void actions.setCount(it, n)
+        }}
+        onStepCount={(id, delta) => {
+          const it = byId.get(id)
+          if (it) void actions.step(it, delta)
+        }}
+        onEdit={(it) => setEditingItem(it)}
+        onSnoozeReminder={actions.snooze}
+        onRemoveReminder={actions.removeReminder}
+        busy={actions.busyIds.has(item.id)}
+      />
+    )
+  }
+
+  const section = (
+    title: string,
+    list: ExecutionItem[],
+    opts: { danger?: boolean; icon?: 'clock' | 'star'; muted?: boolean; hint?: string } = {},
+  ) =>
     list.length > 0 && (
       <section
-        className="section"
-        style={opts.muted ? { borderTop: '1px solid var(--border)', paddingTop: 'var(--space-5)', marginTop: 0 } : { marginTop: 0 }}
+        className={`section today-section${opts.muted ? ' today-section--muted' : ''}`}
         aria-label={`${title} (${list.length})`}
       >
         <div className="section__head">
-          <h2
-            className="t-h2"
-            style={opts.danger ? { color: 'var(--danger)' } : opts.muted ? { color: 'var(--text-secondary)' } : undefined}
-          >
-            {opts.icon && <Clock size={16} aria-hidden="true" />} {title} ({list.length})
+          <h2 className="t-h2" style={opts.danger ? { color: 'var(--danger)' } : opts.muted ? { color: 'var(--text-secondary)' } : undefined}>
+            {opts.icon === 'clock' && <Clock size={16} aria-hidden="true" />}
+            {opts.icon === 'star' && <Star size={16} aria-hidden="true" />} {title} ({list.length})
           </h2>
+          {opts.hint && <span className="t-meta">{opts.hint}</span>}
         </div>
         <div className="stack" style={{ gap: 'var(--space-2)' }}>
           {list.map(renderCard)}
@@ -152,19 +225,89 @@ export function TodayPage() {
     )
 
   const nothingAtAll = items.filter((i) => i.status !== 'archived').length === 0
+  const canCreate = workspace.plans.length > 0
+  const todayArcs = groupArcs(workspace.plans as Plan[], [], new Date()).filter((a) => a.timeline?.phase !== 'ended')
+  const dateLabel = new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })
 
   return (
     <div>
       <PageHeader
+        eyebrow={`${greeting()}${displayName ? `, ${displayName.split(' ')[0]}` : ''}`}
         title="Today"
-        description="What needs to happen today across your active Tracks and Plans."
+        description={dateLabel}
+        actions={
+          canCreate ? (
+            <Button variant="primary" onClick={() => setCreating(true)}>
+              <Plus size={16} /> <span>Add item</span>
+            </Button>
+          ) : undefined
+        }
       />
+
+      {!nothingAtAll && (
+        <div className="today-summary" aria-label="Today’s progress">
+          <div className="today-summary__main">
+            <span className="today-summary__count">
+              {summary.done} of {summary.total} done
+            </span>
+            <div
+              className="today-summary__bar"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={summary.percent}
+              aria-label="Today’s work completed"
+            >
+              <span style={{ width: `${summary.percent}%` }} />
+            </div>
+          </div>
+          <div className="today-summary__momentum" title={momentum.explanation}>
+            <span className="t-meta">Momentum</span>
+            <span className="today-summary__score">
+              {momentum.score}
+              <span className="t-meta"> · {momentum.label}</span>
+            </span>
+            <span className="sr-only">{momentum.explanation}</span>
+          </div>
+        </div>
+      )}
+
+      {todayArcs.length > 0 && (
+        <nav className="row" aria-label="Your Arcs" style={{ gap: 'var(--space-2)', flexWrap: 'wrap', marginBottom: 'var(--space-4)' }}>
+          {todayArcs.map((arc) => (
+            <Link key={arc.key} to={arcPath(arc)} className="badge" style={{ textDecoration: 'none', minHeight: 32, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Layers size={12} aria-hidden="true" />
+              {arc.name}
+              {arc.timeline
+                ? arc.timeline.phase === 'not_started'
+                  ? ` · starts in ${arc.timeline.startsInDays}d`
+                  : ` · Day ${arc.timeline.day} of ${arc.timeline.totalDays}`
+                : ''}
+            </Link>
+          ))}
+        </nav>
+      )}
 
       {nothingAtAll ? (
         <EmptyState
           icon={<CheckCircle2 size={24} />}
-          title="No execution items yet"
-          description="Create a Plan inside one of your Tracks and add habits or tasks to see them here."
+          title={workspace.tracks.length ? 'Nothing planned yet' : 'Start with one area of your life'}
+          description={
+            workspace.tracks.length
+              ? 'Add a habit or task to one of your active Plans and it will show up here.'
+              : 'Create a Track (like Health or Career), start a Plan inside it, and add your first habit or task.'
+          }
+          action={
+            canCreate ? (
+              <Button variant="primary" onClick={() => setCreating(true)}>
+                <Plus size={16} /> Add your first item
+              </Button>
+            ) : (
+              <ButtonLink to={workspace.tracks.length ? '/tracks' : '/tracks/new'} variant="primary">
+                {workspace.tracks.length ? 'Open your Tracks' : 'Create a Track'}
+              </ButtonLink>
+            )
+          }
         />
       ) : (
         <div className="stack" style={{ gap: 'var(--space-6)' }}>
@@ -175,10 +318,16 @@ export function TodayPage() {
                 : 'Nothing is due today.'}
             </div>
           )}
+          {groups.focus.length === 0 && totalOpen > 1 && (
+            <p className="t-meta today-hint">
+              <Star size={12} aria-hidden="true" /> Tip: star up to {MAX_FOCUS} items to make them today’s focus.
+            </p>
+          )}
+          {section('Focus', groups.focus, { icon: 'star', hint: `${groups.focus.length}/${MAX_FOCUS}` })}
           {section('Overdue', groups.overdue, { danger: true })}
           {section('Due Today', groups.dueToday)}
           {section('Anytime', groups.anytime)}
-          {section('Upcoming', groups.upcoming, { icon: true })}
+          {section('Upcoming', groups.upcoming, { icon: 'clock' })}
           {section('Completed Today', groups.completedToday, { muted: true })}
         </div>
       )}
@@ -190,6 +339,19 @@ export function TodayPage() {
         onSubmit={actions.saveEdit}
         completedToday={editingItem ? actions.completedTodayIds.has(editingItem.id) : false}
       />
+
+      {userId && canCreate && (
+        <CreateItemModal
+          open={creating}
+          onClose={() => setCreating(false)}
+          plans={workspace.plans.map((p) => ({ id: p.id, label: context.get(p.id)?.label ?? p.name, track_id: p.track_id }))}
+          onSubmit={async (input, reminder) => {
+            await actions.create(input, reminder)
+            setCreating(false)
+            void loadData({ silent: true })
+          }}
+        />
+      )}
     </div>
   )
 }

@@ -144,3 +144,113 @@ export function ReminderFields({
     </div>
   )
 }
+
+// ---------------------------------------------------------------------------
+// Arc-era additions: weekly targets, start dates and checklist steps.
+// ---------------------------------------------------------------------------
+
+/** The habit "Repeat" choice: fixed days, or a weekly target on any days ("3× a week"). */
+export type RepeatChoice = HabitFrequency | 'flexible'
+
+export function repeatChoiceOf(schedule: { frequency: HabitFrequency; times_per_week?: number | null } | null | undefined): RepeatChoice {
+  if (!schedule) return 'daily'
+  return schedule.times_per_week ? 'flexible' : schedule.frequency
+}
+
+export function buildScheduleFromForm(args: {
+  repeat: RepeatChoice
+  daysOfWeek: number[]
+  timeOfDay: TimeOfDayChoice
+  habitTime: string
+  timesPerWeek: number
+  original?: { frequency: HabitFrequency; days_of_week: number[] | null } | null
+}): HabitScheduleInput & { times_per_week: number | null } {
+  if (args.repeat === 'flexible') {
+    return {
+      frequency: 'weekly',
+      days_of_week: null,
+      time_of_day: args.timeOfDay,
+      reminder_time: args.habitTime || null,
+      times_per_week: Math.min(7, Math.max(1, Math.round(args.timesPerWeek))),
+    }
+  }
+  return {
+    ...buildHabitScheduleInput({
+      frequency: args.repeat,
+      daysOfWeek: args.daysOfWeek,
+      timeOfDay: args.timeOfDay,
+      habitTime: args.habitTime,
+      original: args.original,
+    }),
+    times_per_week: null,
+  }
+}
+
+export function TimesPerWeekField({ value, onChange }: { value: number; onChange: (n: number) => void }) {
+  return (
+    <Select
+      label="Sessions per week"
+      value={String(value)}
+      onChange={(e) => onChange(Number(e.target.value))}
+      hint="Any days, Monday to Sunday. Rest days never break the streak."
+    >
+      {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+        <option key={n} value={n}>
+          {n}× a week
+        </option>
+      ))}
+    </Select>
+  )
+}
+
+export function ChecklistStepsEditor({
+  value,
+  onChange,
+}: {
+  value: { id: string; label: string; done: boolean }[]
+  onChange: (next: { id: string; label: string; done: boolean }[]) => void
+}) {
+  const labelId = useId()
+  const add = () => onChange([...value, { id: `new-${Date.now()}-${value.length}`, label: '', done: false }])
+  return (
+    <div className="stack" style={{ gap: 'var(--space-2)' }}>
+      <span id={labelId} className="field__label">
+        Steps (optional)
+      </span>
+      <ul className="checklist-editor" aria-labelledby={labelId}>
+        {value.map((step, i) => (
+          <li key={step.id} className="row" style={{ gap: 'var(--space-2)', alignItems: 'center' }}>
+            <input
+              type="checkbox"
+              checked={step.done}
+              aria-label={`Step ${i + 1} done`}
+              onChange={() => onChange(value.map((s) => (s.id === step.id ? { ...s, done: !s.done } : s)))}
+            />
+            <input
+              className="control"
+              style={{ flex: 1, minWidth: 0 }}
+              value={step.label}
+              maxLength={200}
+              placeholder={`Step ${i + 1}`}
+              aria-label={`Step ${i + 1}`}
+              onChange={(e) => onChange(value.map((s) => (s.id === step.id ? { ...s, label: e.target.value } : s)))}
+            />
+            <button
+              type="button"
+              className="btn btn--ghost btn--sm"
+              aria-label={`Remove step ${i + 1}`}
+              onClick={() => onChange(value.filter((s) => s.id !== step.id))}
+            >
+              ×
+            </button>
+          </li>
+        ))}
+      </ul>
+      {value.length < 50 && (
+        <button type="button" className="btn btn--secondary btn--sm" style={{ alignSelf: 'flex-start' }} onClick={add}>
+          + Add step
+        </button>
+      )}
+    </div>
+  )
+}

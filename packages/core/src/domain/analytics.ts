@@ -2,6 +2,7 @@ import type { ExecutionItem, ItemPriority, ItemType, Plan, Progress, Track } fro
 import { getTodayDateString } from './dates'
 import { summarizeTrack } from './progress'
 import { addDays, calcHabitStreak, isHabitScheduledForDate, parseDate } from './streaks'
+import { habitTrackedSince, weekStartOf, weeklyTarget } from './schedule'
 
 /**
  * Pure analytics derivations. Every number comes from real tracks, plans, items and
@@ -214,7 +215,8 @@ export interface HabitAdherence {
   completed: number
   /** Whole-number percent, or null when nothing was expected yet. */
   rate: number | null
-  unit: 'days' | 'months'
+  /** 'sessions' for weekly-target habits (expected = the weekly target per elapsed week). */
+  unit: 'days' | 'months' | 'sessions'
 }
 
 const lastDayOfMonth = (monthKey: string): string => {
@@ -230,18 +232,38 @@ const lastDayOfMonth = (monthKey: string): string => {
  *   completion in the window, or once it has fully elapsed inside the window.
  */
 export function calcHabitAdherence(
-  habit: Pick<ExecutionItem, 'created_at' | 'schedule'>,
+  habit: Pick<ExecutionItem, 'created_at' | 'schedule'> & { start_date?: string | null },
   completedDates: ReadonlySet<string>,
   window: DateRange,
   now: Date,
 ): HabitAdherence {
   const today = getTodayDateString(now)
   const created = localDateOf(habit.created_at)
-  const start = created && created > window.start ? created : window.start
+  const begins = [created, habit.start_date ?? null, window.start].filter((d): d is string => Boolean(d)).sort().at(-1)!
+  const start = begins
   const end = window.end < today ? window.end : today
   const isMonthly = habit.schedule?.frequency === 'monthly'
+  const target = weeklyTarget(habit.schedule)
   let expected = 0
   let completed = 0
+
+  if (start <= end && target !== null) {
+    // Weekly-target habit: each Mon–Sun week (clipped to the window) expects `target` sessions,
+    // limited to the days it actually covers; the open week only counts sessions done so far.
+    const days = eachDateInRange({ start, end })
+    const byWeek = new Map<string, string[]>()
+    for (const d of days) {
+      const w = weekStartOf(d)
+      byWeek.set(w, [...(byWeek.get(w) ?? []), d])
+    }
+    for (const [w, wDays] of byWeek) {
+      const done = Math.min(target, wDays.filter((d) => completedDates.has(d)).length)
+      const weekOpen = addDays(w, 6) >= today
+      expected += weekOpen ? done : Math.min(target, wDays.length)
+      completed += Math.min(done, weekOpen ? done : Math.min(target, wDays.length))
+    }
+    return { expected, completed, rate: expected > 0 ? Math.round((completed / expected) * 100) : null, unit: 'sessions' }
+  }
 
   if (start <= end) {
     if (isMonthly) {
@@ -542,7 +564,7 @@ export function buildAnalytics(input: BuildAnalyticsInput): AnalyticsResult {
   const datesByItem = completionDatesByItem(completions)
   const habits: HabitConsistencyRow[] = habitSummary.rows.map((row) => {
     const dates = Array.from(datesByItem.get(row.item.id) ?? [])
-    const streak = calcHabitStreak(row.item.id, row.item.schedule, dates, now, rangeDays, localDateOf(row.item.created_at))
+    const streak = calcHabitStreak(row.item.id, row.item.schedule, dates, now, rangeDays, habitTrackedSince(row.item))
     return {
       ...row,
       completionsInRange: dates.filter((d) => isDateInRange(d, range)).length,

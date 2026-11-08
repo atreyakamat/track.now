@@ -11,7 +11,7 @@ const AUTH_ROUTES = /^\/(login|signup|reset-password)(?:[/?#]|$)/i
 // eslint-disable-next-line no-control-regex
 const CONTROL_CHARS = /[\u0000-\u001f\u007f]/
 
-export function safeReturnPath(raw: unknown, fallback = '/dashboard'): string {
+export function safeReturnPath(raw: unknown, fallback = '/today'): string {
   if (typeof raw !== 'string') return fallback
   const value = raw.trim()
   if (!value.startsWith('/') || value.startsWith('//')) return fallback
@@ -33,7 +33,7 @@ export function safeReturnPath(raw: unknown, fallback = '/dashboard'): string {
 }
 
 /** Extracts `from` from react-router location state without trusting its shape. */
-export function returnPathFromState(state: unknown, fallback = '/dashboard'): string {
+export function returnPathFromState(state: unknown, fallback = '/today'): string {
   if (state && typeof state === 'object' && 'from' in state) {
     return safeReturnPath((state as { from: unknown }).from, fallback)
   }

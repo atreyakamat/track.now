@@ -32,8 +32,9 @@ against the project's auth rate limit. The guard is now in place and unit-tested
 
 | # | Finding | Severity | Status | Level |
 | :--- | :--- | :--- | :--- | :--- |
-| S-1 | `track_now_increment_item_count` trusts a client-supplied user id (cross-tenant write, anon-callable) | **Critical** | Fix prepared in `20261012000000`; **NOT APPLIED — owner approval required**. Client already uses the safe contract. | Local (reproduced + fixed) |
-| S-14 | Habit edited on a new day continued yesterday's count and could log a fabricated completion | High (integrity) | Fixed in client; server-side rule in `20261013000000` (**NOT APPLIED**) | Local |
+| S-1 | `track_now_increment_item_count` trusts a client-supplied user id (cross-tenant write, anon-callable) | **Critical** | Fixed in `20261012000000`; **applied in production by the owner** (anon call refused, old overload gone; verified read-only 2026-11-05). | Local + read-only remote |
+| S-14 | Habit edited on a new day continued yesterday's count and could log a fabricated completion | High (integrity) | Fixed in client; server-side rule in `20261013000000` (applied in production) | Local + read-only remote |
+| S-26 | Plans/Arcs + flexible items release (`20261108000000`, gamification) | Review | No finding. Additive columns only; existing RLS row policies cover them; no new functions or grants; CHECK constraints bound every new value. XP/levels/achievements are derived from completion rows (no client-writable counters). Migration applied 2026-11-08; the `arc_name` follow-up (`20261108010000`) is one nullable text column, same policies. Change-password in Settings re-verifies the current password (`signInWithPassword`) before `updateUser`, so an unlocked device cannot be used to take over the account; the emailed recovery link remains the only path without it. | Local (21/21 harness) |
 | S-21 | Live-Supabase scripts did not fail closed (public sign-up, real email domains, destructive cleanup of `TEST_USER_EMAIL`) | High | Fixed | Local (offline guard tests) |
 | S-15 | `/reset-password` let any signed-in session set a new password without recovery proof | Medium | Fixed | Local |
 | S-16 | Recovery link could land on the dashboard without asking for a new password; native origins broke the link | Medium | Fixed (owner must allow the redirect URL) | Local |
@@ -243,6 +244,26 @@ An adversarial read-only review of this change set found, and this pass fixed:
 7. Service worker evicted cached fonts on every deploy → only unreferenced `.js`/`.css` are pruned.
 8. Daily briefing lost for the day when the monitor stopped mid-load → state restored.
 9. No way out of an abandoned password reset → "Cancel and sign out" on `/reset-password`.
+
+## S-26 — Plans/Arcs and gamification review (2026-11-08)
+
+- **Schema** (`20261108000000_plans_arcs_and_flexible_items.sql`): nullable columns on `track_now_plans`,
+  `track_now_execution_items`, `track_now_item_schedules`; widened plan status CHECK; length, array-size,
+  1–7 and `end_date >= start_date` (NOT VALID, so legacy rows are untouched) constraints. No functions, triggers,
+  grants or policies changed; the existing `FOR ALL … auth.uid() = user_id` policies apply to the new columns.
+  Harness (disposable PostgreSQL): legacy rows unchanged, bad values rejected, owner can write, another
+  authenticated user can neither read nor change the row, RPC security script still 22/22, re-application clean.
+- **Pre-migration compatibility**: the client retries a write once without the new columns only for
+  `PGRST204`/`42703` (unknown column); every other error is surfaced. Users are told when a detail could not be
+  stored. Pausing on the old CHECK reports a clear message (23514).
+- **Gamification integrity**: no points are stored. XP is computed from `track_now_item_completions`, whose unique
+  `(item_id, completed_date)` index makes duplicates impossible; un-completing deletes the row; a daily cap limits
+  one-off items. A user can only award themselves points by completing their own items, which only affects their
+  own view (there are no leaderboards or shared scores).
+- **Plan import**: strict parser (format tag, types, dates, sizes, 512 KB file cap); all writes go through the
+  normal RLS-protected services as the signed-in user; nothing is executed or fetched from the file.
+- **Device-local data**: Today focus (`tracknow_focus_<userId>`) is cleared on sign-out/account switch with the
+  other per-user device data.
 
 ## Residual risks
 

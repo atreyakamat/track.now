@@ -1,9 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { getTrack } from '@tracknow/core/services/tracksService'
-import { createPlan } from '@tracknow/core/services/plansService'
-import type { Track } from '@tracknow/core/types/domain'
+import { createPlan, listPlans } from '@tracknow/core/services/plansService'
+import { arcNames } from '@tracknow/core/domain/arcs'
+import { ArcField } from '@/components/plans/ArcField'
+import type { PlanKind, Track } from '@tracknow/core/types/domain'
+import { ARC_DURATION_PRESETS, arcEndDate } from '@tracknow/core/domain/plans'
+import { NEEDS_MIGRATION_MESSAGE, isLegacySchema } from '@tracknow/core/services/schemaCompat'
+import { useToast } from '@/features/notifications/ToastContext'
 import { SearchX } from 'lucide-react'
 import { Button, ButtonLink, EmptyState, ErrorState, Input, LoadingState, PageHeader, Textarea } from '@/components/ui'
 import { getTodayDateString } from '@tracknow/core/domain/dates'
@@ -15,12 +20,22 @@ export function NewPlanPage() {
   const { trackId } = useParams<{ trackId: string }>()
   const { user } = useAuth()
   const navigate = useNavigate()
+  const [params] = useSearchParams()
+  const { showToast } = useToast()
+  const [kind, setKind] = useState<PlanKind>(params.get('kind') === 'ongoing' ? 'ongoing' : 'time_bound')
+  const [days, setDays] = useState<number | 'custom'>(90)
+  const [outcome, setOutcome] = useState('')
+  const [criteria, setCriteria] = useState('')
+  const [arcName, setArcName] = useState(params.get('arc') ?? '')
+  const [knownArcs, setKnownArcs] = useState<string[]>([])
 
   const [track, setTrack] = useState<Track | null>(null)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [startDate, setStartDate] = useState(getTodayDateString())
-  const [endDate, setEndDate] = useState('')
+  const [customEnd, setCustomEnd] = useState('')
+  const endDate =
+    kind === 'ongoing' ? '' : days === 'custom' ? customEnd : startDate ? arcEndDate(startDate, days) : ''
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   // Loading the parent Track: 'missing' = deleted / not visible; loadError = network/server failure (retryable).
@@ -55,6 +70,17 @@ export function NewPlanPage() {
     }
   }
 
+  // Arc suggestions are a convenience; failing to load them never blocks creating a Plan.
+  useEffect(() => {
+    let alive = true
+    listPlans()
+      .then((plans) => alive && setKnownArcs(arcNames(plans)))
+      .catch(() => undefined)
+    return () => {
+      alive = false
+    }
+  }, [])
+
   useEffect(() => {
     void loadTrack()
     return () => {
@@ -73,6 +99,10 @@ export function NewPlanPage() {
       setError('Plan name must be 120 characters or fewer.')
       return
     }
+    if (kind === 'time_bound' && !endDate) {
+      setError(startDate ? 'Choose when this Arc ends.' : 'An Arc needs a start date.')
+      return
+    }
     if (startDate && endDate && endDate < startDate) {
       setError('The target end date cannot be before the start date.')
       return
@@ -89,7 +119,14 @@ export function NewPlanPage() {
         description: description.trim() || null,
         start_date: startDate || null,
         end_date: endDate || null,
+        plan_kind: kind,
+        outcome: outcome.trim() || null,
+        success_criteria: criteria.trim() || null,
+        arc_name: arcName.trim() || null,
       })
+      if ((outcome.trim() || criteria.trim() || arcName.trim()) && isLegacySchema()) {
+        showToast({ id: 'needs-migration', title: 'Plan created', message: NEEDS_MIGRATION_MESSAGE, type: 'warning', duration: 9000 })
+      }
       navigate(`/tracks/${trackId}/plans/${plan.id}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create plan')
@@ -138,7 +175,7 @@ export function NewPlanPage() {
         back={{ to: `/tracks/${track.id}`, label: track.name }}
         eyebrow={`${track.name} Track`}
         title="Create Plan"
-        description="A Plan is a defined period or arc of execution (e.g. Winter Arc, Q4 Sprint, 30-Day Reset)."
+        description="An Arc is a focused period with an end date (30, 60 or 90 days). An ongoing Plan keeps going until you finish or pause it."
       />
 
       {error && (
@@ -148,37 +185,102 @@ export function NewPlanPage() {
       )}
 
       <form onSubmit={handleSubmit} className="form">
+        <fieldset className="choice-group">
+          <legend className="field__label">Type of Plan</legend>
+          <div className="choice-group__options">
+            <label className={`choice${kind === 'time_bound' ? ' choice--on' : ''}`}>
+              <input type="radio" name="kind" checked={kind === 'time_bound'} onChange={() => setKind('time_bound')} />
+              <span className="choice__title">Arc</span>
+              <span className="choice__desc">A set number of days, e.g. a 90-day Winter Arc</span>
+            </label>
+            <label className={`choice${kind === 'ongoing' ? ' choice--on' : ''}`}>
+              <input type="radio" name="kind" checked={kind === 'ongoing'} onChange={() => setKind('ongoing')} />
+              <span className="choice__title">Ongoing</span>
+              <span className="choice__desc">No end date, e.g. laundry or reading routines</span>
+            </label>
+          </div>
+        </fieldset>
+
         <Input
-          label="Plan Name"
-          placeholder="e.g. Winter Arc, FDE Preparation, Marathon Sprint"
+          label="Plan name"
+          placeholder={kind === 'ongoing' ? 'e.g. Household routine, Keep fit' : 'e.g. Winter Arc, 90-Day Fitness Arc'}
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
           autoFocus
+          maxLength={120}
         />
 
         <Textarea
-          label="Objective / Description"
-          placeholder="What is the goal of this execution arc?"
+          label="Purpose (optional)"
+          placeholder="Why does this Plan matter?"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
+          maxLength={2000}
         />
 
         <div className="grid grid--2">
           <Input
-            label="Start Date (Optional)"
+            label={kind === 'ongoing' ? 'Start date (optional)' : 'Start date'}
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
           />
-
-          <Input
-            label="Target End Date (Optional)"
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-          />
+          {kind === 'time_bound' && (
+            <div className="field">
+              <span className="field__label">Length</span>
+              <div className="row" role="group" aria-label="Arc length" style={{ gap: '6px', flexWrap: 'wrap' }}>
+                {ARC_DURATION_PRESETS.filter((d) => d <= 180).map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    className={`btn btn--sm ${days === d ? 'btn--primary' : 'btn--secondary'}`}
+                    aria-pressed={days === d}
+                    onClick={() => setDays(d)}
+                  >
+                    {d} days
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className={`btn btn--sm ${days === 'custom' ? 'btn--primary' : 'btn--secondary'}`}
+                  aria-pressed={days === 'custom'}
+                  onClick={() => {
+                    setDays('custom')
+                    setCustomEnd(endDate)
+                  }}
+                >
+                  Custom
+                </button>
+              </div>
+              {days !== 'custom' && endDate && (
+                <span className="field__hint">
+                  Ends {new Date(`${endDate}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                </span>
+              )}
+            </div>
+          )}
         </div>
+        {kind === 'time_bound' && days === 'custom' && (
+          <Input label="End date" type="date" value={customEnd} min={startDate || undefined} onChange={(e) => setCustomEnd(e.target.value)} />
+        )}
+
+        <ArcField value={arcName} onChange={setArcName} names={knownArcs} />
+
+        <Textarea
+          label="Desired outcome (optional)"
+          placeholder="e.g. A consistent 4-day gym routine plus weekend cardio"
+          value={outcome}
+          onChange={(e) => setOutcome(e.target.value)}
+          maxLength={2000}
+        />
+        <Textarea
+          label="Success criteria (optional)"
+          placeholder="How will you know it worked? e.g. 40+ gym sessions, no missed week"
+          value={criteria}
+          onChange={(e) => setCriteria(e.target.value)}
+          maxLength={4000}
+        />
 
         <div className="row" style={{ gap: 'var(--space-3)' }}>
           <Button type="submit" variant="primary" disabled={busy}>

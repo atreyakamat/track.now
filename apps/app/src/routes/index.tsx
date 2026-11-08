@@ -5,7 +5,6 @@ import { AppShell } from '@/components/layout/AppShell'
 import { LoginPage } from '@/pages/auth/LoginPage'
 import { SignupPage } from '@/pages/auth/SignupPage'
 import { ResetPasswordPage } from '@/pages/auth/ResetPasswordPage'
-import { DashboardPage } from '@/pages/DashboardPage'
 import { TracksPage } from '@/pages/tracks/TracksPage'
 import { NewTrackPage } from '@/pages/tracks/NewTrackPage'
 import { TrackDetailPage } from '@/pages/tracks/TrackDetailPage'
@@ -16,6 +15,7 @@ import { ReviewsPage } from '@/pages/ReviewsPage'
 import { AnalyticsPage } from '@/pages/AnalyticsPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
+import { ArcPage } from '@/pages/arcs/ArcPage'
 
 export function AppRoutes() {
   return (
@@ -32,14 +32,16 @@ export function AppRoutes() {
       {/* Authenticated application shell */}
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/" element={<Navigate to="/today" replace />} />
+          {/* Today is the home screen; old /dashboard links keep working. */}
+          <Route path="/dashboard" element={<Navigate to="/today" replace />} />
           <Route path="/tracks" element={<TracksPage />} />
           <Route path="/tracks/new" element={<NewTrackPage />} />
           <Route path="/tracks/:trackId" element={<TrackDetailPage />} />
           <Route path="/tracks/:trackId/plans/new" element={<NewPlanPage />} />
           <Route path="/tracks/:trackId/plans/:planId" element={<PlanDetailPage />} />
           <Route path="/plans/:planId" element={<PlanDetailPage />} />
+          <Route path="/arcs/:arcKey" element={<ArcPage />} />
           <Route path="/today" element={<TodayPage />} />
           <Route path="/reviews" element={<ReviewsPage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />

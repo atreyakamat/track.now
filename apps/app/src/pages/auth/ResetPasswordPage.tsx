@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { authService } from '@/features/auth/authService'
-import { Button, Input, LoadingState } from '@/components/ui'
+import { Button, LoadingState, PasswordInput } from '@/components/ui'
 
 /**
  * Landing page for the password-recovery email link.
@@ -135,10 +135,10 @@ export function ResetPasswordPage() {
         {status === 'authenticated' && done && (
           <div className="auth__form">
             <div className="alert alert--success" role="status">
-              Your password has been updated.
+              Your password has been updated. You are signed in on this device; use the new password elsewhere.
             </div>
-            <Button variant="primary" block onClick={() => navigate('/dashboard', { replace: true })}>
-              Continue to Dashboard
+            <Button variant="primary" block onClick={() => navigate('/today', { replace: true })}>
+              Continue to Today
             </Button>
           </div>
         )}
@@ -150,10 +150,9 @@ export function ResetPasswordPage() {
                 {error}
               </div>
             )}
-            <Input
+            <PasswordInput
               name="new-password"
               label="New password"
-              type="password"
               autoComplete="new-password"
               placeholder="At least 6 characters"
               value={password}
@@ -161,16 +160,17 @@ export function ResetPasswordPage() {
               disabled={busy}
               required
               autoFocus
+              showStrength
             />
-            <Input
+            <PasswordInput
               name="confirm-new-password"
               label="Confirm new password"
-              type="password"
               autoComplete="new-password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               disabled={busy}
               required
+              error={confirmPassword && confirmPassword !== password ? 'Does not match the new password.' : null}
             />
             <Button type="submit" variant="primary" block disabled={busy || leaving}>
               {busy ? 'Updating password…' : 'Update Password'}

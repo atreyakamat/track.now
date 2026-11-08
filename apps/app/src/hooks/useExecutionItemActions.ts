@@ -1,8 +1,12 @@
 import { useCallback, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
-import type { ExecutionItem, UpdateExecutionItemInput } from '@tracknow/core/types/domain'
+import type { ExecutionItem, NewExecutionItemInput, UpdateExecutionItemInput } from '@tracknow/core/types/domain'
+import type { ReminderPreset } from '@tracknow/core/types/notifications'
+import { NEEDS_MIGRATION_MESSAGE, isLegacySchema } from '@tracknow/core/services/schemaCompat'
 import {
   deleteExecutionItem,
+  createExecutionItem,
   editExecutionItem,
+  setChecklistEntries,
   shouldResetHabitCount,
   stepItemCount,
   toggleItemStatus,
@@ -12,10 +16,14 @@ import {
   settleRemindersAfterCompletion,
   cancelReminderForItem,
   getReminderForItem,
+  setReminderForItem,
   snoozeReminder,
 } from '@tracknow/core/services/reminderService'
 import { loadNotificationPreferences } from '@tracknow/core/services/notificationPreferences'
 import { calcHabitStreak, type HabitStreakSummary } from '@tracknow/core/domain/streaks'
+import { habitTrackedSince } from '@tracknow/core/domain/schedule'
+import { toggleChecklistEntry as toggleChecklistEntrySteps } from '@tracknow/core/domain/checklist'
+import { XP_PER_TYPE } from '@tracknow/core/domain/momentum'
 import { getTodayDateString } from '@tracknow/core/domain/dates'
 import { doneTodayAfterEdit } from '@tracknow/core/domain/itemEdit'
 import { useToast } from '@/features/notifications/ToastContext'
@@ -28,12 +36,6 @@ interface Options {
   reload: () => Promise<void>
   /** Optional hook after any successful change (e.g. refresh the widget snapshot). */
   onChanged?: (state: { items: ExecutionItem[]; completedTodayIds: string[] }) => void
-}
-
-/** Local calendar day of an ISO timestamp (null when missing/invalid). */
-const localDay = (iso?: string) => {
-  const d = iso ? new Date(iso) : null
-  return d && !Number.isNaN(d.getTime()) ? getTodayDateString(d) : null
 }
 
 // doneTodayAfterEdit is shared with the mobile app; re-exported here for existing imports.
@@ -75,7 +77,7 @@ export function useExecutionItemActions({ userId, items, setItems, reload, onCha
     items
       .filter((i) => i.type === 'habit')
       .forEach((h) => {
-        result[h.id] = calcHabitStreak(h.id, h.schedule, completionDates[h.id] || [], undefined, undefined, localDay(h.created_at))
+        result[h.id] = calcHabitStreak(h.id, h.schedule, completionDates[h.id] || [], undefined, undefined, habitTrackedSince(h))
       })
     return result
   }, [items, completionDates])
@@ -129,10 +131,12 @@ export function useExecutionItemActions({ userId, items, setItems, reload, onCha
       const nextItem = nextItems.find(
         (it) => it.id !== item.id && it.status !== 'archived' && !nextCompleted.has(it.id) && it.status !== 'done',
       )
+      // Subtle XP feedback: the same points the Progress page derives from this completion.
+      const xp = `+${XP_PER_TYPE[item.type]} XP`
       showToast({
         id: `completion-${item.id}`,
-        title: `Completed: ${item.name}`,
-        message: item.type === 'habit' ? 'Logged for today.' : 'Nice work.',
+        title: item.type === 'milestone' ? `Milestone achieved: ${item.name}` : `Completed: ${item.name}`,
+        message: item.type === 'habit' ? `Logged for today · ${xp}` : `Nice work · ${xp}`,
         nextUp: nextItem?.name,
         type: 'success',
       })
@@ -213,6 +217,48 @@ export function useExecutionItemActions({ userId, items, setItems, reload, onCha
       } finally {
         endBusy(item.id)
       }
+    },
+    [userId],
+  )
+
+  const toggleChecklistEntry = useCallback(
+    async (item: ExecutionItem, entryId: string) => {
+      if (!userId || !beginBusy(item.id)) return
+      const wasDoneToday = completedRef.current.has(item.id)
+      try {
+        const current = itemsRef.current.find((it) => it.id === item.id) ?? item
+        const entries = toggleChecklistEntrySteps(current.checklist_entries ?? [], entryId)
+        const updated = await setChecklistEntries(item.id, entries, userId)
+        const doneToday = updated.status === 'done' ? wasDoneToday || current.status !== 'done' : false
+        const { nextItems, nextCompleted } = applyResult(updated, doneToday, wasDoneToday)
+        if (doneToday && !wasDoneToday) completionFeedback(updated, nextItems, nextCompleted)
+      } catch (err) {
+        await fail(`Could not update “${item.name}”`, err)
+      } finally {
+        endBusy(item.id)
+      }
+    },
+    [userId],
+  )
+
+  /** Creates an item (+ optional reminder). Throws so the dialog can show the error inline. */
+  const create = useCallback(
+    async (input: NewExecutionItemInput, reminder?: { preset: ReminderPreset; exactTime?: string }) => {
+      if (!userId) throw new Error('You are signed out.')
+      const created = await createExecutionItem(userId, input)
+      setItems((prev) => [...prev, created])
+      const usedNewFields = Boolean(input.start_date || input.checklist_entries?.length || input.schedule?.times_per_week)
+      if (usedNewFields && isLegacySchema()) {
+        showToast({ id: 'needs-migration', title: 'Saved with fewer details', message: NEEDS_MIGRATION_MESSAGE, type: 'warning', duration: 9000 })
+      }
+      if (reminder && reminder.preset !== 'none') {
+        try {
+          setReminderForItem(userId, created, reminder.preset, reminder.exactTime)
+        } catch (err) {
+          showToast({ title: 'Item added, reminder not set', message: errorMessage(err, 'Please try again.'), type: 'warning' })
+        }
+      }
+      return created
     },
     [userId],
   )
@@ -298,6 +344,8 @@ export function useExecutionItemActions({ userId, items, setItems, reload, onCha
     toggle,
     step,
     setCount,
+    toggleChecklistEntry,
+    create,
     saveEdit,
     remove,
     snooze,

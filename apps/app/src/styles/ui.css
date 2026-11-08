@@ -35,6 +35,22 @@
 }
 textarea.control { resize: vertical; min-height: 84px; }
 .control::placeholder { color: var(--text-tertiary); }
+.password-field { position: relative; }
+.password-field .control { padding-right: 44px; }
+.password-field__toggle {
+  position: absolute; top: 50%; right: 4px; transform: translateY(-50%);
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border: 0; border-radius: 6px; background: transparent;
+  color: var(--text-secondary); cursor: pointer;
+}
+.password-field__toggle:hover { color: var(--text-primary); }
+.password-field__toggle:focus-visible { outline: 2px solid currentColor; outline-offset: 1px; }
+.password-strength { display: flex; flex-direction: column; gap: 4px; }
+.password-strength__meter { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.password-strength__meter > span { height: 4px; border-radius: 2px; background: var(--border); }
+.password-strength[data-score='1'] .password-strength__meter > span:nth-child(-n + 1) { background: var(--danger); }
+.password-strength[data-score='2'] .password-strength__meter > span:nth-child(-n + 2) { background: var(--warning); }
+.password-strength[data-score='3'] .password-strength__meter > span { background: var(--success); }
 .control[aria-invalid='true'] { border-color: var(--danger); }
 
 /* Badge */

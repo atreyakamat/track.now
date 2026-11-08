@@ -33,6 +33,39 @@ Re-run 2026-11-08: `npm test` → **PASS, 35 files, 434 tests**. The table below
    (executable by anon/authenticated) and `tracked_profiles` (RLS on, no policies). Review with their owner.
 5. Mobile store release: needs the owner's Google Play / Apple accounts (`apps/mobile/RELEASE.md`).
 
+## Next release: Plans/Arcs, minimal Today, quiet gamification (branch `feat/product-generalisation`)
+
+Ship order (each step needs the owner's go-ahead):
+
+1. **Apply** `supabase/migrations/20261108000000_plans_arcs_and_flexible_items.sql` in the Supabase SQL editor
+   (additive and idempotent; does not touch other apps' objects). **Applied 2026-11-08** (verified: the new plan,
+   item and schedule columns return 200 with the anon key).
+2. **Apply** `supabase/migrations/20261108010000_plans_arc_name.sql` (one nullable column, `arc_name`, for the Arc
+   grouping). **Pending**: `track_now_plans?select=arc_name&limit=0` still returns 42703. Until then the app saves
+   Plans without their Arc and says so.
+3. **Merge and push** the branch to `main` (Netlify rebuilds both sites). Approved by the owner 2026-11-08.
+4. **Import** your plan in Settings → *Import a plan* (e.g. `my-plans/winter-arc-2026.plan.json`, which is git-ignored).
+
+The order matters only for extra fields: the new build works on the current database too. It saves Plans and items
+without outcome / start date / weekly target / checklist steps and tells the user, and pausing explains that it needs
+the update.
+
+| What changed | Where |
+| :--- | :--- |
+| Today is the home screen (Focus ≤ 3, Overdue, Due Today, Anytime, Upcoming, Completed), day summary, Momentum, quick add, Plan · Track context | `pages/TodayPage.tsx`, `domain/today.ts` |
+| Arc (30/60/90/custom days) or ongoing Plan; outcome, success criteria; pause/resume, complete with review, re-open, "start the next Arc" | `pages/plans/*`, `domain/plans.ts`, `services/plansService.ts` |
+| Item start dates, weekly-target habits, checklist steps | `domain/schedule.ts`, `domain/checklist.ts`, item forms |
+| Momentum, XP, levels, achievements (derived from completions) | `domain/momentum.ts`, Analytics → *Your progress* |
+| Reviews: Plans completed in the period, Plans due for review | `pages/ReviewsPage.tsx`, `domain/reviews.ts` |
+| Plan file import (`tracknow.plan.v1`) | `domain/planImport.ts`, `services/planImportService.ts`, Settings |
+| Navigation: Today, Tracks, Reviews, Analytics (+ Settings); Dashboard removed, `/dashboard` → `/today` | layout, routes |
+| Arcs: Plans across Tracks grouped by `arc_name`; Arc page (`/arcs/:key`), Arcs section on Tracks, chips on Today, "Part of an Arc" on Plan forms | `domain/arcs.ts`, `pages/arcs/ArcPage.tsx`, `components/plans/Arc*.tsx` |
+| Retention: weekly planned-vs-done consistency, per-Plan trend, habits kept / slipping / dropped (Analytics and each Arc) | `domain/retention.ts`, `components/insights/RetentionPanel.tsx` |
+| Password: change password in Settings (current password verified first), show/hide toggle + strength meter on every password field, reset-link resend cooldown | `auth/password.ts`, `authService.changePassword`, `components/settings/ChangePasswordCard.tsx` |
+
+Verification (2026-11-08, final): typecheck PASS (web, core, mobile `tsc --noEmit`) · `npm test` **PASS, 40 files, 487 tests** ·
+both production builds PASS · `node scripts/verify_sql_local.cjs` **21/21** · `node scripts/run_mocked_e2e.cjs` **7/7 PASS** (responsive audit: no overflow 320–1920 px, light + dark) · `npm audit --omit=dev` 0.
+
 ## Verification evidence (2026-10-13, Windows 11, Node 24.14.0, npm 10.9.0)
 
 | Command | Result | Exit |

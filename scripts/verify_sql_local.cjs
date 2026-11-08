@@ -33,8 +33,10 @@ const MIGRATIONS = {
   secure: path.join(MIG, '20261012000000_secure_increment_item_count_rpc.sql'),
   habit: path.join(MIG, '20261013000000_habit_daily_counter.sql'),
   revokeTrigger: path.join(MIG, '20261014000000_revoke_trigger_function_execute.sql'),
+  plansArcs: path.join(MIG, '20261108000000_plans_arcs_and_flexible_items.sql'),
+  arcName: path.join(MIG, '20261108010000_plans_arc_name.sql'),
 }
-const ALL_IN_ORDER = [MIGRATIONS.init, MIGRATIONS.harden, MIGRATIONS.secure, MIGRATIONS.habit, MIGRATIONS.revokeTrigger]
+const ALL_IN_ORDER = [MIGRATIONS.init, MIGRATIONS.harden, MIGRATIONS.secure, MIGRATIONS.habit, MIGRATIONS.revokeTrigger, MIGRATIONS.plansArcs, MIGRATIONS.arcName]
 
 const exe = (name) => (process.platform === 'win32' ? `${name}.exe` : name)
 
@@ -199,10 +201,50 @@ async function main() {
     record('profile provisioning trigger still fires after the revoke',
       scalar(DB, `SELECT full_name FROM public.track_now_profiles WHERE id = '00000000-0000-4000-8000-0000000000f1'`) === 'After Revoke')
 
+    // 6c. Plans/Arcs + flexible items (additive): legacy rows untouched, constraints enforced, RLS still isolates.
+    const legacyPlanBefore = scalar(DB, `SELECT status || '/' || updated_at::text FROM public.track_now_plans WHERE id = '20000000-0000-4000-8000-0000000000d1'`)
+    apply(DB, MIGRATIONS.plansArcs, 'plans/arcs migration')
+    apply(DB, MIGRATIONS.arcName, 'arc name migration')
+    record('plans/arcs: legacy plan row unchanged (status + updated_at)',
+      scalar(DB, `SELECT status || '/' || updated_at::text FROM public.track_now_plans WHERE id = '20000000-0000-4000-8000-0000000000d1'`) === legacyPlanBefore)
+    const rejects = (sql) => psqlCmd(DB, sql).status !== 0
+    record('plans/arcs: constraints reject bad values (status, kind, end<start, times_per_week, >50 checklist entries, arc_name > 80)',
+      rejects(`UPDATE public.track_now_plans SET status = 'cancelled' WHERE id = '20000000-0000-4000-8000-0000000000d1'`) &&
+      rejects(`UPDATE public.track_now_plans SET plan_kind = 'forever' WHERE id = '20000000-0000-4000-8000-0000000000d1'`) &&
+      rejects(`UPDATE public.track_now_plans SET start_date = '2026-11-09', end_date = '2026-11-01' WHERE id = '20000000-0000-4000-8000-0000000000d1'`) &&
+      rejects(`INSERT INTO public.track_now_item_schedules (item_id, frequency, times_per_week) VALUES ('30000000-0000-4000-8000-0000000000d2', 'weekly', 8)`) &&
+      rejects(`UPDATE public.track_now_execution_items SET checklist_entries = (SELECT jsonb_agg(jsonb_build_object('id', g::text, 'label', 'x', 'done', false)) FROM generate_series(1, 51) g) WHERE id = '30000000-0000-4000-8000-0000000000d3'`) &&
+      rejects(`UPDATE public.track_now_execution_items SET checklist_entries = '{"not":"an array"}' WHERE id = '30000000-0000-4000-8000-0000000000d3'`) &&
+      rejects(`UPDATE public.track_now_plans SET arc_name = repeat('x', 81) WHERE id = '20000000-0000-4000-8000-0000000000d1'`))
+    apply(DB, writeTemp(tmp, 'arcs_rls.sql', `
+      INSERT INTO auth.users (id, email) VALUES ('00000000-0000-4000-8000-0000000000a2', 'other@example.invalid');
+      SET request.jwt.claims = '{"sub":"00000000-0000-4000-8000-0000000000d1","role":"authenticated"}';
+      SET ROLE authenticated;
+      UPDATE public.track_now_plans SET status = 'paused', plan_kind = 'time_bound', outcome = 'Fit routine', arc_name = 'Winter Arc',
+        start_date = '2026-11-09', end_date = '2027-02-06' WHERE id = '20000000-0000-4000-8000-0000000000d1';
+      UPDATE public.track_now_execution_items SET start_date = '2026-11-16',
+        checklist_entries = '[{"id":"a","label":"Sort","done":true},{"id":"b","label":"Load","done":false}]'
+        WHERE id = '30000000-0000-4000-8000-0000000000d3';
+      INSERT INTO public.track_now_item_schedules (item_id, frequency, times_per_week) VALUES ('30000000-0000-4000-8000-0000000000d2', 'weekly', 3);
+      RESET ROLE;
+      SET request.jwt.claims = '{"sub":"00000000-0000-4000-8000-0000000000a2","role":"authenticated"}';
+      SET ROLE authenticated;
+      UPDATE public.track_now_plans SET outcome = 'hijacked', arc_name = 'hijacked' WHERE id = '20000000-0000-4000-8000-0000000000d1';
+      CREATE TEMP TABLE IF NOT EXISTS arcs_probe AS
+        SELECT (SELECT count(*) FROM public.track_now_plans WHERE id = '20000000-0000-4000-8000-0000000000d1') AS seen;
+      RESET ROLE;`), 'arcs owner/other-user writes')
+    record('plans/arcs: owner can pause + set new fields; another user can neither see nor change them',
+      scalar(DB, `SELECT status || '/' || plan_kind || '/' || outcome || '/' || arc_name FROM public.track_now_plans WHERE id = '20000000-0000-4000-8000-0000000000d1'`) === 'paused/time_bound/Fit routine/Winter Arc' &&
+      scalar(DB, `SELECT start_date::text || '/' || jsonb_array_length(checklist_entries) FROM public.track_now_execution_items WHERE id = '30000000-0000-4000-8000-0000000000d3'`) === '2026-11-16/2' &&
+      scalar(DB, `SELECT times_per_week FROM public.track_now_item_schedules WHERE item_id = '30000000-0000-4000-8000-0000000000d2'`) === '3')
+    r = psqlFile(DB, path.join(VER, 'verify_increment_rpc_security.sql'))
+    record('verify_increment_rpc_security.sql (after plans/arcs migration)', r.status === 0 && /ALL \d+ CHECKS PASSED/.test(out(r)))
+    if (r.status !== 0) console.log(out(r))
+
     // 7. Re-applying migrations is safe and always ends in the secure state.
     let reapplyOk = true
     let reapplyErr = ''
-    for (const file of [...ALL_IN_ORDER, MIGRATIONS.secure, MIGRATIONS.habit, MIGRATIONS.revokeTrigger]) {
+    for (const file of [...ALL_IN_ORDER, MIGRATIONS.secure, MIGRATIONS.habit, MIGRATIONS.revokeTrigger, MIGRATIONS.plansArcs, MIGRATIONS.arcName]) {
       const a = psqlFile(DB, file)
       if (a.status !== 0) {
         reapplyOk = false

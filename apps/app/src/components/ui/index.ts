@@ -1,5 +1,5 @@
 export { Button, ButtonLink } from './Button'
-export { Input, Select, Textarea, RovingRadioGroup } from './Fields'
+export { Input, PasswordInput, Select, Textarea, RovingRadioGroup } from './Fields'
 export type { RadioOption } from './Fields'
 export { Modal, Drawer } from './Modal'
 export { ConfirmDialog } from './ConfirmDialog'

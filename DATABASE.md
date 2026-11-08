@@ -96,9 +96,15 @@ Time-bound execution arcs or sub-goals nested beneath a Track.
 | `name` | `text` | `NOT NULL` | Plan name |
 | `title` | `text` | `GENERATED ALWAYS AS (name) STORED` | Title alias |
 | `description` | `text` | `NULL` | Detailed notes |
-| `status` | `text` | `DEFAULT 'active' CHECK IN ('active', 'archived', 'completed')` | Lifecycle status |
-| `start_date` | `date` | `NULL` | Target start date |
-| `end_date` | `date` | `NULL` | Target end date |
+| `status` | `text` | `DEFAULT 'active' CHECK IN ('draft', 'active', 'paused', 'completed', 'archived')` | Lifecycle: draft → active → paused → completed → archived (draft/paused added by `20261108000000`) |
+| `start_date` | `date` | `NULL` | Start date |
+| `end_date` | `date` | `NULL`, `end_date >= start_date` | Target end date (an Arc). NULL = ongoing. Passing it never closes the Plan; it is flagged for review |
+| `plan_kind` | `text` | `NULL CHECK IN ('time_bound','ongoing','recurring')` | `20261108000000`. NULL (legacy) = derived: end date → Arc, else ongoing |
+| `outcome` | `text` | `NULL`, ≤ 2000 | Desired outcome |
+| `success_criteria` | `text` | `NULL`, ≤ 4000 | How success is judged |
+| `completed_at` | `timestamptz` | `NULL` | When the Plan was completed |
+| `result_notes`, `lessons_learned`, `next_decision` | `text` | `NULL` | Plan completion review (synced with the Plan) |
+| `arc_name` | `text` (≤ 80) | `NULL` | Groups Plans from different Tracks into one Arc (e.g. "Winter Arc 2026"); the Arc page and retention are derived from it |
 | `position` | `integer` | `DEFAULT 0 NOT NULL` | Display ordering rank |
 | `created_at` | `timestamptz` | `DEFAULT now() NOT NULL` | Creation timestamp |
 | `updated_at` | `timestamptz` | `DEFAULT now() NOT NULL` | Last update timestamp |
@@ -121,7 +127,9 @@ Atomic actionable units attached to a Plan.
 | `due_date` | `date` | `NULL` | Target completion date |
 | `target_count` | `integer` | `DEFAULT 1 NOT NULL` | Target repetitions |
 | `current_count`| `integer` | `DEFAULT 0 NOT NULL` | Completed repetitions |
-| `count_date` | `date` | `NULL` | Local calendar day `current_count` belongs to (habits restart daily). Added by `20261013000000` (**not applied yet**); NULL = legacy/unknown |
+| `count_date` | `date` | `NULL` | Local calendar day `current_count` belongs to (habits restart daily). Added by `20261013000000` (applied in production); NULL = legacy/unknown |
+| `start_date` | `date` | `NULL` | `20261108000000`. Before this day the item is Upcoming only and never counts against progress, streaks or Momentum |
+| `checklist_entries` | `jsonb` | `NULL`, array of ≤ 50 `{id,label,done}` | `20261108000000`. Checklist steps; a checklist with steps is done exactly when every step is done |
 | `unit` | `text` | `NULL` | Metric unit (`reps`, `pages`, `$`) |
 | `position` | `integer` | `DEFAULT 0 NOT NULL` | Ordering rank in plan |
 | `created_at` | `timestamptz` | `DEFAULT now() NOT NULL` | Creation timestamp |
@@ -138,6 +146,7 @@ Recurrence and time-of-day configuration for habits and recurring tasks.
 | `days_of_week` | `integer[]`| `NULL` | 0=Sun, 1=Mon, ..., 6=Sat |
 | `time_of_day` | `text` | `NULL CHECK IN ('morning','afternoon','evening','anytime')` | Routine block |
 | `reminder_time`| `time` | `NULL` | Notification time |
+| `times_per_week` | `smallint` | `NULL CHECK BETWEEN 1 AND 7` | `20261108000000`. Flexible weekly habit ("3× a week", any days, Mon–Sun week). NULL = fixed days |
 | `created_at` | `timestamptz` | `DEFAULT now() NOT NULL` | Creation timestamp |
 
 ### 2.7 `public.track_now_item_completions`

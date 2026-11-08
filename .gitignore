@@ -19,3 +19,6 @@ folder_list.txt
 
 # Supabase CLI local cache
 supabase/.temp/
+
+# Personal plan files (import them from Settings; never committed)
+my-plans/

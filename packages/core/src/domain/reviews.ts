@@ -9,6 +9,7 @@ import {
   getOverdueItems,
   isDateInRange,
   itemDisplayName,
+  localDateOf,
   mondayOf,
   resolveItemContext,
   summarizeHabitsForRange,
@@ -83,6 +84,8 @@ export interface ReviewSummary {
   winsByType: Partial<Record<ItemType, number>>
   completedMilestones: ReviewWin[]
   planArchiveCandidates: PlanArchiveCandidate[]
+  /** Plans completed (completed_at) inside the period, with their completion review. */
+  completedPlans: { plan: Plan; track: Track | null }[]
   trackCompletions: TrackReviewRow[]
   totalCompletions: number
   priorityCandidates: ItemWithContext[]
@@ -147,6 +150,14 @@ export function buildReviewSummary(input: BuildReviewSummaryInput): ReviewSummar
     }
   }
 
+  const completedPlans = plans
+    .filter((p) => p.status === 'completed' && p.completed_at)
+    .filter((p) => {
+      const d = localDateOf(p.completed_at)
+      return Boolean(d && d >= range.start && d <= range.end)
+    })
+    .map((plan) => ({ plan, track: lookup.trackById.get(plan.track_id) ?? null }))
+
   // Per-track completions for the period, with a current progress snapshot for active tracks.
   const counts = countCompletionsByTrack(inPeriod, lookup, range)
   const countByTrack = new Map(counts.map((c) => [c.trackId, c]))
@@ -176,6 +187,7 @@ export function buildReviewSummary(input: BuildReviewSummaryInput): ReviewSummar
     winsByType,
     completedMilestones: wins.filter((w) => w.item.type === 'milestone'),
     planArchiveCandidates,
+    completedPlans,
     trackCompletions,
     totalCompletions: inPeriod.length,
     priorityCandidates: getOpenPriorityCandidates(items, lookup),

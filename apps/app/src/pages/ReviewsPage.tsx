@@ -61,12 +61,13 @@ interface Prompt {
 
 const WEEKLY_PROMPTS: Prompt[] = [
   { id: 'moved_forward', label: 'What moved forward this week?' },
-  { id: 'friction', label: 'Where did friction show up?' },
+  { id: 'friction', label: 'What blocked progress?' },
   { id: 'differently', label: 'What will you do differently next week?' },
 ]
 
 const MONTHLY_PROMPTS: Prompt[] = [
-  { id: 'progress', label: 'Which Tracks made real progress this month?' },
+  { id: 'progress', label: 'What meaningful progress happened this month?' },
+  { id: 'outcomes', label: 'Which outcomes did you achieve, and which Tracks need attention?' },
   { id: 'stalled', label: 'What stalled, and why?' },
   { id: 'next_month', label: 'What deserves your focus next month?' },
 ]
@@ -462,6 +463,7 @@ export function ReviewsPage() {
                 <>
                   <TrackSnapshot summary={summary} />
                   <Milestones summary={summary} />
+                  <CompletedPlans summary={summary} />
                   <ArchiveCandidates summary={summary} />
                 </>
               )}
@@ -907,15 +909,47 @@ function Milestones({ summary }: { summary: ReviewSummary }) {
   )
 }
 
+function CompletedPlans({ summary }: { summary: ReviewSummary }) {
+  if (summary.completedPlans.length === 0) return null
+  return (
+    <section className="section" aria-labelledby="completed-plans-heading">
+      <div className="section__head">
+        <h2 id="completed-plans-heading" className="t-h2">Plans completed</h2>
+      </div>
+      <div className="card insights-card">
+        <p className="insights-caption">Completion reviews are saved with each Plan and synced to your account.</p>
+        <ul className="insights-list">
+          {summary.completedPlans.map(({ plan, track }) => (
+            <li key={plan.id} className="insights-list__item">
+              <div className="insights-list__main">
+                <span className="insights-list__title">{plan.name}</span>
+                <span className="insights-list__meta">
+                  {track && <span className="insights-dot" style={dotStyle(track.color)} aria-hidden="true" />}
+                  {track && <span>{track.name}</span>}
+                  {plan.next_decision && <span>· Next: {plan.next_decision}</span>}
+                </span>
+                {plan.lessons_learned && <span className="insights-caption">Lesson: {plan.lessons_learned}</span>}
+              </div>
+              <Link to={`/plans/${plan.id}`} className="insights-link">
+                Open<span className="sr-only"> {plan.name}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  )
+}
+
 function ArchiveCandidates({ summary }: { summary: ReviewSummary }) {
   return (
     <section className="section" aria-labelledby="archive-heading">
       <div className="section__head">
-        <h2 id="archive-heading" className="t-h2">Plans to consider archiving</h2>
+        <h2 id="archive-heading" className="t-h2">Plans due for review</h2>
       </div>
       <div className="card insights-card">
         <p className="insights-caption">
-          Active Plans that have passed their end date or have every item done. Nothing is archived automatically — open a Plan to decide.
+          Active Plans that have passed their end date or have every item done. Nothing is closed automatically. Open a Plan to complete it with a short review, extend it, or archive it.
         </p>
         {summary.planArchiveCandidates.length === 0 ? (
           <p className="insights-caption">No Plans look finished right now.</p>

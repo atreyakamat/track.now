@@ -8,7 +8,11 @@ import {
   Cpu,
   Dumbbell,
   Flame,
+  Heart,
+  Home,
   Target,
+  Users,
+  Video,
   TrendingUp,
   Wallet,
   Zap,
@@ -29,6 +33,10 @@ const ICON_MAP: Record<string, React.ComponentType<LucideProps>> = {
   Cpu,
   Dumbbell,
   Building2,
+  Heart,
+  Home,
+  Users,
+  Video,
 }
 
 /** Database-seeded templates use kebab-case Lucide names (e.g. "book-open", "building-2"). */

@@ -4,7 +4,7 @@ import { ProtectedRoute, PublicRoute } from '@/routes/ProtectedRoute'
 
 let mockStatus: 'loading' | 'authenticated' | 'unauthenticated' = 'loading'
 let mockLocation: { pathname: string; search: string; hash: string; state: unknown } = {
-  pathname: '/dashboard',
+  pathname: '/today',
   search: '',
   hash: '',
   state: null,
@@ -24,7 +24,7 @@ vi.mock('@/features/auth/AuthProvider', () => ({
 
 describe('Auth Routing & Route Guards', () => {
   beforeEach(() => {
-    mockLocation = { pathname: '/dashboard', search: '', hash: '', state: null }
+    mockLocation = { pathname: '/today', search: '', hash: '', state: null }
   })
 
   it('remembers the intended destination when redirecting an unauthenticated deep link to /login', () => {
@@ -47,7 +47,7 @@ describe('Auth Routing & Route Guards', () => {
     mockStatus = 'authenticated'
     for (const from of ['//evil.example', '/\\evil.example', 'https://evil.example', 'javascript:alert(1)', '/login']) {
       mockLocation = { pathname: '/login', search: '', hash: '', state: { from } }
-      expect(PublicRoute().props.to).toBe('/dashboard')
+      expect(PublicRoute().props.to).toBe('/today')
     }
   })
 
@@ -65,11 +65,11 @@ describe('Auth Routing & Route Guards', () => {
     expect(element.type).toBe(Outlet)
   })
 
-  it('redirects authenticated user visiting public auth routes (/login, /signup) to /dashboard', () => {
+  it('redirects authenticated user visiting public auth routes (/login, /signup) to /today', () => {
     mockStatus = 'authenticated'
     const element = PublicRoute()
     expect(element.type).toBe(Navigate)
-    expect(element.props.to).toBe('/dashboard')
+    expect(element.props.to).toBe('/today')
     expect(element.props.replace).toBe(true)
   })
 
@@ -111,13 +111,13 @@ describe('Auth Routing & Route Guards', () => {
     const s3 = PublicRoute()
     expect(s3.type).toBe(Outlet)
 
-    // 3. Authenticated: public guard redirects to /dashboard
+    // 3. Authenticated: public guard redirects to /today
     mockStatus = 'authenticated'
     const s4 = PublicRoute()
     expect(s4.type).toBe(Navigate)
-    expect(s4.props.to).toBe('/dashboard')
+    expect(s4.props.to).toBe('/today')
 
-    // At /dashboard, protected guard renders Outlet stably
+    // At /today, protected guard renders Outlet stably
     const s5 = ProtectedRoute()
     expect(s5.type).toBe(Outlet)
   })

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Plus, Target } from 'lucide-react'
+import { Layers, Plus, Target } from 'lucide-react'
 import { listTracks } from '@tracknow/core/services/tracksService'
 import { setTrackArchivedWithCleanup } from '@tracknow/core/services/trackLifecycle'
 import { listCompletionsForDate } from '@tracknow/core/services/executionService'
@@ -9,11 +9,14 @@ import { listItemSummaries, listPlans } from '@tracknow/core/services/plansServi
 import { summarizeTrack, type TrackSummary } from '@tracknow/core/domain/progress'
 import { ButtonLink, EmptyState, ErrorState, LoadingState, PageHeader, TabPanel, Tabs } from '@/components/ui'
 import { TrackCard } from '@/components/tracks/TrackCard'
+import { ArcCard } from '@/components/plans/ArcCard'
+import { groupArcs, type ArcSummary } from '@tracknow/core/domain/arcs'
 
 export function TracksPage() {
   const { user } = useAuth()
   const { showToast } = useToast()
   const [summaries, setSummaries] = useState<TrackSummary[]>([])
+  const [arcs, setArcs] = useState<ArcSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<'active' | 'archived'>('active')
@@ -38,6 +41,7 @@ export function TracksPage() {
       const trackSummaries = tracks.map((track) => summarizeTrack(track, plans, items, options))
       if (requestId !== requestRef.current) return
       setSummaries(trackSummaries)
+      setArcs(groupArcs(plans.filter((p) => tracks.some((t) => t.id === p.track_id && t.status === 'active')), items, new Date(), options))
     } catch (err) {
       if (requestId !== requestRef.current) return
       setError(err instanceof Error ? err.message : 'Failed to load tracks')
@@ -85,6 +89,24 @@ export function TracksPage() {
           </ButtonLink>
         }
       />
+
+      {!loading && !error && arcs.some((a) => a.status !== 'archived') && (
+        <section className="section" aria-labelledby="arcs-heading">
+          <div className="section__head">
+            <h2 id="arcs-heading" className="t-h2 row" style={{ alignItems: 'center', gap: 'var(--space-2)' }}>
+              <Layers size={18} aria-hidden="true" /> Arcs
+            </h2>
+            <span className="t-caption">Plans from different Tracks grouped into one push.</span>
+          </div>
+          <div className="grid">
+            {arcs
+              .filter((a) => a.status !== 'archived')
+              .map((arc) => (
+                <ArcCard key={arc.key} arc={arc} />
+              ))}
+          </div>
+        </section>
+      )}
 
       <div style={{ marginBottom: 'var(--space-5)' }}>
         <Tabs

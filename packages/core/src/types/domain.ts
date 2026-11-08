@@ -1,7 +1,9 @@
 /** Domain types mirroring supabase/migrations with track_now_* prefix. */
 
 export type TrackStatus = 'active' | 'archived' | 'paused' | 'completed' | 'cancelled'
-export type PlanStatus = 'active' | 'archived' | 'paused' | 'completed' | 'cancelled'
+export type PlanStatus = 'draft' | 'active' | 'paused' | 'completed' | 'archived' | 'cancelled'
+/** time_bound = has a target end date (an "Arc"); ongoing = no end date; recurring = repeating cycle. */
+export type PlanKind = 'time_bound' | 'ongoing' | 'recurring'
 export type TemplateType = 'fitness' | 'finance' | 'career' | 'learning' | 'business' | 'custom'
 export type ItemType = 'habit' | 'task' | 'checklist' | 'milestone' | 'project'
 export type ItemStatus = 'todo' | 'in_progress' | 'done' | 'archived'
@@ -56,9 +58,25 @@ export interface Plan {
   start_date: string | null
   end_date: string | null
   status: PlanStatus
+  /** Present once migration 20261108000000 is applied. NULL/absent = derive from end_date. */
+  plan_kind?: PlanKind | null
+  outcome?: string | null
+  success_criteria?: string | null
+  completed_at?: string | null
+  result_notes?: string | null
+  lessons_learned?: string | null
+  next_decision?: string | null
+  /** Optional label grouping Plans across Tracks into one Arc (e.g. "Winter Arc 2026"). */
+  arc_name?: string | null
   position?: number
   created_at: string
   updated_at: string
+}
+
+export interface ChecklistEntry {
+  id: string
+  label: string
+  done: boolean
 }
 
 export interface ExecutionItem {
@@ -72,8 +90,10 @@ export interface ExecutionItem {
   description: string | null
   status: ItemStatus
   priority: ItemPriority
-  /** Client-only; track_now_execution_items has no start_date column (never persisted). */
+  /** Day the item begins (migration 20261108000000). Before it the item is upcoming only. */
   start_date?: string | null
+  /** Ordered checklist steps (migration 20261108000000); null = single pass/fail item. */
+  checklist_entries?: ChecklistEntry[] | null
   due_date: string | null
   target_count?: number
   current_count?: number
@@ -101,7 +121,8 @@ export interface ExecutionItemSummary {
   status: ItemStatus
   updated_at: string
   /** Recurrence for habits (used to decide whether a habit is due today). */
-  schedule?: Pick<ItemSchedule, 'frequency' | 'days_of_week'> | null
+  schedule?: Pick<ItemSchedule, 'frequency' | 'days_of_week'> & Partial<Pick<ItemSchedule, 'times_per_week'>> | null
+  start_date?: string | null
 }
 
 export interface ItemSchedule {
@@ -112,6 +133,8 @@ export interface ItemSchedule {
   days_of_week: number[] | null
   time_of_day: string | null
   reminder_time?: string | null
+  /** Flexible weekly habit: N completions per Mon–Sun week on any day (migration 20261108000000). */
+  times_per_week?: number | null
   created_at: string
 }
 
@@ -139,6 +162,18 @@ export interface NewPlanInput {
   description: string | null
   start_date: string | null
   end_date: string | null
+  status?: PlanStatus
+  plan_kind?: PlanKind | null
+  outcome?: string | null
+  success_criteria?: string | null
+  arc_name?: string | null
+}
+
+/** Fields written when a Plan is completed (its completion review). */
+export interface PlanCompletionInput {
+  result_notes?: string | null
+  lessons_learned?: string | null
+  next_decision?: string | null
 }
 
 export interface NewItemScheduleInput {
@@ -146,6 +181,7 @@ export interface NewItemScheduleInput {
   days_of_week?: number[] | null
   time_of_day?: 'morning' | 'afternoon' | 'evening' | 'anytime' | null
   reminder_time?: string | null
+  times_per_week?: number | null
 }
 
 export interface NewExecutionItemInput {
@@ -161,6 +197,7 @@ export interface NewExecutionItemInput {
   target_count?: number
   current_count?: number
   unit?: string | null
+  checklist_entries?: ChecklistEntry[] | null
   schedule?: NewItemScheduleInput | null
 }
 
@@ -174,6 +211,7 @@ export interface UpdateExecutionItemInput {
   target_count?: number
   current_count?: number
   unit?: string | null
+  checklist_entries?: ChecklistEntry[] | null
   schedule?: NewItemScheduleInput | null
 }
 

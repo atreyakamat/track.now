@@ -125,9 +125,13 @@ erDiagram
         uuid user_id FK
         string name
         string title
-        string status
+        string status "draft|active|paused|completed|archived"
+        string plan_kind "time_bound|ongoing|recurring"
         date start_date
         date end_date
+        string outcome
+        string success_criteria
+        timestamptz completed_at
     }
 
     TRACK_NOW_EXECUTION_ITEMS {
@@ -141,8 +145,20 @@ erDiagram
         string status
         string priority
         date due_date
+        date start_date
+        jsonb checklist_entries
     }
 ```
+
+**Plans and Arcs are one entity.** "Arc" is the user-facing name for a time-bound Plan
+(`plan_kind = 'time_bound'`, or legacy rows with an `end_date`). A Track never expires; finishing an
+Arc keeps its items, completions and completion review, and the Track page offers the next Arc or an
+ongoing Plan. Lifecycle helpers live in `packages/core/src/domain/plans.ts`.
+
+**Gamification is derived, not stored** (`packages/core/src/domain/momentum.ts`): XP, levels,
+Momentum and achievements are pure functions of `track_now_item_completions` (one row per item per
+day, unique index). There is no points table and no client-side counter, so duplicate requests,
+un-completion and deleted items can never inflate progress.
 
 ### Invariants & Business Rules
 1. **Duplicate Tracks Allowed:**
@@ -154,6 +170,8 @@ erDiagram
    Track and Plan progress is calculated purely:
    $$\text{Progress \%} = \text{round}\left(\frac{\sum \text{items with status 'done'}}{\sum \text{active non-archived items}} \times 100\right)$$
    - If there are 0 items in an active plan, progress is strictly $0\%$.
+   - Habits count only when due today: not before their `start_date`, not on unscheduled days, and
+     weekly-target habits (`times_per_week`) only when completed today.
    - Archived items and archived plans are excluded from active track progress rollups.
 
 3. **Status Transitions:**

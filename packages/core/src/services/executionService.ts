@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase'
 import type {
+  ChecklistEntry,
   ExecutionItem,
   ItemSchedule,
   ItemStatus,
@@ -17,6 +18,9 @@ import {
   supportsCountDate,
 } from '../domain/habitCounter'
 import { chunk, fetchAllPages, unwrap } from './helpers'
+import { ITEM_OPTIONAL_COLUMNS, SCHEDULE_OPTIONAL_COLUMNS, writeWithOptionalColumns } from './schemaCompat'
+import { normalizeChecklistEntries } from '../domain/checklist'
+import { habitTrackedSince } from '../domain/schedule'
 
 export function mapExecutionItemRow(row: any): ExecutionItem {
   const rawSched = row.track_now_item_schedules ?? row.schedule
@@ -45,29 +49,45 @@ export async function listExecutionItems(planId?: string): Promise<ExecutionItem
   return rows.map(mapExecutionItemRow)
 }
 
+export interface TodayWorkspace {
+  items: ExecutionItem[]
+  /** Active Plans for the "Plan · Track" context on Today (and the Arc they belong to). */
+  plans: {
+    id: string
+    name: string
+    track_id: string
+    start_date?: string | null
+    end_date?: string | null
+    arc_name?: string | null
+  }[]
+  tracks: { id: string; name: string; color?: string | null }[]
+}
+
 /**
- * Aggregates execution items from all ACTIVE tracks and all ACTIVE plans.
- * Explicitly excludes items from archived plans and archived tracks.
+ * Everything Today needs: items from ACTIVE Plans inside ACTIVE Tracks (paused, draft, completed
+ * and archived Plans are excluded), plus their Plan/Track names.
  */
-export async function listTodayExecutionItems(): Promise<ExecutionItem[]> {
+export async function listTodayWorkspace(): Promise<TodayWorkspace> {
   const { data: activeTracks, error: tracksErr } = await supabase
     .from('track_now_tracks')
-    .select('id')
+    .select('id, name, color')
     .eq('status', 'active')
 
   if (tracksErr) throw new Error(tracksErr.message)
-  if (!activeTracks || activeTracks.length === 0) return []
+  if (!activeTracks || activeTracks.length === 0) return { items: [], plans: [], tracks: [] }
 
   const activeTrackIds = activeTracks.map((t) => t.id)
 
   const { data: activePlans, error: plansErr } = await supabase
     .from('track_now_plans')
-    .select('id')
+    // '*' (not a column list) so arc_name is included once the migration is applied, and the
+    // query keeps working before it.
+    .select('*')
     .in('track_id', activeTrackIds)
     .eq('status', 'active')
 
   if (plansErr) throw new Error(plansErr.message)
-  if (!activePlans || activePlans.length === 0) return []
+  if (!activePlans || activePlans.length === 0) return { items: [], plans: [], tracks: activeTracks }
 
   const activePlanIds = activePlans.map((p) => p.id)
 
@@ -86,7 +106,15 @@ export async function listTodayExecutionItems(): Promise<ExecutionItem[]> {
     items.push(...rows)
   }
   items.sort((a, b) => (a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : 0))
-  return items.map(mapExecutionItemRow)
+  return { items: items.map(mapExecutionItemRow), plans: activePlans, tracks: activeTracks }
+}
+
+/**
+ * Aggregates execution items from all ACTIVE tracks and all ACTIVE plans.
+ * Explicitly excludes items from archived plans and archived tracks.
+ */
+export async function listTodayExecutionItems(): Promise<ExecutionItem[]> {
+  return (await listTodayWorkspace()).items
 }
 
 export async function listExecutionItemsByTrack(trackId: string): Promise<ExecutionItem[]> {
@@ -125,26 +153,26 @@ export async function createExecutionItem(
     }
   }
 
-  const { schedule: scheduleInput, ...itemFields } = input
+  const { schedule: scheduleInput, checklist_entries: rawEntries, start_date: startDate, ...itemFields } = input
   const targetCount = Math.max(1, input.target_count ?? 1)
   const currentCount = Math.max(0, input.current_count ?? 0)
+  const entries = input.type === 'checklist' ? normalizeChecklistEntries(rawEntries) : null
   const initialStatus =
     itemFields.status || (currentCount >= targetCount && targetCount > 0 ? 'done' : 'todo')
 
-  const row = unwrap(
-    await supabase
-      .from('track_now_execution_items')
-      .insert({
-        ...itemFields,
-        user_id: userId,
-        target_count: targetCount,
-        current_count: currentCount,
-        unit: input.unit?.trim() || null,
-        status: initialStatus,
-        priority: itemFields.priority || 'medium',
-      })
-      .select('*, track_now_item_schedules(*)')
-      .single(),
+  const payload: Record<string, unknown> = {
+    ...itemFields,
+    user_id: userId,
+    target_count: targetCount,
+    current_count: currentCount,
+    unit: input.unit?.trim() || null,
+    status: initialStatus,
+    priority: itemFields.priority || 'medium',
+  }
+  if (startDate) payload.start_date = startDate
+  if (entries && entries.length) payload.checklist_entries = entries
+  const { data: row } = await writeWithOptionalColumns<any>(payload, ITEM_OPTIONAL_COLUMNS, (p) =>
+    supabase.from('track_now_execution_items').insert(p).select('*, track_now_item_schedules(*)').single(),
   )
   const item = mapExecutionItemRow(row)
 
@@ -160,12 +188,19 @@ export async function createExecutionItem(
           : null),
       time_of_day: scheduleInput?.time_of_day || 'anytime',
       reminder_time: scheduleInput?.reminder_time || null,
+      ...(scheduleInput?.times_per_week ? { times_per_week: scheduleInput.times_per_week } : {}),
     }
-    const { data: createdSched, error: schedErr } = await supabase
-      .from('track_now_item_schedules')
-      .insert(schedPayload)
-      .select()
-      .maybeSingle()
+    let createdSched: unknown = null
+    let schedErr: { message: string } | null = null
+    try {
+      createdSched = (
+        await writeWithOptionalColumns<unknown>(schedPayload, SCHEDULE_OPTIONAL_COLUMNS, (p) =>
+          supabase.from('track_now_item_schedules').insert(p).select().maybeSingle(),
+        )
+      ).data
+    } catch (err) {
+      schedErr = { message: err instanceof Error ? err.message : String(err) }
+    }
     if (schedErr) {
       // Never report a half-created item: roll the item back so the caller can retry cleanly.
       const { error: rollbackErr } = await supabase
@@ -195,48 +230,37 @@ export async function saveItemSchedule(
     .eq('item_id', itemId)
     .maybeSingle()
 
+  const fields: Record<string, unknown> = {
+    frequency: schedule.frequency,
+    days_of_week: schedule.days_of_week ?? null,
+    time_of_day: schedule.time_of_day ?? 'anytime',
+    reminder_time: schedule.reminder_time ?? null,
+  }
+  // Only send times_per_week when the caller states it (null clears a weekly target).
+  if (schedule.times_per_week !== undefined) fields.times_per_week = schedule.times_per_week || null
+
   if (existing) {
-    return unwrap(
-      await supabase
-        .from('track_now_item_schedules')
-        .update({
-          frequency: schedule.frequency,
-          days_of_week: schedule.days_of_week ?? null,
-          time_of_day: schedule.time_of_day ?? 'anytime',
-          reminder_time: schedule.reminder_time ?? null,
-        })
-        .eq('id', existing.id)
-        .select()
-        .single(),
-    ) as ItemSchedule
+    return (
+      await writeWithOptionalColumns<ItemSchedule>(fields, SCHEDULE_OPTIONAL_COLUMNS, (p) =>
+        supabase.from('track_now_item_schedules').update(p).eq('id', existing.id).select().single(),
+      )
+    ).data
   }
 
-  return unwrap(
-    await supabase
-      .from('track_now_item_schedules')
-      .insert({
-        item_id: itemId,
-        frequency: schedule.frequency,
-        days_of_week: schedule.days_of_week ?? null,
-        time_of_day: schedule.time_of_day ?? 'anytime',
-        reminder_time: schedule.reminder_time ?? null,
-      })
-      .select()
-      .single(),
-  ) as ItemSchedule
+  return (
+    await writeWithOptionalColumns<ItemSchedule>({ item_id: itemId, ...fields }, SCHEDULE_OPTIONAL_COLUMNS, (p) =>
+      supabase.from('track_now_item_schedules').insert(p).select().single(),
+    )
+  ).data
 }
 
 export async function updateExecutionItem(
   itemId: string,
   updates: Partial<ExecutionItem>,
 ): Promise<ExecutionItem> {
-  const row = unwrap(
-    await supabase
-      .from('track_now_execution_items')
-      .update(updates)
-      .eq('id', itemId)
-      .select('*, track_now_item_schedules(*)')
-      .single(),
+  const { schedule: _schedule, ...fields } = updates
+  const { data: row } = await writeWithOptionalColumns<any>(fields as Record<string, unknown>, ITEM_OPTIONAL_COLUMNS, (p) =>
+    supabase.from('track_now_execution_items').update(p).eq('id', itemId).select('*, track_now_item_schedules(*)').single(),
   )
   return mapExecutionItemRow(row)
 }
@@ -462,7 +486,26 @@ export async function editExecutionItem(
   if (input.priority !== undefined) updates.priority = input.priority
   if (input.type !== undefined) updates.type = input.type
   if (input.due_date !== undefined) updates.due_date = input.due_date || null
-  // NOTE: track_now_execution_items has no start_date column; it is intentionally not persisted.
+  // start_date / checklist_entries exist once migration 20261108000000 is applied; on an older
+  // database updateExecutionItem drops them and still saves everything else.
+  if (input.start_date !== undefined && (input.start_date || null) !== (currentItem.start_date ?? null)) {
+    updates.start_date = input.start_date || null
+  }
+  let checklistTransition: { wasDone: boolean; willBeDone: boolean } | null = null
+  if (input.checklist_entries !== undefined) {
+    const entries = normalizeChecklistEntries(input.checklist_entries)
+    updates.checklist_entries = entries
+    // With steps, a checklist is done exactly when every step is done.
+    if (!touchesProgress && entries?.length && (input.type ?? currentItem.type) === 'checklist') {
+      const was = currentItem.status === 'done'
+      const will = entries.every((e) => e.done)
+      if (was !== will) {
+        updates.status = will ? 'done' : 'todo'
+        updates.current_count = will ? Math.max(1, currentItem.target_count ?? 1) : 0
+        checklistTransition = { wasDone: was, willBeDone: will }
+      }
+    }
+  }
 
   const updated = await updateExecutionItem(itemId, updates)
 
@@ -490,6 +533,8 @@ export async function editExecutionItem(
 
   if (userId && touchesProgress) {
     await syncCompletionLog(userId, itemId, dateStr, wasDone, willBeDone, updates.type ?? currentItem.type)
+  } else if (userId && checklistTransition) {
+    await syncCompletionLog(userId, itemId, dateStr, checklistTransition.wasDone, checklistTransition.willBeDone, 'checklist')
   }
 
   return updated
@@ -633,6 +678,39 @@ export async function setItemDone(
   return toggleItemStatus(itemId, currentItem.status, userId, completedDate)
 }
 
+export const CHECKLIST_NEEDS_MIGRATION_MESSAGE =
+  'Checklist steps need the latest database update before they can be saved.'
+
+/**
+ * Saves a checklist's steps. When the checklist has steps, it is done exactly when every step
+ * is done; the status and completion history follow that (idempotently, from the fresh row).
+ */
+export async function setChecklistEntries(
+  itemId: string,
+  entries: ChecklistEntry[],
+  userId?: string,
+  completedDate?: string,
+): Promise<ExecutionItem> {
+  const currentItem = await getExecutionItem(itemId)
+  const next = normalizeChecklistEntries(entries) ?? []
+  const dateStr = completedDate || getTodayDateString()
+  const wasDone = currentItem.status === 'done'
+  const willBeDone = next.length > 0 ? next.every((e) => e.done) : wasDone
+  const updates: Record<string, unknown> = { checklist_entries: next.length ? next : null }
+  if (willBeDone !== wasDone) {
+    updates.status = willBeDone ? 'done' : 'todo'
+    updates.current_count = willBeDone ? Math.max(1, currentItem.target_count ?? 1) : 0
+  }
+  const { data: row, dropped } = await writeWithOptionalColumns<any>(updates, ITEM_OPTIONAL_COLUMNS, (p) =>
+    supabase.from('track_now_execution_items').update(p).eq('id', itemId).select('*, track_now_item_schedules(*)').single(),
+  )
+  if (dropped.includes('checklist_entries')) throw new Error(CHECKLIST_NEEDS_MIGRATION_MESSAGE)
+  if (userId && willBeDone !== wasDone) {
+    await syncCompletionLog(userId, itemId, dateStr, wasDone, willBeDone, currentItem.type)
+  }
+  return mapExecutionItemRow(row)
+}
+
 export async function deleteExecutionItem(itemId: string): Promise<void> {
   unwrap(
     await supabase.from('track_now_execution_items').delete().eq('id', itemId).select('id').single(),
@@ -699,7 +777,7 @@ export async function getHabitStreakSummaries(
       dates,
       now,
       undefined,
-      habit.created_at ? getTodayDateString(new Date(habit.created_at)) : null,
+      habitTrackedSince(habit),
     )
   })
 

@@ -17,6 +17,7 @@ import {
 } from '@tracknow/core/services/reminderService'
 import { loadNotificationPreferences } from '@tracknow/core/services/notificationPreferences'
 import { calcHabitStreak, type HabitStreakSummary } from '@tracknow/core/domain/streaks'
+import { habitTrackedSince } from '@tracknow/core/domain/schedule'
 import { getTodayDateString } from '@tracknow/core/domain/dates'
 import { doneTodayAfterEdit } from '@tracknow/core/domain/itemEdit'
 import { useToast } from '@/features/notifications/ToastContext'
@@ -29,12 +30,6 @@ interface Options {
   reload: () => Promise<void>
   /** Optional hook after any successful change (e.g. refresh the widget snapshot). */
   onChanged?: (state: { items: ExecutionItem[]; completedTodayIds: string[] }) => void
-}
-
-/** Local calendar day of an ISO timestamp (null when missing/invalid). */
-const localDay = (iso?: string) => {
-  const d = iso ? new Date(iso) : null
-  return d && !Number.isNaN(d.getTime()) ? getTodayDateString(d) : null
 }
 
 
@@ -74,7 +69,7 @@ export function useExecutionItemActions({ userId, items, setItems, reload, onCha
     items
       .filter((i) => i.type === 'habit')
       .forEach((h) => {
-        result[h.id] = calcHabitStreak(h.id, h.schedule, completionDates[h.id] || [], undefined, undefined, localDay(h.created_at))
+        result[h.id] = calcHabitStreak(h.id, h.schedule, completionDates[h.id] || [], undefined, undefined, habitTrackedSince(h))
       })
     return result
   }, [items, completionDates])

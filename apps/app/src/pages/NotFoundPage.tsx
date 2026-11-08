@@ -10,8 +10,8 @@ export function NotFoundPage() {
         title="Destination does not exist"
         description="The route or workspace you requested is not available in Track.now."
         action={
-          <ButtonLink to="/dashboard" variant="primary">
-            Return to Dashboard
+          <ButtonLink to="/today" variant="primary">
+            Go to Today
           </ButtonLink>
         }
       />

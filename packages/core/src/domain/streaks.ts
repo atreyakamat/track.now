@@ -1,4 +1,5 @@
 import { getTodayDateString } from './dates'
+import { weekStartOf, weeklyTarget } from './schedule'
 
 /**
  * Pure date parser for 'YYYY-MM-DD' string to local midnight Date.
@@ -48,6 +49,11 @@ export interface HabitStreakSummary {
   lastCompletedDate: string | null
   isCompletedToday: boolean
   isActiveStreak: boolean
+  /** 'weeks' for weekly-target habits (streak = consecutive weeks that met the target). */
+  streakUnit?: 'days' | 'weeks'
+  /** Weekly-target habits only: sessions this week / target. */
+  weekDone?: number
+  weekTarget?: number
 }
 
 /**
@@ -73,6 +79,8 @@ export function calcHabitStreak(
   evaluationDays = 90,
   trackedSince?: string | null,
 ): HabitStreakSummary {
+  const target = weeklyTarget(schedule as { times_per_week?: number | null } | null | undefined)
+  if (target !== null) return calcWeeklyTargetStreak(itemId, target, completedDates, now, evaluationDays, trackedSince)
   const todayStr = getTodayDateString(now)
   const uniqueDates = Array.from(new Set(completedDates.filter(Boolean))).sort()
   const completionSet = new Set(uniqueDates)
@@ -212,6 +220,79 @@ export function calcHabitStreak(
     lastCompletedDate,
     isCompletedToday,
     isActiveStreak: currentStreak > 0,
+  }
+}
+
+/**
+ * Streak for a weekly-target habit ("3× a week"): a week counts once it has `target` sessions.
+ * The current week never breaks the streak while it is still open; missed days inside a week are
+ * not misses on their own. Weeks before the habit was tracked are ignored.
+ */
+export function calcWeeklyTargetStreak(
+  itemId: string,
+  target: number,
+  completedDates: string[],
+  now = new Date(),
+  evaluationDays = 90,
+  trackedSince?: string | null,
+): HabitStreakSummary {
+  const todayStr = getTodayDateString(now)
+  const uniqueDates = Array.from(new Set(completedDates.filter(Boolean))).sort()
+  const perWeek = new Map<string, number>()
+  for (const d of uniqueDates) {
+    if (d > todayStr) continue
+    const w = weekStartOf(d)
+    perWeek.set(w, (perWeek.get(w) ?? 0) + 1)
+  }
+  const thisWeek = weekStartOf(todayStr)
+  const weekDone = perWeek.get(thisWeek) ?? 0
+  const met = (w: string) => (perWeek.get(w) ?? 0) >= target
+  const firstTracked = [trackedSince ?? null, uniqueDates[0] ?? null].filter((d): d is string => Boolean(d)).sort()[0]
+  const firstWeek = firstTracked ? weekStartOf(firstTracked) : thisWeek
+
+  let currentStreak = met(thisWeek) ? 1 : 0
+  let cursor = addDays(thisWeek, -7)
+  for (let i = 0; i < 520 && cursor >= firstWeek; i++) {
+    if (!met(cursor)) break
+    currentStreak++
+    cursor = addDays(cursor, -7)
+  }
+
+  let longestStreak = 0
+  let running = 0
+  for (let w = firstWeek, i = 0; w <= thisWeek && i < 1040; w = addDays(w, 7), i++) {
+    if (met(w)) {
+      running++
+      longestStreak = Math.max(longestStreak, running)
+    } else if (w !== thisWeek) {
+      running = 0
+    }
+  }
+  longestStreak = Math.max(longestStreak, currentStreak)
+
+  const windowStartWeek = weekStartOf(addDays(todayStr, -evaluationDays))
+  const startWeek = firstWeek > windowStartWeek ? firstWeek : windowStartWeek
+  let expected = 0
+  let completed = 0
+  for (let w = startWeek, i = 0; w <= thisWeek && i < 1040; w = addDays(w, 7), i++) {
+    const done = Math.min(target, perWeek.get(w) ?? 0)
+    // The open week only counts what has been done so far (it is pending, not missed).
+    expected += w === thisWeek ? done : target
+    completed += done
+  }
+
+  return {
+    itemId,
+    currentStreak,
+    longestStreak,
+    totalCompletions: uniqueDates.length,
+    consistencyRate: expected > 0 ? Math.round((completed / expected) * 100) : 0,
+    lastCompletedDate: uniqueDates.at(-1) ?? null,
+    isCompletedToday: uniqueDates.includes(todayStr),
+    isActiveStreak: currentStreak > 0 || weekDone > 0,
+    streakUnit: 'weeks',
+    weekDone,
+    weekTarget: target,
   }
 }
 

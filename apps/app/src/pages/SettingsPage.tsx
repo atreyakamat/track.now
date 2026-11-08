@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { PlanImportCard } from '@/components/settings/PlanImportCard'
+import { ChangePasswordCard } from '@/components/settings/ChangePasswordCard'
 import { AlertCircle, Bell, Info, LogOut, Moon, RefreshCw, Save, Smartphone, Sun, User } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useTheme } from '@/hooks/useTheme'
@@ -290,6 +292,8 @@ export function SettingsPage() {
         </section>
 
         {/* Reminders & notifications */}
+        {user?.email && <ChangePasswordCard email={user.email} />}
+
         <section className="card" aria-labelledby="settings-reminders-heading">
           <div className="row" style={{ alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
             <div className="icon-chip" style={{ background: 'var(--control-bg)', color: 'var(--control-text)' }} aria-hidden="true">
@@ -527,6 +531,8 @@ export function SettingsPage() {
         </section>
 
         {/* Appearance */}
+        {user?.id && <PlanImportCard userId={user.id} />}
+
         <section className="card" aria-labelledby="settings-appearance-heading">
           <h2 id="settings-appearance-heading" className="t-h2" style={{ marginBottom: 'var(--space-3)' }}>
             Appearance

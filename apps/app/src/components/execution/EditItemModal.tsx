@@ -17,12 +17,15 @@ import { useToast } from '@/features/notifications/ToastContext'
 import { Button, Input, Modal, Select, Textarea } from '@/components/ui'
 import { effectiveCurrentCount } from '@tracknow/core/domain/habitCounter'
 import {
+  ChecklistStepsEditor,
   DayPicker,
   ReminderFields,
-  buildHabitScheduleInput,
+  TimesPerWeekField,
+  buildScheduleFromForm,
   needsActiveDays,
   reminderHint,
-  type HabitFrequency,
+  repeatChoiceOf,
+  type RepeatChoice,
 } from './ItemFormParts'
 
 interface EditItemModalProps {
@@ -43,7 +46,10 @@ export function EditItemModal({ open, onClose, item, onSubmit, completedToday = 
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState<ItemPriority>('medium')
-  const [frequency, setFrequency] = useState<HabitFrequency>('daily')
+  const [frequency, setFrequency] = useState<RepeatChoice>('daily')
+  const [timesPerWeek, setTimesPerWeek] = useState(3)
+  const [startDate, setStartDate] = useState('')
+  const [steps, setSteps] = useState<{ id: string; label: string; done: boolean }[]>([])
   const [daysOfWeek, setDaysOfWeek] = useState<number[]>([1, 2, 3, 4, 5])
   const [timeOfDay, setTimeOfDay] = useState<'anytime' | 'morning' | 'afternoon' | 'evening'>('anytime')
   const [dueDate, setDueDate] = useState('')
@@ -68,13 +74,16 @@ export function EditItemModal({ open, onClose, item, onSubmit, completedToday = 
     setDescription(item.description || '')
     setPriority(item.priority || 'medium')
     setDueDate(item.due_date || '')
+    setStartDate(item.start_date || '')
+    setSteps(item.checklist_entries ?? [])
+    setTimesPerWeek(item.schedule?.times_per_week || 3)
     setTargetInput(String(Math.max(1, item.target_count ?? 1)))
     // Today's count: a habit's stored count from an earlier day is shown (and saved) as 0.
     setCurrentInput(String(effectiveCurrentCount(item, completedToday)))
     setUnit(item.unit || '')
     if (item.schedule) {
       // Legacy 'monthly' habits keep their frequency unless the user changes it.
-      setFrequency(item.schedule.frequency)
+      setFrequency(repeatChoiceOf(item.schedule))
       setDaysOfWeek(item.schedule.days_of_week?.length ? item.schedule.days_of_week : [1, 2, 3, 4, 5])
       const tod = item.schedule.time_of_day
       setTimeOfDay(tod === 'morning' || tod === 'afternoon' || tod === 'evening' ? tod : 'anytime')
@@ -118,17 +127,18 @@ export function EditItemModal({ open, onClose, item, onSubmit, completedToday = 
     if (!Number.isInteger(currentCount) || currentCount < 0 || currentCount > MAX_TARGET * 10) {
       return setError('Completed quantity must be a whole number of 0 or more.')
     }
-    if (type === 'habit' && needsActiveDays(frequency) && daysOfWeek.length === 0) {
+    if (type === 'habit' && frequency !== 'flexible' && needsActiveDays(frequency) && daysOfWeek.length === 0) {
       return setError('Choose at least one active day for this habit.')
     }
 
     const scheduleInput =
       type === 'habit'
-        ? buildHabitScheduleInput({
-            frequency,
+        ? buildScheduleFromForm({
+            repeat: frequency,
             daysOfWeek,
             timeOfDay,
             habitTime: habitReminderTime,
+            timesPerWeek,
             original: item.schedule ?? null,
           })
         : null
@@ -172,6 +182,8 @@ export function EditItemModal({ open, onClose, item, onSubmit, completedToday = 
         type,
         priority,
         due_date: dueDate || null,
+        start_date: startDate || null,
+        ...(type === 'checklist' ? { checklist_entries: steps.filter((st) => st.label.trim()) } : {}),
         // Only send progress fields the user actually changed, so a rename or description
         // edit can never rewrite today's count or completion history.
         ...(targetCount !== Math.max(1, item.target_count ?? 1) ? { target_count: targetCount } : {}),
@@ -212,7 +224,7 @@ export function EditItemModal({ open, onClose, item, onSubmit, completedToday = 
     <Modal
       open={open}
       onClose={busy ? () => undefined : onClose}
-      title="Edit Execution Item"
+      title="Edit item"
       actions={
         <>
           <Button variant="ghost" onClick={onClose} disabled={busy}>
@@ -239,7 +251,7 @@ export function EditItemModal({ open, onClose, item, onSubmit, completedToday = 
         >
           <option value="task">Task (action to be done)</option>
           <option value="habit">Habit (recurring routine)</option>
-          <option value="checklist">Checklist item (quick verification)</option>
+          <option value="checklist">Checklist (steps to tick off)</option>
           <option value="milestone">Milestone (key target)</option>
           <option value="project">Project (larger initiative)</option>
         </Select>
@@ -268,9 +280,10 @@ export function EditItemModal({ open, onClose, item, onSubmit, completedToday = 
               Habit schedule
             </span>
             <div className="grid grid--2" style={{ gap: 'var(--space-3)' }}>
-              <Select label="Frequency" value={frequency} onChange={(e) => setFrequency(e.target.value as HabitFrequency)}>
+              <Select label="Repeat" value={frequency} onChange={(e) => setFrequency(e.target.value as RepeatChoice)}>
                 <option value="daily">Every day</option>
-                <option value="weekly">Weekly (chosen days)</option>
+                <option value="weekly">On chosen days</option>
+                <option value="flexible">Times a week (any days)</option>
                 <option value="custom">Custom days</option>
                 {item.schedule?.frequency === 'monthly' && <option value="monthly">Monthly (current schedule)</option>}
               </Select>
@@ -285,9 +298,15 @@ export function EditItemModal({ open, onClose, item, onSubmit, completedToday = 
                 <option value="evening">Evening</option>
               </Select>
             </div>
-            {needsActiveDays(frequency) && <DayPicker value={daysOfWeek} onToggle={toggleDay} />}
+            {frequency === 'flexible' ? (
+              <TimesPerWeekField value={timesPerWeek} onChange={setTimesPerWeek} />
+            ) : (
+              needsActiveDays(frequency) && <DayPicker value={daysOfWeek} onToggle={toggleDay} />
+            )}
           </div>
         )}
+
+        {type === 'checklist' && <ChecklistStepsEditor value={steps} onChange={setSteps} />}
 
         <div className="grid grid--2" style={{ gap: 'var(--space-3)' }}>
           <Input
@@ -323,7 +342,16 @@ export function EditItemModal({ open, onClose, item, onSubmit, completedToday = 
           </Select>
         </div>
 
-        <Input label="Due date (optional)" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+        <div className="grid grid--2" style={{ gap: 'var(--space-3)' }}>
+          <Input label="Due date (optional)" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+          <Input
+            label="Starts on (optional)"
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            hint="Waits in Upcoming until then."
+          />
+        </div>
 
         <ReminderFields
           preset={reminderPreset}

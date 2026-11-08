@@ -1,8 +1,9 @@
-import { useState, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { authService } from '@/features/auth/authService'
-import { Button, Input } from '@/components/ui'
+import { Button, Input, PasswordInput } from '@/components/ui'
+import { RESET_EMAIL_COOLDOWN_SECONDS } from '@tracknow/core/auth/password'
 import { returnPathFromState } from '@/routes/returnPath'
 
 export function LoginPage() {
@@ -17,6 +18,14 @@ export function LoginPage() {
   const [isResetMode, setIsResetMode] = useState(false)
   const [resetSuccess, setResetSuccess] = useState<string | null>(null)
   const isSubmittingRef = useRef(false)
+  // Seconds until another reset email may be requested (the server rate-limits them).
+  const [cooldown, setCooldown] = useState(0)
+
+  useEffect(() => {
+    if (cooldown <= 0) return
+    const t = window.setTimeout(() => setCooldown((c) => c - 1), 1000)
+    return () => window.clearTimeout(t)
+  }, [cooldown])
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
@@ -63,8 +72,9 @@ export function LoginPage() {
     try {
       await authService.resetPasswordForEmail(email.trim())
       setResetSuccess(
-        'If an account exists for that email, a password reset link is on its way. Open it on this device to choose a new password.',
+        `If an account exists for ${email.trim()}, a password reset link is on its way. Open it on this device to choose a new password. Check your spam folder if it does not arrive within a few minutes.`,
       )
+      setCooldown(RESET_EMAIL_COOLDOWN_SECONDS)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send reset link')
     } finally {
@@ -122,8 +132,8 @@ export function LoginPage() {
               autoFocus
             />
 
-            <Button type="submit" variant="primary" block disabled={busy} aria-busy={busy}>
-              {busy ? 'Sending link…' : 'Send Reset Link'}
+            <Button type="submit" variant="primary" block disabled={busy || cooldown > 0} aria-busy={busy}>
+              {busy ? 'Sending link…' : cooldown > 0 ? `Resend in ${cooldown}s` : resetSuccess ? 'Resend Link' : 'Send Reset Link'}
             </Button>
 
             <button
@@ -164,10 +174,9 @@ export function LoginPage() {
               autoFocus
             />
 
-            <Input
+            <PasswordInput
               name="password"
               label="Password"
-              type="password"
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

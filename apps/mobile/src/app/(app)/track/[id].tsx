@@ -156,9 +156,9 @@ export default function TrackDetailScreen() {
     )
   }
 
-  const { track, progress, activePlans, archivedPlans } = data
+  const { track, progress, activePlans, inactivePlans } = data
   const isArchived = track.status === 'archived'
-  const plans = filter === 'active' ? activePlans : archivedPlans
+  const plans = filter === 'active' ? activePlans : inactivePlans
   const accent = resolveTrackColor(track.color)
 
   return (
@@ -221,7 +221,7 @@ export default function TrackDetailScreen() {
           onChange={setFilter}
           options={[
             { key: 'active', label: `Active (${activePlans.length})` },
-            { key: 'archived', label: `Archived (${archivedPlans.length})` },
+            { key: 'archived', label: `Other (${inactivePlans.length})` },
           ]}
         />
 

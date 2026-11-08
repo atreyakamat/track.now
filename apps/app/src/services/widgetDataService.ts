@@ -1,6 +1,7 @@
 import type { ExecutionItem } from '@tracknow/core/types/domain'
 import type { WidgetDataPayload, WidgetItemSummary, WidgetTodayProgress } from '@tracknow/core/types/widget'
-import { getTodayDateString, isHabitScheduledForToday, isOverdue } from '@tracknow/core/domain/dates'
+import { getTodayDateString, isOverdue } from '@tracknow/core/domain/dates'
+import { isHabitRequiredToday } from '@tracknow/core/domain/schedule'
 import type { HabitStreakSummary } from '@tracknow/core/domain/streaks'
 import { syncNativeWidgetData, clearNativeWidgetData } from './nativeMobileBridge'
 
@@ -55,7 +56,7 @@ export async function buildWidgetDataPayload(
 
   const todayItems = items.filter((item) => {
     if (item.status === 'archived') return false
-    if (item.type === 'habit') return completed.has(item.id) || isHabitScheduledForToday(item.schedule, now)
+    if (item.type === 'habit') return completed.has(item.id) || isHabitRequiredToday(item, now)
     if (completed.has(item.id)) return true
     if (item.status === 'done') return false // finished on an earlier day
     return !item.due_date || item.due_date <= dateStr

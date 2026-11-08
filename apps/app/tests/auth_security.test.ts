@@ -69,11 +69,11 @@ describe('safeReturnPath — normalisation cannot create an off-site or auth tar
     'javascript:alert(1)',
     '/\tdashboard',
   ])('rejects %s', (raw) => {
-    expect(safeReturnPath(raw)).toBe('/dashboard')
+    expect(safeReturnPath(raw)).toBe('/today')
   })
 
   it.each(['/./login', '/%2e/login', '/a/../signup', '/reset-password'])('never returns to an auth page: %s', (raw) => {
-    expect(safeReturnPath(raw)).toBe('/dashboard')
+    expect(safeReturnPath(raw)).toBe('/today')
   })
 
   it('keeps legitimate deep links', () => {

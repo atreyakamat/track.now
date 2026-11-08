@@ -1,6 +1,7 @@
 import {
   useId,
   useRef,
+  useState,
   type CSSProperties,
   type InputHTMLAttributes,
   type KeyboardEvent,
@@ -9,6 +10,8 @@ import {
   type TextareaHTMLAttributes,
 } from 'react'
 import { nextRovingIndex } from './Tabs'
+import { Eye, EyeOff } from 'lucide-react'
+import { checkPassword } from '@tracknow/core/auth/password'
 
 interface FieldProps {
   label: string
@@ -35,6 +38,58 @@ export function Input({ label, hint, error, ...props }: FieldProps & InputHTMLAt
   return (
     <FieldShell id={id} label={label} hint={hint} error={error}>
       <input id={id} className="control" aria-invalid={Boolean(error)} aria-describedby={describedBy(id, hint, error)} {...props} />
+    </FieldShell>
+  )
+}
+
+/**
+ * Password field with a show/hide toggle and an optional strength meter (for new passwords).
+ * The toggle never changes the value; the meter never blocks submission.
+ */
+export function PasswordInput({
+  label, hint, error, showStrength, value, ...props
+}: FieldProps & InputHTMLAttributes<HTMLInputElement> & { showStrength?: boolean; value: string }) {
+  const id = useId()
+  const [visible, setVisible] = useState(false)
+  const check = showStrength && value ? checkPassword(value) : null
+  const strengthId = `${id}-strength`
+  const described = [describedBy(id, hint, error), check ? strengthId : undefined].filter(Boolean).join(' ') || undefined
+  return (
+    <FieldShell id={id} label={label} hint={hint} error={error}>
+      <div className="password-field">
+        <input
+          id={id}
+          className="control"
+          type={visible ? 'text' : 'password'}
+          aria-invalid={Boolean(error)}
+          aria-describedby={described}
+          value={value}
+          spellCheck={false}
+          {...props}
+        />
+        <button
+          type="button"
+          className="password-field__toggle"
+          onClick={() => setVisible((v) => !v)}
+          aria-label={visible ? 'Hide password' : 'Show password'}
+          aria-pressed={visible}
+        >
+          {visible ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
+        </button>
+      </div>
+      {check && (
+        <div className="password-strength" id={strengthId} data-score={check.score}>
+          <span className="password-strength__meter" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </span>
+          <span className="field__hint">
+            {check.label}
+            {check.tip ? ` · ${check.tip}` : ''}
+          </span>
+        </div>
+      )}
     </FieldShell>
   )
 }

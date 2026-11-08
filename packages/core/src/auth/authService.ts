@@ -189,6 +189,26 @@ export const authService = {
     if (error) throw new Error(friendlyAuthError(error))
   },
 
+  /**
+   * Changes the password of a signed-in user from Settings. The current password is verified
+   * first (a fresh sign-in), so someone at an unlocked device cannot take over the account.
+   */
+  async changePassword(email: string, currentPassword: string, newPassword: string): Promise<void> {
+    if (!currentPassword) throw new Error('Enter your current password.')
+    if (newPassword.length < 6) throw new Error('Password should be at least 6 characters.')
+    if (newPassword === currentPassword) throw new Error('Choose a new password that is different from your current one.')
+    const { error: verifyError } = await supabase.auth.signInWithPassword({ email, password: currentPassword })
+    if (verifyError) {
+      const m = (verifyError.message ?? '').toLowerCase()
+      if (m.includes('invalid login') || m.includes('invalid credentials') || verifyError.status === 400) {
+        throw new Error('Your current password is not correct.')
+      }
+      throw new Error(friendlyAuthError(verifyError))
+    }
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    if (error) throw new Error(friendlyAuthError(error))
+  },
+
   onAuthStateChange(callback: (event: string, session: Session | null) => void): () => void {
     // No client configured (e.g. a build shipped without Supabase env vars): don't crash at
     // mount — behave as "no session" so the app renders the login screen instead of dying.

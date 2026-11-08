@@ -7,20 +7,24 @@ import { loadNotificationPreferences } from '@tracknow/core/services/notificatio
 import { previewReminder } from '@tracknow/core/services/reminderService'
 import { useToast } from '@/features/notifications/ToastContext'
 import {
+  ChecklistStepsEditor,
   DayPicker,
   ReminderFields,
-  buildHabitScheduleInput,
+  TimesPerWeekField,
+  buildScheduleFromForm,
   needsActiveDays,
   reminderHint,
   resolveCreateReminderChoice,
-  type HabitFrequency,
+  type RepeatChoice,
 } from './ItemFormParts'
 
 interface CreateItemModalProps {
   open: boolean
   onClose: () => void
-  planId: string
-  trackId: string
+  /** Fixed Plan (Plan page). Omit and pass `plans` to let the user pick (Today quick add). */
+  planId?: string
+  trackId?: string
+  plans?: { id: string; label: string; track_id: string }[]
   defaultType?: ItemType
   onSubmit: (
     input: NewExecutionItemInput,
@@ -36,9 +40,14 @@ export function CreateItemModal({
   onClose,
   planId,
   trackId,
+  plans,
   defaultType = 'task',
   onSubmit,
 }: CreateItemModalProps) {
+  const [pickedPlanId, setPickedPlanId] = useState('')
+  const [startDate, setStartDate] = useState('')
+  const [timesPerWeek, setTimesPerWeek] = useState(3)
+  const [steps, setSteps] = useState<{ id: string; label: string; done: boolean }[]>([])
   const { user } = useAuth()
   const { showToast } = useToast()
   const formId = useId()
@@ -46,7 +55,7 @@ export function CreateItemModal({
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState<ItemPriority>('medium')
-  const [frequency, setFrequency] = useState<HabitFrequency>('daily')
+  const [frequency, setFrequency] = useState<RepeatChoice>('daily')
   const [daysOfWeek, setDaysOfWeek] = useState<number[]>([1, 2, 3, 4, 5])
   const [timeOfDay, setTimeOfDay] = useState<'anytime' | 'morning' | 'afternoon' | 'evening'>('anytime')
   const [dueDate, setDueDate] = useState('')
@@ -74,6 +83,10 @@ export function CreateItemModal({
     setDueDate('')
     setTargetInput('1')
     setUnit('')
+    setPickedPlanId(plans?.[0]?.id ?? '')
+    setStartDate('')
+    setTimesPerWeek(3)
+    setSteps([])
     setReminderPreset(user?.id ? loadNotificationPreferences(user.id).defaultPreset : 'none')
     setPresetTouched(false)
     setExactReminderTime('')
@@ -98,13 +111,17 @@ export function CreateItemModal({
     if (!Number.isInteger(targetCount) || targetCount < 1 || targetCount > MAX_TARGET) {
       return setError(`Target quantity must be a whole number between 1 and ${MAX_TARGET}.`)
     }
-    if (type === 'habit' && needsActiveDays(frequency) && daysOfWeek.length === 0) {
+    if (type === 'habit' && frequency !== 'flexible' && needsActiveDays(frequency) && daysOfWeek.length === 0) {
       return setError('Choose at least one active day for this habit.')
     }
 
+    const targetPlanId = planId ?? pickedPlanId
+    const targetTrackId = trackId ?? plans?.find((p) => p.id === pickedPlanId)?.track_id
+    if (!targetPlanId) return setError('Choose the Plan this item belongs to.')
+
     const schedule =
       type === 'habit'
-        ? buildHabitScheduleInput({ frequency, daysOfWeek, timeOfDay, habitTime: habitReminderTime })
+        ? buildScheduleFromForm({ repeat: frequency, daysOfWeek, timeOfDay, habitTime: habitReminderTime, timesPerWeek })
         : null
 
     const preview =
@@ -130,9 +147,11 @@ export function CreateItemModal({
       setError(null)
       await onSubmit(
         {
-          plan_id: planId,
-          track_id: trackId,
+          plan_id: targetPlanId,
+          track_id: targetTrackId,
           type,
+          start_date: startDate || null,
+          checklist_entries: type === 'checklist' ? steps.filter((st) => st.label.trim()) : null,
           name: trimmed,
           description: description.trim() || null,
           priority,
@@ -166,7 +185,7 @@ export function CreateItemModal({
     <Modal
       open={open}
       onClose={busy ? () => undefined : onClose}
-      title="Add Execution Item"
+      title="Add item"
       actions={
         <>
           <Button variant="ghost" onClick={onClose} disabled={busy}>
@@ -185,6 +204,16 @@ export function CreateItemModal({
           </div>
         )}
 
+        {!planId && plans && plans.length > 0 && (
+          <Select label="Plan" value={pickedPlanId} onChange={(e) => setPickedPlanId(e.target.value)}>
+            {plans.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.label}
+              </option>
+            ))}
+          </Select>
+        )}
+
         <Select
           label="Item type"
           value={type}
@@ -193,7 +222,7 @@ export function CreateItemModal({
         >
           <option value="task">Task (action to be done)</option>
           <option value="habit">Habit (recurring routine)</option>
-          <option value="checklist">Checklist item (quick verification)</option>
+          <option value="checklist">Checklist (steps to tick off)</option>
           <option value="milestone">Milestone (key target)</option>
           <option value="project">Project (larger initiative)</option>
         </Select>
@@ -230,9 +259,10 @@ export function CreateItemModal({
               Habit schedule
             </span>
             <div className="grid grid--2" style={{ gap: 'var(--space-3)' }}>
-              <Select label="Frequency" value={frequency} onChange={(e) => setFrequency(e.target.value as HabitFrequency)}>
+              <Select label="Repeat" value={frequency} onChange={(e) => setFrequency(e.target.value as RepeatChoice)}>
                 <option value="daily">Every day</option>
-                <option value="weekly">Weekly (chosen days)</option>
+                <option value="weekly">On chosen days</option>
+                <option value="flexible">Times a week (any days)</option>
                 <option value="custom">Custom days</option>
               </Select>
               <Select
@@ -246,9 +276,15 @@ export function CreateItemModal({
                 <option value="evening">Evening</option>
               </Select>
             </div>
-            {needsActiveDays(frequency) && <DayPicker value={daysOfWeek} onToggle={toggleDay} />}
+            {frequency === 'flexible' ? (
+              <TimesPerWeekField value={timesPerWeek} onChange={setTimesPerWeek} />
+            ) : (
+              needsActiveDays(frequency) && <DayPicker value={daysOfWeek} onToggle={toggleDay} />
+            )}
           </div>
         )}
+
+        {type === 'checklist' && <ChecklistStepsEditor value={steps} onChange={setSteps} />}
 
         <div className="grid grid--2" style={{ gap: 'var(--space-3)' }}>
           <Input
@@ -280,6 +316,14 @@ export function CreateItemModal({
           </Select>
           <Input label="Due date (optional)" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
         </div>
+
+        <Input
+          label="Starts on (optional)"
+          type="date"
+          value={startDate}
+          onChange={(e) => setStartDate(e.target.value)}
+          hint="Before this day the item waits in Upcoming and never counts against you."
+        />
 
         <ReminderFields
           preset={reminderPreset}

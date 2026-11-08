@@ -1,3 +1,4 @@
+import { clearFocusForUser } from '@tracknow/core/services/focusService'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { ensureProfile, getProfile } from '@tracknow/core/services/tracksService'
@@ -55,7 +56,10 @@ function closeShownNotifications(): void {
 
 /** Removes device-local data that belongs to a user who is no longer signed in here. */
 function wipeLocalUserData(userId: string | null): void {
-  if (userId) clearRemindersForUser(userId)
+  if (userId) {
+    clearRemindersForUser(userId)
+    clearFocusForUser(userId)
+  }
   clearWidgetData().catch(() => undefined)
   closeShownNotifications()
 }

@@ -49,13 +49,12 @@ describe('Frontend UX and Responsive Regression Suite', () => {
     expect(newTrack).toContain('var(--surface-muted)')
   })
 
-  it('guarantees DashboardPage does not apply --accent-primary-text on dark stat values', () => {
-    const dashboard = readFileSync(
-      resolve(__dirname, '../src/pages/DashboardPage.tsx'),
-      'utf-8',
-    )
-    expect(dashboard).not.toContain("color: 'var(--accent-primary-text)'")
-    expect(dashboard).not.toContain('<ButtonLink to="/tracks/new" variant="primary" icon>')
+  it('makes Today the home screen and keeps old /dashboard links working', () => {
+    const routes = readFileSync(resolve(__dirname, '../src/routes/index.tsx'), 'utf-8')
+    expect(routes).toContain('<Route path="/" element={<Navigate to="/today" replace />} />')
+    expect(routes).toContain('<Route path="/dashboard" element={<Navigate to="/today" replace />} />')
+    const sidebar = readFileSync(resolve(__dirname, '../src/components/layout/Sidebar.tsx'), 'utf-8')
+    expect(sidebar).not.toContain("label: 'Dashboard'")
   })
 
   it('guarantees landing page styles contain mobile drawer protection for nav actions', () => {

@@ -8,7 +8,7 @@ import { effectiveCurrentCount } from './habitCounter'
  */
 export function doneTodayAfterEdit(
   input: UpdateExecutionItemInput,
-  before: Pick<ExecutionItem, 'type'> | undefined,
+  before: (Pick<ExecutionItem, 'type'> & Partial<Pick<ExecutionItem, 'status'>>) | undefined,
   updated: ExecutionItem,
   wasDoneToday: boolean,
 ): boolean {
@@ -16,6 +16,11 @@ export function doneTodayAfterEdit(
     input.current_count !== undefined ||
     input.target_count !== undefined ||
     (input.type !== undefined && input.type !== before?.type)
+  if (!touchesProgress && input.checklist_entries !== undefined && updated.type === 'checklist') {
+    // Ticking the last step completes the checklist today; un-ticking one re-opens it.
+    if (updated.status !== 'done') return false
+    return wasDoneToday || before?.status !== 'done'
+  }
   if (!touchesProgress) return wasDoneToday
   if (updated.type === 'habit') {
     return effectiveCurrentCount(updated, wasDoneToday) >= Math.max(1, updated.target_count ?? 1)

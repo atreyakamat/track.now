@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthProvider'
-import { Button, Input } from '@/components/ui'
+import { Button, Input, PasswordInput } from '@/components/ui'
 
 export function SignupPage() {
   const { signUp } = useAuth()
@@ -55,7 +55,7 @@ export function SignupPage() {
       )
 
       if (res.signedIn) {
-        navigate('/dashboard', { replace: true })
+        navigate('/today', { replace: true })
       } else {
         setSuccessNotice(
           'Account created! Please check your email to confirm your account before logging in.',
@@ -141,28 +141,28 @@ export function SignupPage() {
                 required
               />
 
-              <Input
+              <PasswordInput
                 name="password"
                 label="Password"
-                type="password"
                 placeholder="At least 6 characters"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="new-password"
                 disabled={busy}
                 required
+                showStrength
               />
 
-              <Input
+              <PasswordInput
                 name="confirmPassword"
                 label="Confirm Password"
-                type="password"
                 placeholder="Confirm password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 autoComplete="new-password"
                 disabled={busy}
                 required
+                error={confirmPassword && confirmPassword !== password ? 'Does not match the password above.' : null}
               />
 
               <Button

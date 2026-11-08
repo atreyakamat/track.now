@@ -45,6 +45,9 @@ import { pluralize } from '@tracknow/core/utils/format'
 /** Track ids are UUIDs; anything else cannot exist, so treat it as not-found instead of a server error. */
 const RECORD_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
+/** Paused and draft Plans first (they may come back), then finished, then archived. */
+const STATUS_ORDER = ['paused', 'draft', 'completed', 'archived', 'cancelled']
+
 export function TrackDetailPage() {
   const { trackId } = useParams<{ trackId: string }>()
   const navigate = useNavigate()
@@ -339,7 +342,7 @@ export function TrackDetailPage() {
       {/* Active Plans Section */}
       <section className="section" style={{ marginTop: 0 }}>
         <div className="section__head">
-          <h2 className="t-h2">Plans & Execution Arcs</h2>
+          <h2 className="t-h2">Plans</h2>
           <ButtonLink to={`/tracks/${track.id}/plans/new`} variant="secondary" size="sm">
             <Plus size={14} aria-hidden="true" /> New Plan
           </ButtonLink>
@@ -347,8 +350,8 @@ export function TrackDetailPage() {
 
         {summary.activePlans.length === 0 ? (
           <EmptyState
-            title="No active Plans yet"
-            description="A Plan is an execution period or mission inside this Track, like 'Winter Arc', 'Q4 Sprint', or '50-Day Habit Reset'."
+            title={summary.inactivePlans.length ? 'No active Plans right now' : 'No Plans yet'}
+            description="Start a 30, 60 or 90-day Arc, or an ongoing Plan for routines that never end. This Track keeps all past Plans and their history."
             action={
               <ButtonLink to={`/tracks/${track.id}/plans/new`} variant="primary">
                 <Plus size={16} aria-hidden="true" /> Create Your First Plan
@@ -371,7 +374,7 @@ export function TrackDetailPage() {
       </section>
 
       {/* Expandable Archived Plans Section */}
-      {summary.archivedPlans.length > 0 && (
+      {summary.inactivePlans.length > 0 && (
         <section className="section" style={{ borderTop: '1px solid var(--border)', paddingTop: 'var(--space-5)' }}>
           <button
             type="button"
@@ -380,12 +383,16 @@ export function TrackDetailPage() {
             aria-expanded={showArchived}
           >
             {showArchived ? <ChevronDown size={18} aria-hidden="true" /> : <ChevronRight size={18} aria-hidden="true" />}
-            <span>Archived Plans ({summary.archivedPlans.length})</span>
+            <span>
+              Past &amp; paused Plans ({summary.inactivePlans.length})
+            </span>
           </button>
 
           {showArchived && (
             <div className="plan-list" style={{ marginTop: 'var(--space-4)' }}>
-              {summary.archivedPlans.map((planSummary) => (
+              {[...summary.inactivePlans]
+                .sort((a, b) => STATUS_ORDER.indexOf(a.plan.status) - STATUS_ORDER.indexOf(b.plan.status))
+                .map((planSummary) => (
                 <PlanCard
                   key={planSummary.plan.id}
                   summary={planSummary}

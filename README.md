@@ -10,17 +10,24 @@ Track.now is an editorial personal execution system structured into two independ
 
 ## 1. Product Concept & Hierarchy
 
-Track.now models life management through a deterministic execution hierarchy:
+Track.now is a minimal personal operating system: Tracks define where you want to grow, Plans what
+you are trying to achieve, items what you do, schedules when, completions what happened, progress how
+far you have come, and reviews what comes next.
 
 ```
 User
-  └── Tracks (Major life domains: Fitness, Finance, Career, Learning, Business, Custom)
-        └── Plans / Arcs (Time-bound campaigns, quarters, or specific strategic arcs)
-              └── Execution Items (Actionable units: Tasks, Habits, Checklists, Milestones, Projects)
-                    ├── Scheduling (Due dates, recurrence, time-of-day)
-                    ├── Completion (Atomic status toggling & unique daily completion log)
-                    └── Progress (Deterministic rollups at Plan and Track levels)
+  └── Tracks (long-term life areas: Health, Work, Money, Home… they never expire)
+        └── Plans / Arcs (an Arc = a time-bound Plan, e.g. 90 days; or an ongoing Plan with no end date)
+              │   lifecycle: draft → active → paused → completed (with a review) → archived
+              └── Execution Items (Habit, Task, Checklist with steps, Milestone, Project)
+                    ├── Scheduling (due/start dates, weekdays, "3× a week", time of day, reminders)
+                    ├── Completion (one row per item per day — the single source of truth)
+                    ├── Progress (Plan and Track rollups; unscheduled or not-yet-started habits never count against you)
+                    └── Momentum, XP, levels, achievements (derived from completions only)
 ```
+
+Today is the home screen (Focus, Overdue, Due Today, Anytime, Upcoming, Completed). A whole system
+can be imported from a `tracknow.plan.v1` file in Settings (example: `docs/examples/90-day-arc.plan.json`).
 
 ---
 

@@ -1,5 +1,6 @@
 import type { ExecutionItemSummary, Plan, Progress, Track } from '../types/domain'
-import { isHabitScheduledForToday } from './dates'
+import { getTodayDateString, isHabitScheduledForToday } from './dates'
+import { hasStarted, isFlexibleWeekly } from './schedule'
 
 /**
  * Progress calculation layer.
@@ -24,7 +25,7 @@ export interface ProgressOptions {
 }
 
 export type ProgressItem = Pick<ExecutionItemSummary, 'status'> &
-  Partial<Pick<ExecutionItemSummary, 'id' | 'type' | 'schedule'>>
+  Partial<Pick<ExecutionItemSummary, 'id' | 'type' | 'schedule' | 'start_date'>>
 
 const toIdSet = (ids: ReadonlySet<string> | readonly string[]): ReadonlySet<string> =>
   ids instanceof Set ? ids : new Set(ids as readonly string[])
@@ -42,7 +43,12 @@ export function isItemDone(item: ProgressItem, options?: ProgressOptions): boole
 function isHabitOffToday(item: ProgressItem, options?: ProgressOptions): boolean {
   if (item.type !== 'habit' || !options?.completedTodayIds || item.schedule === undefined) return false
   if (item.id && toIdSet(options.completedTodayIds).has(item.id)) return false
-  return !isHabitScheduledForToday(item.schedule, options.now ?? new Date())
+  const now = options.now ?? new Date()
+  // Not started yet (e.g. a gym habit that begins next week) is not today's work.
+  if (!hasStarted(item, getTodayDateString(now))) return true
+  // A flexible weekly habit ("3× a week") is never required on one particular day.
+  if (isFlexibleWeekly(item.schedule)) return true
+  return !isHabitScheduledForToday(item.schedule, now)
 }
 
 export function calcProgress(items: ProgressItem[], options?: ProgressOptions): Progress {
@@ -67,6 +73,8 @@ export interface TrackSummary {
   track: Track
   activePlans: PlanSummary[]
   archivedPlans: PlanSummary[]
+  /** Draft, paused, completed and archived Plans (history is never hidden). */
+  inactivePlans: PlanSummary[]
   progress: Progress
   lastActivityAt: string
 }
@@ -110,6 +118,8 @@ export function summarizeTrack(
 
   const activePlans = planSummaries.filter((s) => s.plan.status === 'active')
   const archivedPlans = planSummaries.filter((s) => s.plan.status === 'archived')
+  // Every Plan that is not active stays visible under its Track (draft, paused, completed, archived).
+  const inactivePlans = planSummaries.filter((s) => s.plan.status !== 'active')
 
   const activePlanIds = new Set(activePlans.map((s) => s.plan.id))
   const activeItems = items.filter((item) => activePlanIds.has(item.plan_id))
@@ -118,6 +128,7 @@ export function summarizeTrack(
     track,
     activePlans,
     archivedPlans,
+    inactivePlans,
     progress: calcProgress(activeItems, options),
     lastActivityAt: latestDate(track.updated_at, ...planSummaries.map((s) => s.lastActivityAt)),
   }

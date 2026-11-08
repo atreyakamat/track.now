@@ -3,7 +3,6 @@ import {
   BarChart3,
   Calendar,
   CheckCircle2,
-  LayoutDashboard,
   LogOut,
   Moon,
   Plus,
@@ -28,9 +27,8 @@ export function Sidebar({ onNavigate, isDrawer }: SidebarProps) {
   const { showToast } = useToast()
 
   const links = [
-    { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { to: '/tracks', label: 'Tracks', icon: Target },
     { to: '/today', label: 'Today', icon: Calendar },
+    { to: '/tracks', label: 'Tracks', icon: Target },
     { to: '/reviews', label: 'Reviews', icon: CheckCircle2 },
     { to: '/analytics', label: 'Analytics', icon: BarChart3 },
   ]

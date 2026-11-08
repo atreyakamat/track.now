@@ -32,20 +32,20 @@ describe('safeReturnPath', () => {
       42,
     ]
     for (const value of bad) {
-      expect(safeReturnPath(value)).toBe('/dashboard')
+      expect(safeReturnPath(value)).toBe('/today')
     }
   })
 
   it('never returns to auth pages (avoids login loops)', () => {
-    expect(safeReturnPath('/login')).toBe('/dashboard')
-    expect(safeReturnPath('/signup?x=1')).toBe('/dashboard')
-    expect(safeReturnPath('/reset-password')).toBe('/dashboard')
+    expect(safeReturnPath('/login')).toBe('/today')
+    expect(safeReturnPath('/signup?x=1')).toBe('/today')
+    expect(safeReturnPath('/reset-password')).toBe('/today')
   })
 
   it('reads `from` defensively from router state', () => {
     expect(returnPathFromState({ from: '/analytics' })).toBe('/analytics')
-    expect(returnPathFromState({ from: { pathname: '/x' } })).toBe('/dashboard')
-    expect(returnPathFromState(undefined)).toBe('/dashboard')
+    expect(returnPathFromState({ from: { pathname: '/x' } })).toBe('/today')
+    expect(returnPathFromState(undefined)).toBe('/today')
   })
 })
 

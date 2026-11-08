@@ -5,8 +5,8 @@ export function Badge({ children, accent }: { children: ReactNode; accent?: bool
 }
 
 export function ProgressBar({
-  percent, color, label,
-}: { percent: number; color?: string; label: string }) {
+  percent, color, label, hideValue,
+}: { percent: number; color?: string; label: string; /** Hide the % text when it is shown nearby. */ hideValue?: boolean }) {
   const value = Math.max(0, Math.min(100, percent))
   const style = color ? ({ '--progress-color': color } as CSSProperties) : undefined
   return (
@@ -21,7 +21,7 @@ export function ProgressBar({
       >
         <div className="progress__fill" style={{ width: `${value}%` }} />
       </div>
-      <span className="progress__value" aria-hidden="true">{value}%</span>
+      {!hideValue && <span className="progress__value" aria-hidden="true">{value}%</span>}
     </div>
   )
 }

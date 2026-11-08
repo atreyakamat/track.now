@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Bell, Calendar, Check, Clock, Edit2, Flame, Repeat, Trash2 } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Bell, Calendar, Check, Clock, Edit2, Flame, Hourglass, Repeat, Star, Trash2 } from 'lucide-react'
 import type { ExecutionItem } from '@tracknow/core/types/domain'
+import { getTodayDateString } from '@tracknow/core/domain/dates'
+import { checklistProgress } from '@tracknow/core/domain/checklist'
+import { DAYS } from '@tracknow/core/domain/habitSchedule'
+import { weeklyTarget } from '@tracknow/core/domain/schedule'
 import { Badge, Button } from '@/components/ui'
 import { isOverdue } from '@tracknow/core/domain/dates'
 import { effectiveCurrentCount } from '@tracknow/core/domain/habitCounter'
@@ -24,6 +29,32 @@ interface ExecutionItemCardProps {
   busy?: boolean
   isCompletedOverride?: boolean
   streakSummary?: HabitStreakSummary | null
+  /** Weekly-target habits: sessions done this week. */
+  weekDone?: number
+  /** Parent Plan link shown on Today ("Gym routine · Health"). */
+  context?: { label: string; to: string } | null
+  /** Today focus pin. */
+  focused?: boolean
+  onToggleFocus?: (item: ExecutionItem) => void
+  onToggleChecklistEntry?: (item: ExecutionItem, entryId: string) => void
+}
+
+const fmtDay = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+
+/** "Daily", "Mon · Wed · Fri", "3× a week" — the schedule in plain words. */
+export function scheduleLabel(schedule: ExecutionItem['schedule']): string | null {
+  if (!schedule) return null
+  const target = weeklyTarget(schedule)
+  if (target !== null) return `${target}× a week`
+  if (schedule.frequency === 'daily') return 'Daily'
+  const days = schedule.days_of_week ?? []
+  if ((schedule.frequency === 'weekly' || schedule.frequency === 'custom') && days.length && days.length < 7) {
+    return [1, 2, 3, 4, 5, 6, 0]
+      .filter((d) => days.includes(d))
+      .map((d) => DAYS[d].label)
+      .join(' · ')
+  }
+  return schedule.frequency === 'monthly' ? 'Monthly' : 'Daily'
 }
 
 export function ExecutionItemCard({
@@ -38,7 +69,17 @@ export function ExecutionItemCard({
   busy,
   isCompletedOverride,
   streakSummary,
+  weekDone,
+  context,
+  focused,
+  onToggleFocus,
+  onToggleChecklistEntry,
 }: ExecutionItemCardProps) {
+  const entries = item.type === 'checklist' ? (item.checklist_entries ?? []) : []
+  const steps = checklistProgress(entries)
+  const notStarted = Boolean(item.start_date && item.start_date > getTodayDateString())
+  const weekTarget = item.type === 'habit' ? weeklyTarget(item.schedule) : null
+  const streakUnit = streakSummary?.streakUnit === 'weeks' ? 'w' : 'd'
   const isDone = isCompletedOverride !== undefined ? isCompletedOverride : item.status === 'done'
   // Habits recur on their schedule; a stale due date never makes a habit overdue.
   const overdue = item.type !== 'habit' && !isDone && isOverdue(item.due_date)
@@ -140,8 +181,11 @@ export function ExecutionItemCard({
               }}
             >
               <Flame size={12} fill={streakSummary.isActiveStreak ? 'currentColor' : 'none'} aria-hidden="true" />
-              <span>{streakSummary.currentStreak}d streak</span>
-              <span className="sr-only">{`, best ${streakSummary.longestStreak} days, ${streakSummary.consistencyRate}% consistency`}</span>
+              <span>
+                {streakSummary.currentStreak}
+                {streakUnit} streak
+              </span>
+              <span className="sr-only">{`, best ${streakSummary.longestStreak} ${streakUnit === 'w' ? 'weeks' : 'days'}, ${streakSummary.consistencyRate}% consistency`}</span>
             </div>
           )}
           {item.priority !== 'medium' && (
@@ -167,8 +211,47 @@ export function ExecutionItemCard({
           </p>
         )}
 
+        {entries.length > 0 && (
+          <ul className="checklist" aria-label={`${item.name} steps, ${steps.done} of ${steps.total} done`}>
+            {entries.map((e) => (
+              <li key={e.id}>
+                <label className="checklist__step">
+                  <input
+                    type="checkbox"
+                    checked={e.done}
+                    disabled={busy || !onToggleChecklistEntry}
+                    onChange={() => onToggleChecklistEntry?.(item, e.id)}
+                  />
+                  <span className={e.done ? 'checklist__label checklist__label--done' : 'checklist__label'}>{e.label}</span>
+                </label>
+              </li>
+            ))}
+          </ul>
+        )}
+
         <div className="row" style={{ gap: 'var(--space-3)', flexWrap: 'wrap', alignItems: 'center' }}>
-          {item.due_date && (
+          {context && (
+            <Link to={context.to} className="t-meta item-context" title="Open the Plan">
+              {context.label}
+            </Link>
+          )}
+          {notStarted && item.start_date && (
+            <div className="row t-meta" style={{ gap: '4px', color: 'var(--text-secondary)' }}>
+              <Hourglass size={12} aria-hidden="true" />
+              <span>Starts {fmtDay(item.start_date)}</span>
+            </div>
+          )}
+          {entries.length > 0 && (
+            <span className="t-meta" style={{ color: 'var(--text-secondary)' }}>
+              {steps.done}/{steps.total} steps
+            </span>
+          )}
+          {weekTarget !== null && weekDone !== undefined && (
+            <span className="t-meta" style={{ color: weekDone >= weekTarget ? 'var(--success)' : 'var(--text-secondary)', fontWeight: 600 }}>
+              {Math.min(weekDone, weekTarget)}/{weekTarget} this week
+            </span>
+          )}
+          {item.due_date && item.type !== 'habit' && (
             <div
               className="row"
               style={{
@@ -195,8 +278,8 @@ export function ExecutionItemCard({
               }}
             >
               <Repeat size={12} />
-              <span style={{ textTransform: 'capitalize' }}>
-                {item.schedule.frequency}
+              <span>
+                {scheduleLabel(item.schedule)}
                 {item.schedule.time_of_day && item.schedule.time_of_day !== 'anytime'
                   ? ` · ${item.schedule.time_of_day}`
                   : ''}
@@ -453,6 +536,20 @@ export function ExecutionItemCard({
               +
             </button>
           </div>
+        )}
+
+        {onToggleFocus && !isDone && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onToggleFocus(item)}
+            disabled={busy}
+            aria-pressed={Boolean(focused)}
+            title={focused ? 'Remove from today’s focus' : 'Add to today’s focus'}
+            aria-label={focused ? `Remove ${item.name} from today’s focus` : `Add ${item.name} to today’s focus`}
+          >
+            <Star size={14} fill={focused ? 'currentColor' : 'none'} />
+          </Button>
         )}
 
         {onEdit && (
