@@ -1,13 +1,37 @@
 # Track.now — Release Readiness (v1 web)
 
-Date: 2026-10-13 · Branch: `main` (uncommitted working tree; nothing committed, pushed or deployed).
+Last updated: 2026-11-08 · Branch: `main` (pushed; Netlify auto-deploys from it). First written 2026-10-13.
 
 ## Verdict
 
-**BLOCKED ONLY BY SPECIFIED EXTERNAL ACTIONS.** Every locally verifiable check passes. The web apps can be deployed
-from a code point of view, but the hosted database still exposes the critical RPC (S-1 in `SECURITY_AUDIT.md`) until
-the owner applies the prepared migrations, and the password-reset redirect must be allowed in Supabase Auth.
-Do not describe the hosted project as secure before step 1 below is done.
+**LAUNCHED — READY.** Both web sites are live and the hosted database has all three security/habit migrations
+applied (owner-applied; verified read-only through the public anon REST role on 2026-11-05). Remaining items below are
+hardening or account-bound steps, not launch blockers. Not yet verified by anyone: an authenticated round-trip on the
+live project (see "Smoke test after deploy").
+
+### Current live status (2026-11-08)
+
+| Area | Status | Evidence |
+| :--- | :--- | :--- |
+| Web app `https://trackapp.atreyakamat.dev` | ✅ live | `/`, `/today`, `/reset-password` → 200 (2026-11-08) |
+| Landing `https://tracknow.atreyakamat.dev` | ✅ live | `/` → 200 (2026-11-08) |
+| `20261012000000` counter RPC fix (S-1) | ✅ applied | anon call to `track_now_increment_item_count` refused (401/42501) |
+| `20261013000000` habit `count_date` (S-14) | ✅ applied | `select=id,count_date` → 200; bogus column → 400 |
+| `20261014000000` trigger-function revoke | ✅ applied | anon RPC to `handle_new_track_now_user` → `PGRST202` |
+| Supabase Auth health | ✅ | `/auth/v1/health` → 200 (2026-11-05) |
+| Password-reset redirect URL | ✅ owner, 2026-10-14 | — |
+| Mobile (Expo) | Preview APK + OTA channel working; store release pending | `apps/mobile/RELEASE.md` |
+
+Re-run 2026-11-08: `npm test` → **PASS, 35 files, 434 tests**. The table below is the full 2026-10-13 run.
+
+### Open items (none block the web launch)
+
+1. **Signed-in smoke test** on the live app (owner) — see the end of this file.
+2. **Custom SMTP** for Auth emails: the built-in sender's rate limit was hit once (INC-1). Supabase → Authentication → SMTP.
+3. **Leaked-password protection** is off (Authentication → Password settings; may need a paid plan).
+4. Advisor items that are **not Track.now objects** and were deliberately left untouched: `public.rls_auto_enable()`
+   (executable by anon/authenticated) and `tracked_profiles` (RLS on, no policies). Review with their owner.
+5. Mobile store release: needs the owner's Google Play / Apple accounts (`apps/mobile/RELEASE.md`).
 
 ## Verification evidence (2026-10-13, Windows 11, Node 24.14.0, npm 10.9.0)
 
@@ -53,7 +77,7 @@ multi-tab/sign-out); Settings (profile, theme, notification permission states, t
 | Site | Netlify base | Build | Publish | Env var NAMES (values never in git) |
 | :--- | :--- | :--- | :--- | :--- |
 | Landing — `https://tracknow.atreyakamat.dev` | `apps/landing` | `npm run build` | `dist` | optional `VITE_APP_URL` |
-| App — `https://trackapp.atreyakamat.dev` | `apps/app` | `npm run build` | `dist` | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, recommended `VITE_APP_URL=https://trackapp.atreyakamat.dev` |
+| App — `https://trackapp.atreyakamat.dev` | repo root (`netlify/app/netlify.toml`; the app needs the `@tracknow/core` workspace) | `npm run build:app` | `apps/app/dist` | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, recommended `VITE_APP_URL=https://trackapp.atreyakamat.dev` |
 
 - Config: `netlify/app/netlify.toml` / `apps/app/netlify.toml` and `netlify/landing/netlify.toml` /
   `apps/landing/netlify.toml` (pairs are identical; use the one matching how each site's base directory is set).
@@ -65,25 +89,29 @@ multi-tab/sign-out); Settings (profile, theme, notification permission states, t
   `base-uri 'none'`, `form-action 'self'`, `object-src 'none'`, `frame-ancestors 'none'`).
 - Never put a service-role key in any `VITE_` variable or Netlify site.
 
-## Owner actions, in order (none performed)
+## Owner actions, in order
 
-1. **Database migrations** (status: **NOT APPLIED**) — follow "Applying the migrations" below.
+1. **Database migrations:** ✅ all three applied by the owner in the SQL editor (verified 2026-11-05, see table above).
+   The history below is kept for reference and for any new environment.
 2. **Password-reset redirect:** ✅ done by the owner on 2026-10-14 (`https://trackapp.atreyakamat.dev/reset-password`
    added to Supabase Auth redirect URLs). `VITE_APP_URL` intentionally not set (the web origin is used).
 3. **PKCE note:** default email templates (`{{ .ConfirmationURL }}`) work unchanged. Links must be opened in the browser
    that requested them; tell users that in support copy if needed.
 4. **Signup rate limit / bounced emails:** review Supabase Auth logs and SMTP settings (the frontend only reports them).
-5. **Deploy:** ✅ both sites deployed on 2026-10-14 from `main` @ `4bf8096` (Netlify `apptracknow`, `tracknowapp`);
-   verified over HTTP (routes 200, SW v3, `/assets/*` 404, CSP, PKCE bundle). Signed-in smoke test pending.
+5. **Deploy:** ✅ both sites first deployed on 2026-10-14 from `main` @ `4bf8096` (Netlify `apptracknow`, `tracknowapp`);
+   verified over HTTP (routes 200, SW v3, `/assets/*` 404, CSP, PKCE bundle). They now auto-deploy from `main`
+   (app built from the repo root since `1994ff4`). Signed-in smoke test pending.
 6. Optional: run the live scripts against a **disposable** project only:
    `SUPABASE_SERVICE_ROLE_KEY=… ALLOW_LIVE_SUPABASE=<dev-ref> PRODUCTION_SUPABASE_REFS=<prod-ref> node scripts/verify_rls_security.cjs`.
 
 ## Applying the migrations
 
-Files (apply in this order, each only once):
+Files (apply in this order, each only once — already applied to production):
 1. `supabase/migrations/20261012000000_secure_increment_item_count_rpc.sql` — security fix (S-1).
 2. `supabase/migrations/20261013000000_habit_daily_counter.sql` — `count_date` + daily-restart RPC (S-14). It refuses
    to run if step 1 is missing.
+3. `supabase/migrations/20261014000000_revoke_trigger_function_execute.sql` — revokes API EXECUTE on the sign-up
+   trigger function (advisor 0028/0029). Provisioning still works (local harness 17/17).
 
 Helpers: `supabase/verification/preflight_function_inventory.sql` (read-only, safe on production),
 `verify_increment_rpc_security.sql` and `verify_habit_daily_counter.sql` (development only; every write is rolled
