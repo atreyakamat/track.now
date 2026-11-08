@@ -13,6 +13,8 @@ import {
 } from '@tracknow/core/domain/momentum'
 import { calcHabitStreak } from '@tracknow/core/domain/streaks'
 import { habitTrackedSince } from '@tracknow/core/domain/schedule'
+import { calcQuests, questXp } from '@tracknow/core/domain/quests'
+import { onboardingState } from '@/features/onboarding/onboardingState'
 import { ProgressBar } from '@/components/ui'
 
 /** Earliest date the lifetime ledger reads from (completions are one row per item per day). */
@@ -22,7 +24,7 @@ const LIFETIME_START = '2000-01-01'
  * Level, XP, Momentum and achievements — all derived from the user's real completion records.
  * Loads the lifetime ledger (item id + date only) on its own, after the rest of the page.
  */
-export function ProgressPanel({ userId, items, plans }: { userId: string; items: ExecutionItem[]; plans: Plan[] }) {
+export function ProgressPanel({ userId, items, plans, tracks = 0 }: { userId: string; items: ExecutionItem[]; plans: Plan[]; tracks?: number }) {
   const [ledger, setLedger] = useState<CompletionRecord[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -47,7 +49,18 @@ export function ProgressPanel({ userId, items, plans }: { userId: string; items:
     })
     const completedPlans = plans.filter((p) => p.status === 'completed')
     const xp = computeXp(ledger, items, completedPlans, perPlan)
-    const level = levelFor(xp.total)
+    const tourDone = onboardingState.tourDone(userId)
+    const quests = calcQuests({
+      tracks,
+      plans: plans.length,
+      items: items.filter((i) => i.status !== 'archived').length,
+      arcPlans: plans.filter((p) => p.arc_name?.trim()).length,
+      completions: ledger,
+      tourDone,
+      focusUsed: onboardingState.focusUsed(userId),
+    })
+    const bonus = questXp(quests)
+    const level = levelFor(xp.total + bonus)
     const momentum = calcMomentum(items, ledger)
     const datesByItem = new Map<string, string[]>()
     ledger.forEach((c) => datesByItem.set(c.item_id, [...(datesByItem.get(c.item_id) ?? []), c.completed_date]))
@@ -57,9 +70,16 @@ export function ProgressPanel({ userId, items, plans }: { userId: string; items:
         const s = calcHabitStreak(h.id, h.schedule, datesByItem.get(h.id) ?? [], undefined, 365, habitTrackedSince(h))
         return Math.max(best, s.longestStreak)
       }, 0)
-    const achievements = calcAchievements({ completions: ledger, items, plans, longestDailyStreak })
-    return { xp, level, momentum, achievements }
-  }, [ledger, items, plans])
+    const achievements = calcAchievements({
+      completions: ledger,
+      items,
+      plans,
+      longestDailyStreak,
+      extras: { tourCompleted: tourDone },
+      habits: items.filter((i) => i.type === 'habit'),
+    })
+    return { xp, level, momentum, achievements, bonus }
+  }, [ledger, items, plans, tracks, userId])
 
   return (
     <section className="section" aria-labelledby="progress-heading">
@@ -132,6 +152,7 @@ export function ProgressPanel({ userId, items, plans }: { userId: string; items:
                 splitting work into tiny pieces earns nothing extra.
               </li>
               <li>Creating, editing or opening things never earns points. Missing a day never takes points away.</li>
+              {derived.bonus > 0 && <li>{derived.bonus} XP is a one-time starter bonus from the getting-started quests.</li>}
               {derived.xp.capped > 0 && <li>{derived.xp.capped} completions were above a cap and earned no points.</li>}
             </ul>
           </details>

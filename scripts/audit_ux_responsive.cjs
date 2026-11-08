@@ -660,6 +660,7 @@ async function runAudit() {
       { name: 'PlanDetail_Overview', url: 'http://127.0.0.1:5184/plans/plan-1' },
       { name: 'Today', url: 'http://127.0.0.1:5184/today' },
       { name: 'Arc', url: 'http://127.0.0.1:5184/arcs/autumn%20arc' },
+      { name: 'Tour', url: 'http://127.0.0.1:5184/today?tour=1' },
       { name: 'Reviews', url: 'http://127.0.0.1:5184/reviews' },
       { name: 'Analytics', url: 'http://127.0.0.1:5184/analytics' },
       { name: 'Settings', url: 'http://127.0.0.1:5184/settings' },

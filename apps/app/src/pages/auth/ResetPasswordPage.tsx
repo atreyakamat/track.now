@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { authService } from '@/features/auth/authService'
 import { Button, LoadingState, PasswordInput } from '@/components/ui'
+import { BrandMark } from '@/components/ui/BrandMark'
 
 /**
  * Landing page for the password-recovery email link.
@@ -83,12 +84,8 @@ export function ResetPasswordPage() {
     <div className="auth">
       <div className="auth__card">
         <div style={{ textAlign: 'center' }}>
-          <div
-            className="brand__mark"
-            style={{ width: '36px', height: '36px', margin: '0 auto var(--space-2)', fontSize: '18px' }}
-            aria-hidden="true"
-          >
-            T
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 'var(--space-2)' }}>
+            <BrandMark size={44} />
           </div>
           <h1 className="t-h1">Choose a new password</h1>
           <p className="t-caption" style={{ marginTop: '4px' }}>

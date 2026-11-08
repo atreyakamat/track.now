@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { PlanImportCard } from '@/components/settings/PlanImportCard'
 import { ChangePasswordCard } from '@/components/settings/ChangePasswordCard'
-import { AlertCircle, Bell, Info, LogOut, Moon, RefreshCw, Save, Smartphone, Sun, User } from 'lucide-react'
+import { AlertCircle, Bell, Compass, Info, LogOut, Moon, RefreshCw, Save, Smartphone, Sun, User } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthProvider'
+import { useNavigate } from 'react-router-dom'
+import { onboardingState } from '@/features/onboarding/onboardingState'
 import { useTheme } from '@/hooks/useTheme'
 import { updateProfile } from '@tracknow/core/services/tracksService'
 import { Button, Input, PageHeader, Select } from '@/components/ui'
@@ -43,6 +45,7 @@ const SUPPORT_COLOR: Record<Support, string> = {
 }
 
 export function SettingsPage() {
+  const navigate = useNavigate()
   const { user, displayName, signOut, refreshProfile } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const { showToast } = useToast()
@@ -549,6 +552,29 @@ export function SettingsPage() {
           <p className="t-caption" style={{ marginTop: 'var(--space-2)' }}>
             Saved on this device.
           </p>
+        </section>
+
+        <section className="card" aria-labelledby="settings-tour-heading">
+          <h2 id="settings-tour-heading" className="t-h2" style={{ marginBottom: 'var(--space-3)' }}>
+            Tour and quests
+          </h2>
+          <p className="t-caption" style={{ marginBottom: 'var(--space-3)' }}>
+            Replay the two-minute tour, or bring the getting-started quests back to Today.
+          </p>
+          <div className="row" style={{ gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+            <Button variant="secondary" onClick={() => navigate('/today?tour=1')}>
+              <Compass size={16} aria-hidden="true" /> <span>Replay the tour</span>
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                if (user?.id) onboardingState.setQuestsDismissed(user.id, false)
+                navigate('/today')
+              }}
+            >
+              Show quests on Today
+            </Button>
+          </div>
         </section>
 
         {/* Session */}

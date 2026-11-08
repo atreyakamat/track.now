@@ -12,6 +12,7 @@ import {
   X,
 } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthProvider'
+import { BrandMark } from '@/components/ui/BrandMark'
 import { useTheme } from '@/hooks/useTheme'
 import { initials } from '@tracknow/core/utils/format'
 import { useToast } from '@/features/notifications/ToastContext'
@@ -51,9 +52,7 @@ export function Sidebar({ onNavigate, isDrawer }: SidebarProps) {
       aria-label={isDrawer ? 'Navigation Menu' : 'Main Sidebar'}
     >
       <div className="brand">
-        <span className="brand__mark" aria-hidden="true">
-          T
-        </span>
+        <BrandMark size={26} />
         <span>Track.now</span>
         {isDrawer && (
           <button

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { CheckCircle2, Clock, Layers, Plus, Star } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useToast } from '@/features/notifications/ToastContext'
@@ -12,7 +12,14 @@ import {
 import { listCompletionHistory, type CompletionRecord } from '@tracknow/core/services/historyService'
 import { getTodayDateString, greeting } from '@tracknow/core/domain/dates'
 import { groupTodayItems, MAX_FOCUS, todaySummary } from '@tracknow/core/domain/today'
-import { calcMomentum, MOMENTUM_WINDOW_DAYS } from '@tracknow/core/domain/momentum'
+import { calcMomentum, computeXp, levelFor, MOMENTUM_WINDOW_DAYS } from '@tracknow/core/domain/momentum'
+import { activeDayStreak, calcQuests, questXp } from '@tracknow/core/domain/quests'
+import { buildRetention } from '@tracknow/core/domain/retention'
+import { onboardingState } from '@/features/onboarding/onboardingState'
+import { OnboardingTour } from '@/components/onboarding/OnboardingTour'
+import { QuestCard } from '@/components/onboarding/QuestCard'
+import { LevelStrip } from '@/components/insights/LevelStrip'
+import { ledgerWithToday, useLifetimeLedger } from '@/hooks/useLifetimeLedger'
 import { weeklyTargetStatus } from '@tracknow/core/domain/schedule'
 import { loadFocusIds, toggleFocusId } from '@tracknow/core/services/focusService'
 import type { ExecutionItem, Plan } from '@tracknow/core/types/domain'
@@ -43,6 +50,12 @@ export function TodayPage() {
   const [focusIds, setFocusIds] = useState<string[]>(() => (userId ? loadFocusIds(userId) : []))
   const [loadedDate, setLoadedDate] = useState(getTodayDateString())
   const requestRef = useRef(0)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [tourOpen, setTourOpen] = useState(false)
+  const [tourDone, setTourDone] = useState(() => (userId ? onboardingState.tourDone(userId) : false))
+  const [focusUsed, setFocusUsed] = useState(() => (userId ? onboardingState.focusUsed(userId) : false))
+  const [questsDismissed, setQuestsDismissed] = useState(() => (userId ? onboardingState.questsDismissed(userId) : false))
+  const { ledger, reload: reloadLedger } = useLifetimeLedger(userId)
 
   const persistWidget = useCallback(
     (list: ExecutionItem[], completedTodayIds: string[]) => {
@@ -81,6 +94,7 @@ export function TodayPage() {
         actionsRef.current?.setCompletionState(todayIds, history)
         setLoadedDate(today)
         setFocusIds(loadFocusIds(userId))
+        if (opts.silent) void reloadLedger()
         // Reminders for items that were deleted elsewhere or whose plan/track is archived.
         reconcileRemindersWithActiveItems(userId, ws.items.map((i) => i.id))
         persistWidget(ws.items, todayIds)
@@ -91,7 +105,7 @@ export function TodayPage() {
         if (requestId === requestRef.current) setLoading(false)
       }
     },
-    [userId, persistWidget],
+    [userId, persistWidget, reloadLedger],
   )
 
   const actions = useExecutionItemActions({
@@ -130,6 +144,69 @@ export function TodayPage() {
     return map
   }, [workspace])
 
+  // Level, streak, quests and this week's planned work: derived from the lifetime ledger, kept
+  // in step with today's toggles so a completion is reflected at once.
+  const progress = useMemo(() => {
+    // Wait for the page's own data too, or the first level seen would be a phantom level 1.
+    if (!ledger || loading) return null
+    const today = getTodayDateString()
+    const rows = ledgerWithToday(ledger, today, actions.completedTodayIds)
+    const plans = workspace.plans as Plan[]
+    const quests = calcQuests({
+      tracks: workspace.tracks.length,
+      plans: plans.length,
+      items: items.filter((i) => i.status !== 'archived').length,
+      arcPlans: plans.filter((p) => p.arc_name?.trim()).length,
+      completions: rows,
+      tourDone,
+      focusUsed,
+    })
+    const xp = computeXp(rows, items).total + questXp(quests)
+    const week = buildRetention({ items, plans, completions: rows, now: new Date(), weeks: 1 }).weeks[0]
+    return {
+      level: levelFor(xp),
+      streak: activeDayStreak(rows, today, addDays(today, -1)),
+      quests,
+      week: week ? { done: week.done, planned: week.planned } : null,
+    }
+  }, [ledger, loading, actions.completedTodayIds, items, workspace, tourDone, focusUsed])
+
+  // Announce a level-up once (the last level seen is remembered per user on this device).
+  useEffect(() => {
+    if (!userId || !progress) return
+    const last = onboardingState.lastLevel(userId)
+    if (last && progress.level.level > last) {
+      showToast({
+        id: `level-${progress.level.level}`,
+        title: `Level ${progress.level.level}: ${progress.level.name}`,
+        message: 'Earned from your completions alone. Keep going.',
+        type: 'success',
+        duration: 8000,
+      })
+    }
+    if (progress.level.level !== last) onboardingState.setLastLevel(userId, progress.level.level)
+  }, [progress, userId, showToast])
+
+  // The tour opens itself once for a brand-new account, or on demand (?tour=1, Settings, quest).
+  useEffect(() => {
+    if (loading || !userId) return
+    if (searchParams.get('tour') === '1') {
+      setTourOpen(true)
+      setSearchParams((p) => {
+        p.delete('tour')
+        return p
+      }, { replace: true })
+    } else if (!tourDone && workspace.tracks.length === 0) setTourOpen(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, userId, searchParams])
+
+  const finishTour = () => {
+    if (userId) onboardingState.setTourDone(userId)
+    setTourDone(true)
+    setTourOpen(false)
+    showToast({ id: 'tour-done', title: 'Tour complete · Explorer unlocked', message: 'Your first quest is done. The rest come from real work.', type: 'success' })
+  }
+
   // Momentum uses the last 14 days of real completions, kept in step with today's toggles.
   const momentum = useMemo(() => {
     const today = getTodayDateString()
@@ -153,6 +230,10 @@ export function TodayPage() {
   const toggleFocus = (item: ExecutionItem) => {
     if (!userId) return
     const next = toggleFocusId(userId, item.id)
+    if (next && !focusUsed) {
+      onboardingState.setFocusUsed(userId)
+      setFocusUsed(true)
+    }
     if (!next) {
       showToast({
         id: 'focus-full',
@@ -269,7 +350,19 @@ export function TodayPage() {
             </span>
             <span className="sr-only">{momentum.explanation}</span>
           </div>
+          {progress && <LevelStrip level={progress.level} streak={progress.streak} week={progress.week} />}
         </div>
+      )}
+
+      {progress && !questsDismissed && (
+        <QuestCard
+          quests={progress.quests}
+          onTour={() => setTourOpen(true)}
+          onDismiss={() => {
+            if (userId) onboardingState.setQuestsDismissed(userId)
+            setQuestsDismissed(true)
+          }}
+        />
       )}
 
       {todayArcs.length > 0 && (
@@ -331,6 +424,8 @@ export function TodayPage() {
           {section('Completed Today', groups.completedToday, { muted: true })}
         </div>
       )}
+
+      <OnboardingTour open={tourOpen} onClose={() => setTourOpen(false)} onFinish={finishTour} />
 
       <EditItemModal
         open={Boolean(editingItem)}

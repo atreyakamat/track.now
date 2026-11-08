@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { authService } from '@/features/auth/authService'
 import { Button, Input, PasswordInput } from '@/components/ui'
+import { BrandMark } from '@/components/ui/BrandMark'
 import { RESET_EMAIL_COOLDOWN_SECONDS } from '@tracknow/core/auth/password'
 import { returnPathFromState } from '@/routes/returnPath'
 
@@ -87,17 +88,8 @@ export function LoginPage() {
     <div className="auth">
       <div className="auth__card">
         <div style={{ textAlign: 'center' }}>
-          <div
-            className="brand__mark"
-            style={{
-              width: '36px',
-              height: '36px',
-              margin: '0 auto var(--space-2)',
-              fontSize: '18px',
-            }}
-            aria-hidden="true"
-          >
-            T
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 'var(--space-2)' }}>
+            <BrandMark size={44} />
           </div>
           <h1 className="t-h1">{isResetMode ? 'Reset password' : 'Sign in to Track.now'}</h1>
           <p className="t-caption" style={{ marginTop: '4px' }}>

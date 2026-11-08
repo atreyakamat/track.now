@@ -139,7 +139,7 @@ export function AnalyticsPage() {
             <span className="t-caption">{formatDateRangeLabel(analytics.range)}</span>
           </div>
 
-          {userId && data && <ProgressPanel userId={userId} items={data.items} plans={data.plans} />}
+          {userId && data && <ProgressPanel userId={userId} items={data.items} plans={data.plans} tracks={data.tracks.length} />}
           {data && (
             <RetentionPanel items={data.items} plans={data.plans} tracks={data.tracks} completions={data.completions} now={data.loadedAt} />
           )}

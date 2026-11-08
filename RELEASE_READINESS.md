@@ -41,8 +41,7 @@ Ship order (each step needs the owner's go-ahead):
    (additive and idempotent; does not touch other apps' objects). **Applied 2026-11-08** (verified: the new plan,
    item and schedule columns return 200 with the anon key).
 2. **Apply** `supabase/migrations/20261108010000_plans_arc_name.sql` (one nullable column, `arc_name`, for the Arc
-   grouping). **Pending**: `track_now_plans?select=arc_name&limit=0` still returns 42703. Until then the app saves
-   Plans without their Arc and says so.
+   grouping). **Applied 2026-11-08** (`track_now_plans?select=arc_name&limit=0` returns 200).
 3. **Merge and push** the branch to `main` (Netlify rebuilds both sites). Approved by the owner 2026-11-08.
 4. **Import** your plan in Settings → *Import a plan* (e.g. `my-plans/winter-arc-2026.plan.json`, which is git-ignored).
 
@@ -62,8 +61,11 @@ the update.
 | Arcs: Plans across Tracks grouped by `arc_name`; Arc page (`/arcs/:key`), Arcs section on Tracks, chips on Today, "Part of an Arc" on Plan forms | `domain/arcs.ts`, `pages/arcs/ArcPage.tsx`, `components/plans/Arc*.tsx` |
 | Retention: weekly planned-vs-done consistency, per-Plan trend, habits kept / slipping / dropped (Analytics and each Arc) | `domain/retention.ts`, `components/insights/RetentionPanel.tsx` |
 | Password: change password in Settings (current password verified first), show/hide toggle + strength meter on every password field, reset-link resend cooldown | `auth/password.ts`, `authService.changePassword`, `components/settings/ChangePasswordCard.tsx` |
+| Brand: new mark (ring + T + "now" dot) as SVG favicon, PNG icons, apple-touch-icon, Open Graph image, Expo icon set; `node scripts/render_brand.cjs` regenerates them from `brand/tracknow-mark.svg` | `brand/`, `apps/*/public`, `apps/mobile/assets/images`, `components/ui/BrandMark.tsx` |
+| Gamified tour (6 steps, Skip always available; auto-opens once for an account with no Tracks, replay from Settings or `/today?tour=1`) and getting-started quests (8, each verified from real records or a local flag; one-time +20 XP each) | `components/onboarding/*`, `domain/quests.ts`, `features/onboarding/onboardingState.ts` |
+| Level strip on Today (level, XP to next, active-day streak, this week planned/done), level-up toast once per level, 5 new achievements (Explorer, Perfect week, Comeback, Arc builder, Century) | `components/insights/LevelStrip.tsx`, `hooks/useLifetimeLedger.ts`, `domain/momentum.ts` |
 
-Verification (2026-11-08, final): typecheck PASS (web, core, mobile `tsc --noEmit`) · `npm test` **PASS, 40 files, 487 tests** ·
+Verification (2026-11-08, final): typecheck PASS (web, core, mobile `tsc --noEmit`) · `npm test` **PASS, 41 files, 491 tests** ·
 both production builds PASS · `node scripts/verify_sql_local.cjs` **21/21** · `node scripts/run_mocked_e2e.cjs` **7/7 PASS** (responsive audit: no overflow 320–1920 px, light + dark) · `npm audit --omit=dev` 0.
 
 ## Verification evidence (2026-10-13, Windows 11, Node 24.14.0, npm 10.9.0)

@@ -2,7 +2,7 @@ import type { ExecutionItem, ItemType, Plan } from '../types/domain'
 import { getTodayDateString } from './dates'
 import { calcHabitAdherence } from './analytics'
 import { planKindOf, planTimeline } from './plans'
-import { addDaysTo, weekStartOf, weeklyTarget } from './schedule'
+import { addDaysTo, hasStarted, isFixedScheduleDay, weekStartOf, weeklyTarget } from './schedule'
 
 /**
  * Quiet, transparent gamification derived ONLY from completion records
@@ -222,8 +222,22 @@ export function calcMomentum(
 // Achievements: a short list, each derived from verifiable records.
 // ---------------------------------------------------------------------------
 
+export type AchievementId =
+  | 'first_completion'
+  | 'first_week_streak'
+  | 'first_milestone'
+  | 'first_plan'
+  | 'active_30'
+  | 'arc_90'
+  | 'personal_best'
+  | 'explorer'
+  | 'arc_builder'
+  | 'perfect_week'
+  | 'comeback'
+  | 'century'
+
 export interface Achievement {
-  id: 'first_completion' | 'first_week_streak' | 'first_milestone' | 'first_plan' | 'active_30' | 'arc_90' | 'personal_best'
+  id: AchievementId
   title: string
   description: string
   earned: boolean
@@ -234,10 +248,48 @@ export interface Achievement {
 export interface AchievementInput {
   completions: readonly CompletionLike[]
   items: readonly XpItem[]
-  plans: readonly Pick<Plan, 'id' | 'status' | 'start_date' | 'end_date' | 'completed_at' | 'plan_kind'>[]
+  plans: readonly (Pick<Plan, 'id' | 'status' | 'start_date' | 'end_date' | 'completed_at' | 'plan_kind'> & { arc_name?: string | null })[]
   /** Longest habit streak in days (from streak summaries). */
   longestDailyStreak: number
   now?: Date
+  /** Facts the app knows locally (not in the database). */
+  extras?: { tourCompleted?: boolean }
+  /** Fixed-day habits with their start, for the "perfect week" check. */
+  habits?: readonly (Pick<ExecutionItem, 'id' | 'status'> & { schedule?: ExecutionItem['schedule']; start_date?: string | null; created_at?: string })[]
+}
+
+/**
+ * First finished Mon–Sun week (before the current one) in which every scheduled fixed-day
+ * habit occurrence was completed, with at least 3 occurrences planned. Null when none.
+ */
+export function firstPerfectWeek(
+  habits: NonNullable<AchievementInput['habits']>,
+  completions: readonly CompletionLike[],
+  today: string,
+): string | null {
+  const done = new Set(completions.map((c) => `${c.item_id}|${c.completed_date}`))
+  const dates = completions.map((c) => c.completed_date).sort()
+  if (!dates.length) return null
+  const fixed = habits.filter((h) => h.status !== 'archived' && weeklyTarget(h.schedule) === null)
+  if (!fixed.length) return null
+  const currentWeek = weekStartOf(today)
+  for (let ws = weekStartOf(dates[0]); ws < currentWeek; ws = addDaysTo(ws, 7)) {
+    let planned = 0
+    let missed = false
+    for (const h of fixed) {
+      const since = h.start_date ?? (h.created_at ? getTodayDateString(new Date(h.created_at)) : null)
+      for (let i = 0; i < 7 && !missed; i++) {
+        const d = addDaysTo(ws, i)
+        if (since && d < since) continue
+        if (!hasStarted(h, d) || !isFixedScheduleDay(h.schedule, d)) continue
+        planned++
+        if (!done.has(`${h.id}|${d}`)) missed = true
+      }
+      if (missed) break
+    }
+    if (!missed && planned >= 3) return ws
+  }
+  return null
 }
 
 export function longestRun(sortedDates: readonly string[]): { best: number; current: number; bestEndedOn: string | null } {
@@ -295,7 +347,26 @@ export function calcAchievements(input: AchievementInput): Achievement[] {
   }
   const personalBest = pbDate !== null
 
+  // Comeback: a completion after a gap of 7+ days following earlier activity.
+  let comebackDate: string | null = null
+  for (let i = 1; i < dates.length; i++) {
+    if (dates[i] > addDaysTo(dates[i - 1], 7)) {
+      comebackDate = dates[i]
+      break
+    }
+  }
+  const arcPlans = input.plans.filter((p) => Boolean(p.arc_name?.trim()))
+  const perfectWeek = input.habits ? firstPerfectWeek(input.habits, input.completions, today) : null
+  const uniqueCompletions = new Set(input.completions.map((c) => `${c.item_id}|${c.completed_date}`)).size
+
   return [
+    {
+      id: 'explorer',
+      title: 'Explorer',
+      description: 'Take the tour of Track.now.',
+      earned: Boolean(input.extras?.tourCompleted),
+      earnedOn: null,
+    },
     { id: 'first_completion', title: 'First step', description: 'Complete anything for the first time.', earned: Boolean(first), earnedOn: first },
     {
       id: 'first_week_streak',
@@ -326,6 +397,34 @@ export function calcAchievements(input: AchievementInput): Achievement[] {
       description: 'Beat your previous longest run of active days.',
       earned: personalBest,
       earnedOn: pbDate,
+    },
+    {
+      id: 'perfect_week',
+      title: 'Perfect week',
+      description: 'Complete every scheduled habit in a Mon–Sun week (3+ planned).',
+      earned: perfectWeek !== null,
+      earnedOn: perfectWeek,
+    },
+    {
+      id: 'comeback',
+      title: 'Comeback',
+      description: 'Return after a week or more away. Missing days never costs points.',
+      earned: comebackDate !== null,
+      earnedOn: comebackDate,
+    },
+    {
+      id: 'arc_builder',
+      title: 'Arc builder',
+      description: 'Group Plans from different Tracks into one Arc.',
+      earned: arcPlans.length > 0,
+      earnedOn: null,
+    },
+    {
+      id: 'century',
+      title: 'Century',
+      description: '100 completions, counted once per item per day.',
+      earned: uniqueCompletions >= 100,
+      earnedOn: uniqueCompletions >= 100 ? dates[Math.min(dates.length - 1, 99)] ?? null : null,
     },
   ]
 }

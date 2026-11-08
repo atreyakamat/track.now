@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { Button, Drawer } from '@/components/ui'
 import { Sidebar } from './Sidebar'
+import { BrandMark } from '@/components/ui/BrandMark'
 
 interface MobileNavProps {
   drawerOpen: boolean
@@ -27,9 +28,7 @@ export function MobileNav({ drawerOpen, onToggleDrawer, onCloseDrawer }: MobileN
     <>
       <header className="topbar">
         <div className="brand">
-          <span className="brand__mark" aria-hidden="true">
-            T
-          </span>
+          <BrandMark size={26} />
           <span>Track.now</span>
         </div>
         <Button

@@ -90,9 +90,7 @@ export function LandingPage() {
       <header className="landing__nav" role="banner">
         <div className="landing__nav-inner">
           <a href="/" className="landing__brand" aria-label="Track.now home">
-            <div className="landing__brand-mark" aria-hidden="true">
-              T
-            </div>
+            <img className="landing__brand-mark" src="/favicon.svg" alt="" width="28" height="28" />
             <span>Track.now</span>
           </a>
 

@@ -75,12 +75,7 @@
   width: 28px;
   height: 28px;
   border-radius: 8px;
-  background: var(--control-bg);
-  color: var(--control-text);
-  display: grid;
-  place-items: center;
-  font-size: 14px;
-  font-weight: 800;
+  display: block;
   flex-shrink: 0;
 }
 
