@@ -1,31 +1,10 @@
 import { Link } from 'expo-router'
 import { useRef, useState } from 'react'
 import { KeyboardAvoidingView, Platform, View } from 'react-native'
-import { Button, Card, Screen, Text, TextField } from '@/components/ui'
+import { BrandMark, Button, Card, PasswordField, Screen, Text, TextField } from '@/components/ui'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useTheme } from '@/theme/ThemeProvider'
 import { radius, spacing } from '@/theme/tokens'
-
-function BrandMark() {
-  const { colors } = useTheme()
-  return (
-    <View
-      style={{
-        width: 44,
-        height: 44,
-        borderRadius: radius.md,
-        backgroundColor: colors.controlBg,
-        alignItems: 'center',
-        justifyContent: 'center',
-        alignSelf: 'center',
-      }}
-    >
-      <Text variant="h2" style={{ color: colors.controlText }}>
-        T
-      </Text>
-    </View>
-  )
-}
 
 export default function SignupScreen() {
   const { signUp } = useAuth()
@@ -77,7 +56,7 @@ export default function SignupScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Card style={{ gap: spacing[4] }}>
           <View style={{ gap: spacing[2], alignItems: 'center' }}>
-            <BrandMark />
+            <BrandMark size={48} />
             <Text variant="h1" center>
               Create your account
             </Text>
@@ -132,23 +111,23 @@ export default function SignupScreen() {
             keyboardType="email-address"
             inputMode="email"
           />
-          <TextField
+          <PasswordField
             label="Password"
             placeholder="At least 6 characters"
             value={password}
             onChangeText={setPassword}
             autoCapitalize="none"
             autoComplete="new-password"
-            secureTextEntry
+            showStrength
           />
-          <TextField
+          <PasswordField
             label="Confirm password"
             placeholder="Re-enter password"
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             autoCapitalize="none"
             autoComplete="new-password"
-            secureTextEntry
+            error={confirmPassword && confirmPassword !== password ? 'Does not match the password above.' : null}
           />
 
           <Button

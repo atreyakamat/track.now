@@ -2,13 +2,13 @@ import { Feather } from '@expo/vector-icons'
 import { useEffect, useState } from 'react'
 import { Pressable, View } from 'react-native'
 import type { ExecutionItem } from '@tracknow/core/types/domain'
-import { isOverdue } from '@tracknow/core/domain/dates'
+import { getTodayDateString, isOverdue } from '@tracknow/core/domain/dates'
+import { checklistProgress } from '@tracknow/core/domain/checklist'
+import { DAYS } from '@tracknow/core/domain/habitSchedule'
+import { weeklyTarget } from '@tracknow/core/domain/schedule'
 import { effectiveCurrentCount } from '@tracknow/core/domain/habitCounter'
 import type { HabitStreakSummary } from '@tracknow/core/domain/streaks'
-import {
-  formatReminderLabel,
-  getReminderForItem,
-} from '@tracknow/core/services/reminderService'
+import { formatReminderLabel, getReminderForItem } from '@tracknow/core/services/reminderService'
 import { onAppEvent } from '@tracknow/core/platform/events'
 import { Badge, Card, Text } from '@/components/ui'
 import { useTheme } from '@/theme/ThemeProvider'
@@ -26,6 +26,49 @@ interface ExecutionItemCardProps {
   busy?: boolean
   isCompletedOverride?: boolean
   streakSummary?: HabitStreakSummary | null
+  /** Weekly-target habits: sessions done this week. */
+  weekDone?: number
+  /** Parent Plan ("Gym routine · Health") shown on Today. */
+  context?: { label: string; onPress: () => void } | null
+  /** Today focus star. */
+  focused?: boolean
+  onToggleFocus?: (item: ExecutionItem) => void
+  onToggleChecklistEntry?: (item: ExecutionItem, entryId: string) => void
+}
+
+const fmtDay = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+
+/** "Daily", "Mon · Wed · Fri", "3× a week" — the schedule in plain words. */
+export function scheduleLabel(schedule: ExecutionItem['schedule']): string | null {
+  if (!schedule) return null
+  const target = weeklyTarget(schedule)
+  if (target !== null) return `${target}× a week`
+  if (schedule.frequency === 'daily') return 'Daily'
+  const days = schedule.days_of_week ?? []
+  if ((schedule.frequency === 'weekly' || schedule.frequency === 'custom') && days.length && days.length < 7) {
+    return [1, 2, 3, 4, 5, 6, 0]
+      .filter((d) => days.includes(d))
+      .map((d) => DAYS[d].label)
+      .join(' · ')
+  }
+  return schedule.frequency === 'monthly' ? 'Monthly' : 'Daily'
+}
+
+function IconButton({ name, label, onPress, disabled, active, color }: { name: React.ComponentProps<typeof Feather>['name']; label: string; onPress: () => void; disabled?: boolean; active?: boolean; color?: string }) {
+  const { colors } = useTheme()
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      hitSlop={6}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: active, disabled }}
+      style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.5 : 1 }}
+    >
+      <Feather name={name} size={16} color={color ?? (active ? colors.textPrimary : colors.textSecondary)} />
+    </Pressable>
+  )
 }
 
 export function ExecutionItemCard({
@@ -40,6 +83,11 @@ export function ExecutionItemCard({
   busy,
   isCompletedOverride,
   streakSummary,
+  weekDone,
+  context,
+  focused,
+  onToggleFocus,
+  onToggleChecklistEntry,
 }: ExecutionItemCardProps) {
   const { colors } = useTheme()
   const isDone = isCompletedOverride !== undefined ? isCompletedOverride : item.status === 'done'
@@ -48,6 +96,12 @@ export function ExecutionItemCard({
   const currentCount = effectiveCurrentCount(item, isDone)
   const hasNumericTarget = targetCount > 1 || Boolean(item.unit)
   const progressPercent = Math.min(100, Math.round((currentCount / targetCount) * 100))
+  const entries = item.type === 'checklist' ? (item.checklist_entries ?? []) : []
+  const steps = checklistProgress(entries)
+  const notStarted = Boolean(item.start_date && item.start_date > getTodayDateString())
+  const weekTarget = item.type === 'habit' ? weeklyTarget(item.schedule) : null
+  const streakUnit = streakSummary?.streakUnit === 'weeks' ? 'w' : 'd'
+  const schedule = scheduleLabel(item.schedule)
 
   const [, setRev] = useState(0)
   useEffect(() => {
@@ -71,8 +125,17 @@ export function ExecutionItemCard({
           ? colors.textTertiary
           : colors.textSecondary
 
+  const meta = (icon: React.ComponentProps<typeof Feather>['name'], text: string, color = colors.textSecondary) => (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+      <Feather name={icon} size={12} color={color} />
+      <Text variant="meta" style={{ color, textTransform: 'none', letterSpacing: 0 }}>
+        {text}
+      </Text>
+    </View>
+  )
+
   return (
-    <Card tone={isDone ? 'muted' : 'surface'} style={{ gap: spacing[2], padding: spacing[3] }}>
+    <Card tone={isDone ? 'muted' : 'surface'} style={{ gap: spacing[2], padding: spacing[3], borderColor: focused && !isDone ? colors.accentPrimary : colors.border }}>
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing[3] }}>
         <Pressable
           onPress={() => onToggle(item)}
@@ -119,13 +182,10 @@ export function ExecutionItemCard({
                   backgroundColor: streakSummary.isActiveStreak ? colors.accentPrimary : colors.surfaceMuted,
                 }}
               >
-                <Feather
-                  name="zap"
-                  size={11}
-                  color={streakSummary.isActiveStreak ? colors.accentPrimaryText : colors.textSecondary}
-                />
+                <Feather name="zap" size={11} color={streakSummary.isActiveStreak ? colors.accentPrimaryText : colors.textSecondary} />
                 <Text variant="meta" style={{ color: streakSummary.isActiveStreak ? colors.accentPrimaryText : colors.textSecondary }}>
-                  {streakSummary.currentStreak}d
+                  {streakSummary.currentStreak}
+                  {streakUnit}
                 </Text>
               </View>
             ) : null}
@@ -137,33 +197,47 @@ export function ExecutionItemCard({
           </View>
 
           {item.description ? (
-            <Text variant="caption" tone="secondary" numberOfLines={3}>
+            <Text variant="caption" tone="secondary" numberOfLines={4}>
               {item.description}
             </Text>
           ) : null}
 
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing[3] }}>
-            {item.due_date ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <Feather name="calendar" size={12} color={overdue ? colors.danger : colors.textTertiary} />
-                <Text variant="meta" style={{ color: overdue ? colors.danger : colors.textSecondary }}>
-                  {item.due_date}
-                  {overdue ? ' · Overdue' : ''}
-                </Text>
-              </View>
-            ) : null}
+          {entries.length > 0 ? (
+            <View style={{ gap: 2, marginTop: 2 }} accessibilityLabel={`${item.name} steps, ${steps.done} of ${steps.total} done`}>
+              {entries.map((e) => (
+                <Pressable
+                  key={e.id}
+                  onPress={() => onToggleChecklistEntry?.(item, e.id)}
+                  disabled={busy || !onToggleChecklistEntry}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: e.done }}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2], minHeight: 32 }}
+                >
+                  <Feather name={e.done ? 'check-square' : 'square'} size={16} color={e.done ? colors.success : colors.textSecondary} />
+                  <Text variant="caption" tone={e.done ? 'secondary' : 'primary'} style={{ flex: 1, textDecorationLine: e.done ? 'line-through' : 'none' }}>
+                    {e.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
 
-            {item.schedule ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <Feather name="repeat" size={12} color={colors.textTertiary} />
-                <Text variant="meta" tone="secondary" style={{ textTransform: 'capitalize' }}>
-                  {item.schedule.frequency}
-                  {item.schedule.time_of_day && item.schedule.time_of_day !== 'anytime'
-                    ? ` · ${item.schedule.time_of_day}`
-                    : ''}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing[3] }}>
+            {context ? (
+              <Pressable onPress={context.onPress} hitSlop={4} accessibilityRole="link" accessibilityLabel={`Open ${context.label}`}>
+                <Text variant="meta" tone="secondary" style={{ textTransform: 'none', letterSpacing: 0, textDecorationLine: 'underline' }}>
+                  {context.label}
                 </Text>
-              </View>
+              </Pressable>
             ) : null}
+            {notStarted && item.start_date ? meta('clock', `Starts ${fmtDay(item.start_date)}`) : null}
+            {entries.length > 0 ? meta('list', `${steps.done}/${steps.total} steps`) : null}
+            {weekTarget !== null && weekDone !== undefined
+              ? meta('repeat', `${Math.min(weekDone, weekTarget)}/${weekTarget} this week`, weekDone >= weekTarget ? colors.success : colors.textSecondary)
+              : null}
+            {item.due_date && item.type !== 'habit' ? meta('calendar', `${item.due_date}${overdue ? ' · Overdue' : ''}`, overdue ? colors.danger : colors.textSecondary) : null}
+            {schedule ? meta('repeat', `${schedule}${item.schedule?.time_of_day && item.schedule.time_of_day !== 'anytime' ? ` · ${item.schedule.time_of_day}` : ''}`) : null}
+            {item.schedule?.reminder_time ? meta('clock', item.schedule.reminder_time.slice(0, 5)) : null}
           </View>
 
           {activeReminder ? (
@@ -181,11 +255,7 @@ export function ExecutionItemCard({
                 backgroundColor: colors.surfaceMuted,
               }}
             >
-              <Feather
-                name="bell"
-                size={12}
-                color={activeReminder.status === 'snoozed' ? colors.warning : colors.textSecondary}
-              />
+              <Feather name="bell" size={12} color={activeReminder.status === 'snoozed' ? colors.warning : colors.textSecondary} />
               <Pressable onPress={() => onEdit?.(item)} hitSlop={6}>
                 <Text variant="meta" weight="semibold">
                   {formatReminderLabel(activeReminder)}
@@ -200,12 +270,8 @@ export function ExecutionItemCard({
                 <Feather name="x" size={12} color={colors.textSecondary} />
               </Pressable>
             </View>
-          ) : !isDone ? (
-            <Pressable
-              onPress={() => onEdit?.(item)}
-              hitSlop={6}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start' }}
-            >
+          ) : !isDone && onEdit ? (
+            <Pressable onPress={() => onEdit(item)} hitSlop={6} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start' }}>
               <Feather name="bell" size={11} color={colors.textTertiary} />
               <Text variant="meta" tone="tertiary">
                 Remind
@@ -214,29 +280,14 @@ export function ExecutionItemCard({
           ) : null}
 
           {hasNumericTarget ? (
-            <View
-              style={{
-                marginTop: 2,
-                height: 3,
-                maxWidth: 180,
-                borderRadius: radius.pill,
-                backgroundColor: colors.surfaceMuted,
-                overflow: 'hidden',
-              }}
-            >
-              <View
-                style={{
-                  height: '100%',
-                  width: `${progressPercent}%`,
-                  backgroundColor: isDone ? colors.success : colors.controlBg,
-                }}
-              />
+            <View style={{ marginTop: 2, height: 3, maxWidth: 180, borderRadius: radius.pill, backgroundColor: colors.surfaceMuted, overflow: 'hidden' }}>
+              <View style={{ height: '100%', width: `${progressPercent}%`, backgroundColor: isDone ? colors.success : colors.controlBg }} />
             </View>
           ) : null}
         </View>
       </View>
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: spacing[2] }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: spacing[1] }}>
         {hasNumericTarget ? (
           <View
             style={{
@@ -275,39 +326,21 @@ export function ExecutionItemCard({
           </View>
         ) : null}
 
+        {onToggleFocus && !isDone ? (
+          <IconButton
+            name="star"
+            label={focused ? `Remove ${item.name} from today’s focus` : `Add ${item.name} to today’s focus`}
+            onPress={() => onToggleFocus(item)}
+            disabled={busy}
+            active={Boolean(focused)}
+            color={focused ? colors.warning : undefined}
+          />
+        ) : null}
         {onOpenDetail && item.type === 'habit' ? (
-          <Pressable
-            onPress={() => onOpenDetail(item)}
-            disabled={busy}
-            hitSlop={6}
-            accessibilityLabel={`View ${item.name} history`}
-            style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}
-          >
-            <Feather name="bar-chart-2" size={16} color={colors.textSecondary} />
-          </Pressable>
+          <IconButton name="bar-chart-2" label={`View ${item.name} history`} onPress={() => onOpenDetail(item)} disabled={busy} />
         ) : null}
-        {onEdit ? (
-          <Pressable
-            onPress={() => onEdit(item)}
-            disabled={busy}
-            hitSlop={6}
-            accessibilityLabel={`Edit ${item.name}`}
-            style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}
-          >
-            <Feather name="edit-2" size={16} color={colors.textSecondary} />
-          </Pressable>
-        ) : null}
-        {onDelete ? (
-          <Pressable
-            onPress={() => onDelete(item)}
-            disabled={busy}
-            hitSlop={6}
-            accessibilityLabel={`Delete ${item.name}`}
-            style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}
-          >
-            <Feather name="trash-2" size={16} color={colors.textSecondary} />
-          </Pressable>
-        ) : null}
+        {onEdit ? <IconButton name="edit-2" label={`Edit ${item.name}`} onPress={() => onEdit(item)} disabled={busy} /> : null}
+        {onDelete ? <IconButton name="trash-2" label={`Delete ${item.name}`} onPress={() => onDelete(item)} disabled={busy} /> : null}
       </View>
     </Card>
   )

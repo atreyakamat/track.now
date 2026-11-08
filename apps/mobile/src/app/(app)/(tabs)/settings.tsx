@@ -1,14 +1,15 @@
 import { Feather } from '@expo/vector-icons'
+import { useRouter } from 'expo-router'
 import { useEffect, useState } from 'react'
 import { Switch, View } from 'react-native'
 import { updateProfile } from '@tracknow/core/services/tracksService'
-import {
-  loadNotificationPreferences,
-  saveNotificationPreferences,
-} from '@tracknow/core/services/notificationPreferences'
+import { loadNotificationPreferences, saveNotificationPreferences } from '@tracknow/core/services/notificationPreferences'
+import { onboardingState } from '@tracknow/core/services/onboardingState'
 import type { NotificationPreferences } from '@tracknow/core/types/notifications'
 import { Button, Card, ConfirmDialog, Screen, Text, TextField } from '@/components/ui'
 import { PageHeader } from '@/components/PageHeader'
+import { PasswordCard } from '@/components/settings/PasswordCard'
+import { PlanImportCard } from '@/components/settings/PlanImportCard'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useToast } from '@/features/notifications/ToastContext'
 import { getNotificationPermission, requestPermission } from '@/lib/notifications'
@@ -23,24 +24,10 @@ function SegmentedTheme() {
     { key: 'system', label: 'System' },
   ]
   return (
-    <View
-      style={{
-        flexDirection: 'row',
-        backgroundColor: colors.surfaceMuted,
-        borderRadius: radius.md,
-        padding: 3,
-        gap: 3,
-      }}
-    >
+    <View style={{ flexDirection: 'row', backgroundColor: colors.surfaceMuted, borderRadius: radius.md, padding: 3, gap: 3 }}>
       {options.map((opt) => (
         <View key={opt.key} style={{ flex: 1 }}>
-          <Button
-            title={opt.label}
-            size="sm"
-            block
-            variant={preference === opt.key ? 'primary' : 'ghost'}
-            onPress={() => setPreference(opt.key)}
-          />
+          <Button title={opt.label} size="sm" block variant={preference === opt.key ? 'primary' : 'ghost'} onPress={() => setPreference(opt.key)} />
         </View>
       ))}
     </View>
@@ -51,6 +38,7 @@ export default function SettingsScreen() {
   const { user, profile, displayName, signOut, refreshProfile } = useAuth()
   const { showToast } = useToast()
   const { colors } = useTheme()
+  const router = useRouter()
   const [name, setName] = useState(profile?.display_name ?? profile?.full_name ?? '')
   const [savingName, setSavingName] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
@@ -65,15 +53,13 @@ export default function SettingsScreen() {
 
   const setPref = (patch: Partial<NotificationPreferences>) => {
     if (!user?.id || !prefs) return
-    const next = { ...prefs, ...patch }
-    setPrefs(next)
-    saveNotificationPreferences(user.id, next)
+    const nextPrefs = { ...prefs, ...patch }
+    setPrefs(nextPrefs)
+    saveNotificationPreferences(user.id, nextPrefs)
   }
 
-  // Sync the field once the profile resolves (it can load after first render).
   useEffect(() => {
     if (profile) setName(profile.display_name ?? profile.full_name ?? '')
-    // Keyed on identity so an in-progress edit is never clobbered mid-typing.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.id])
 
@@ -100,11 +86,7 @@ export default function SettingsScreen() {
       await refreshProfile()
       showToast({ title: 'Profile updated', type: 'success' })
     } catch (err) {
-      showToast({
-        title: 'Could not save',
-        message: err instanceof Error ? err.message : 'Please try again.',
-        type: 'warning',
-      })
+      showToast({ title: 'Could not save', message: err instanceof Error ? err.message : 'Please try again.', type: 'warning' })
     } finally {
       setSavingName(false)
     }
@@ -118,11 +100,7 @@ export default function SettingsScreen() {
       showToast(
         granted
           ? { title: 'Notifications enabled', type: 'success' }
-          : {
-              title: 'Permission not granted',
-              message: 'Enable notifications for Track.now in your system settings to get reminders.',
-              type: 'warning',
-            },
+          : { title: 'Permission not granted', message: 'Enable notifications for Track.now in your system settings to get reminders.', type: 'warning' },
       )
     } finally {
       setEnablingNotif(false)
@@ -139,6 +117,8 @@ export default function SettingsScreen() {
     }
   }
 
+  const goToday = () => router.replace('/(app)/(tabs)')
+
   return (
     <Screen>
       <PageHeader title="Settings" />
@@ -154,21 +134,10 @@ export default function SettingsScreen() {
               {user.email}
             </Text>
           ) : null}
-          <Button
-            title={savingName ? 'Saving…' : 'Save profile'}
-            variant="secondary"
-            size="sm"
-            loading={savingName}
-            onPress={saveName}
-          />
+          <Button title={savingName ? 'Saving…' : 'Save profile'} variant="secondary" size="sm" loading={savingName} onPress={saveName} />
         </Card>
 
-        <Card style={{ gap: spacing[3] }}>
-          <Text variant="meta" tone="tertiary">
-            Appearance
-          </Text>
-          <SegmentedTheme />
-        </Card>
+        {user?.email ? <PasswordCard email={user.email} /> : null}
 
         <Card style={{ gap: spacing[3] }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -177,11 +146,7 @@ export default function SettingsScreen() {
             </Text>
             {notifEnabled !== null ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[1] }}>
-                <Feather
-                  name={notifEnabled ? 'check-circle' : 'bell-off'}
-                  size={14}
-                  color={notifEnabled ? colors.success : colors.textTertiary}
-                />
+                <Feather name={notifEnabled ? 'check-circle' : 'bell-off'} size={14} color={notifEnabled ? colors.success : colors.textTertiary} />
                 <Text variant="meta" style={{ color: notifEnabled ? colors.success : colors.textTertiary }}>
                   {notifEnabled ? 'Enabled' : 'Off'}
                 </Text>
@@ -192,59 +157,69 @@ export default function SettingsScreen() {
             Reminders you set fire as device alerts even when Track.now is closed, and feed the home-screen widget.
           </Text>
           {notifEnabled === false ? (
-            <Button
-              title={enablingNotif ? 'Requesting…' : 'Enable notifications'}
-              variant="secondary"
-              size="sm"
-              loading={enablingNotif}
-              onPress={enableNotifications}
-            />
+            <Button title={enablingNotif ? 'Requesting…' : 'Enable notifications'} variant="secondary" size="sm" loading={enablingNotif} onPress={enableNotifications} />
           ) : null}
-
           {notifEnabled && prefs ? (
             <View style={{ gap: spacing[2], marginTop: spacing[1] }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                 <Text variant="caption" style={{ flex: 1, paddingRight: spacing[3] }}>
                   Weekly review nudge
                 </Text>
-                <Switch
-                  value={prefs.weeklyReviewNudge}
-                  onValueChange={(v) => setPref({ weeklyReviewNudge: v })}
-                  trackColor={{ true: colors.accentPrimary, false: colors.surfaceMuted }}
-                />
+                <Switch value={prefs.weeklyReviewNudge} onValueChange={(v) => setPref({ weeklyReviewNudge: v })} trackColor={{ true: colors.accentPrimary, false: colors.surfaceMuted }} />
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                 <Text variant="caption" style={{ flex: 1, paddingRight: spacing[3] }}>
                   Evening streak reminder
                 </Text>
-                <Switch
-                  value={prefs.streakNudge}
-                  onValueChange={(v) => setPref({ streakNudge: v })}
-                  trackColor={{ true: colors.accentPrimary, false: colors.surfaceMuted }}
-                />
+                <Switch value={prefs.streakNudge} onValueChange={(v) => setPref({ streakNudge: v })} trackColor={{ true: colors.accentPrimary, false: colors.surfaceMuted }} />
               </View>
             </View>
           ) : null}
         </Card>
 
-        <Button
-          title={signingOut ? 'Signing out…' : 'Sign out'}
-          variant="secondary"
-          block
-          loading={signingOut}
-          onPress={() => setConfirmSignOut(true)}
-        />
+        <Card style={{ gap: spacing[3] }}>
+          <Text variant="meta" tone="tertiary">
+            Tour and quests
+          </Text>
+          <Text variant="caption" tone="secondary">
+            Replay the two-minute tour, or bring the getting-started quests back to Today.
+          </Text>
+          <View style={{ flexDirection: 'row', gap: spacing[2], flexWrap: 'wrap' }}>
+            <Button
+              title="Replay the tour"
+              variant="secondary"
+              size="sm"
+              icon={<Feather name="compass" size={14} color={colors.textPrimary} />}
+              onPress={() => {
+                if (user?.id) onboardingState.setTourRequested(user.id)
+                goToday()
+              }}
+            />
+            <Button
+              title="Show quests"
+              variant="ghost"
+              size="sm"
+              onPress={() => {
+                if (user?.id) onboardingState.setQuestsDismissed(user.id, false)
+                goToday()
+              }}
+            />
+          </View>
+        </Card>
+
+        {user?.id ? <PlanImportCard userId={user.id} /> : null}
+
+        <Card style={{ gap: spacing[3] }}>
+          <Text variant="meta" tone="tertiary">
+            Appearance
+          </Text>
+          <SegmentedTheme />
+        </Card>
+
+        <Button title={signingOut ? 'Signing out…' : 'Sign out'} variant="secondary" block loading={signingOut} onPress={() => setConfirmSignOut(true)} />
       </View>
 
-      <ConfirmDialog
-        visible={confirmSignOut}
-        title="Sign out?"
-        message="You'll need to sign in again to see your tracks."
-        confirmLabel="Sign out"
-        cancelLabel="Stay"
-        onConfirm={handleSignOut}
-        onCancel={() => setConfirmSignOut(false)}
-      />
+      <ConfirmDialog visible={confirmSignOut} title="Sign out?" message="You'll need to sign in again to see your tracks." confirmLabel="Sign out" cancelLabel="Stay" onConfirm={handleSignOut} onCancel={() => setConfirmSignOut(false)} />
     </Screen>
   )
 }

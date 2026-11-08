@@ -65,6 +65,29 @@ the update.
 | Gamified tour (6 steps, Skip always available; auto-opens once for an account with no Tracks, replay from Settings or `/today?tour=1`) and getting-started quests (8, each verified from real records or a local flag; one-time +20 XP each) | `components/onboarding/*`, `domain/quests.ts`, `features/onboarding/onboardingState.ts` |
 | Level strip on Today (level, XP to next, active-day streak, this week planned/done), level-up toast once per level, 5 new achievements (Explorer, Perfect week, Comeback, Arc builder, Century) | `components/insights/LevelStrip.tsx`, `hooks/useLifetimeLedger.ts`, `domain/momentum.ts` |
 
+### Mobile (Expo) parity — 2026-11-08
+
+The same release on `apps/mobile`, sharing every calculation through `@tracknow/core`:
+
+| What changed | Where |
+| :--- | :--- |
+| Today is the home tab (5 tabs: Today, Tracks, Insights, Reviews, Settings; the Dashboard tab is gone, its heatmap moved to Insights): Focus (star, max 3), Overdue / Due today / Anytime / Upcoming / Completed, swipe-to-complete, day summary + Momentum + level strip (level, XP, active-day streak, this week), Arc chips, quests card, tour, quick-add FAB with Plan picker, checklist steps, weekly-target status, "Starts <date>" | `app/(app)/(tabs)/index.tsx`, `components/onboarding/*`, `components/insights/LevelStrip.tsx` |
+| Plans: Arc / Ongoing kind, length presets, outcome + criteria, "Part of an Arc" (with suggestions), Day X of N, due-for-review banner, Pause / Resume / Re-open / Archive, Complete with a review screen (records + what happened / learned / next), completed card with "Start the next Arc" | `app/(app)/plan/*`, `components/plans/PlanFields.tsx`, `components/plans/PlanCard.tsx` |
+| Items: start date, "times a week" repeat, checklist steps editor | `components/execution/ItemForm.tsx`, `ExecutionItemCard.tsx`, `hooks/useExecutionItemActions.ts` |
+| Arcs: section on Tracks, Arc screen with progress, Plans by Track and retention | `app/(app)/arc/[key].tsx`, `components/plans/ArcCard.tsx`, `hooks/useTracksOverview.ts` |
+| Insights: level / XP / achievements / quest bonus, retention (weekly bars, by Plan, habits kept/slipping/dropped), consistency heatmap, then the range analytics — all from one lifetime ledger load | `app/(app)/(tabs)/analytics.tsx`, `components/insights/*` |
+| Reviews: Plans due for review, Plans completed in the period (with their review), monthly "outcomes" prompt | `app/(app)/(tabs)/reviews.tsx` |
+| Settings: change password (current password verified), replay the tour / show quests, import a plan by pasting JSON | `app/(app)/(tabs)/settings.tsx`, `components/settings/*` |
+| Auth: brand mark, show/hide password + strength meter, reset-link resend cooldown | `app/(auth)/*`, `components/ui/PasswordField.tsx`, `components/ui/BrandMark.tsx` |
+| Shared onboarding state (tour done, focus used, quests dismissed, last level) moved to core behind the storage seam, so web and mobile use one implementation | `packages/core/src/services/onboardingState.ts` |
+
+Ship: JS-only changes go out with `eas update --branch preview --environment preview` to the installed OTA-enabled APK.
+The new app icon, splash and adaptive-icon colours are **native** and need a new `eas build` (preview APK) before
+they show on a device; until then the old icon stays and everything else works.
+
+Verification (2026-11-08): mobile `tsc --noEmit` PASS (typed routes regenerated) · `expo export -p android -p web` PASS ·
+web suite still 41 files / 491 tests PASS · web typecheck PASS.
+
 Verification (2026-11-08, final): typecheck PASS (web, core, mobile `tsc --noEmit`) · `npm test` **PASS, 41 files, 491 tests** ·
 both production builds PASS · `node scripts/verify_sql_local.cjs` **21/21** · `node scripts/run_mocked_e2e.cjs` **7/7 PASS** (responsive audit: no overflow 320–1920 px, light + dark) · `npm audit --omit=dev` 0.
 

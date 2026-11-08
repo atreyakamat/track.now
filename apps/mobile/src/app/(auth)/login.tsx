@@ -1,32 +1,12 @@
 import { Link } from 'expo-router'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { KeyboardAvoidingView, Platform, View } from 'react-native'
 import { authService } from '@tracknow/core/auth/authService'
-import { Button, Card, Screen, Text, TextField } from '@/components/ui'
+import { RESET_EMAIL_COOLDOWN_SECONDS } from '@tracknow/core/auth/password'
+import { BrandMark, Button, Card, PasswordField, Screen, Text, TextField } from '@/components/ui'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useTheme } from '@/theme/ThemeProvider'
 import { radius, spacing } from '@/theme/tokens'
-
-function BrandMark() {
-  const { colors } = useTheme()
-  return (
-    <View
-      style={{
-        width: 44,
-        height: 44,
-        borderRadius: radius.md,
-        backgroundColor: colors.controlBg,
-        alignItems: 'center',
-        justifyContent: 'center',
-        alignSelf: 'center',
-      }}
-    >
-      <Text variant="h2" style={{ color: colors.controlText }}>
-        T
-      </Text>
-    </View>
-  )
-}
 
 function Alert({ kind, children }: { kind: 'error' | 'info' | 'success'; children: string }) {
   const { colors } = useTheme()
@@ -56,7 +36,15 @@ export default function LoginScreen() {
   const [busy, setBusy] = useState(false)
   const [isResetMode, setIsResetMode] = useState(false)
   const [resetSuccess, setResetSuccess] = useState<string | null>(null)
+  const [cooldown, setCooldown] = useState(0)
   const submitting = useRef(false)
+
+  // Seconds until another reset email may be requested (the server rate-limits them).
+  useEffect(() => {
+    if (cooldown <= 0) return
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000)
+    return () => clearTimeout(t)
+  }, [cooldown])
 
   const handleSignIn = async () => {
     if (submitting.current || busy) return
@@ -70,7 +58,6 @@ export default function LoginScreen() {
     clearNotice()
     try {
       await signIn(email.trim(), password)
-      // The root AuthGate redirects into the app once the session is authenticated.
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to sign in')
     } finally {
@@ -80,7 +67,7 @@ export default function LoginScreen() {
   }
 
   const handleReset = async () => {
-    if (submitting.current || busy) return
+    if (submitting.current || busy || cooldown > 0) return
     if (!email.trim()) {
       setError('Please enter your email address.')
       return
@@ -91,9 +78,8 @@ export default function LoginScreen() {
     setResetSuccess(null)
     try {
       await authService.resetPasswordForEmail(email.trim())
-      setResetSuccess(
-        'If an account exists for that email, a password reset link is on its way. Open it on this device to choose a new password.',
-      )
+      setResetSuccess(`If an account exists for ${email.trim()}, a password reset link is on its way. Open it to choose a new password. Check your spam folder if it does not arrive within a few minutes.`)
+      setCooldown(RESET_EMAIL_COOLDOWN_SECONDS)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send reset link')
     } finally {
@@ -107,14 +93,12 @@ export default function LoginScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Card style={{ gap: spacing[4] }}>
           <View style={{ gap: spacing[2], alignItems: 'center' }}>
-            <BrandMark />
+            <BrandMark size={48} />
             <Text variant="h1" center>
               {isResetMode ? 'Reset password' : 'Sign in to Track.now'}
             </Text>
             <Text variant="caption" tone="secondary" center>
-              {isResetMode
-                ? 'Enter your account email to receive a password reset link.'
-                : 'A personal operating system for execution.'}
+              {isResetMode ? 'Enter your account email to receive a password reset link.' : 'Your life, organized to execute.'}
             </Text>
           </View>
 
@@ -122,28 +106,11 @@ export default function LoginScreen() {
           {resetSuccess ? <Alert kind="success">{resetSuccess}</Alert> : null}
           {error ? <Alert kind="error">{error}</Alert> : null}
 
-          <TextField
-            label="Email"
-            placeholder="you@domain.com"
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            autoComplete="email"
-            keyboardType="email-address"
-            inputMode="email"
-          />
+          <TextField label="Email" placeholder="you@domain.com" value={email} onChangeText={setEmail} autoCapitalize="none" autoComplete="email" keyboardType="email-address" inputMode="email" />
 
           {!isResetMode ? (
             <>
-              <TextField
-                label="Password"
-                placeholder="••••••••"
-                value={password}
-                onChangeText={setPassword}
-                autoCapitalize="none"
-                autoComplete="current-password"
-                secureTextEntry
-              />
+              <PasswordField label="Password" placeholder="••••••••" value={password} onChangeText={setPassword} autoComplete="current-password" onSubmitEditing={handleSignIn} />
               <View style={{ alignItems: 'flex-end', marginTop: -spacing[2] }}>
                 <Button
                   title="Forgot password?"
@@ -159,17 +126,10 @@ export default function LoginScreen() {
           ) : null}
 
           <Button
-            title={
-              isResetMode
-                ? busy
-                  ? 'Sending link…'
-                  : 'Send reset link'
-                : busy
-                  ? 'Signing in…'
-                  : 'Sign in'
-            }
+            title={isResetMode ? (busy ? 'Sending link…' : cooldown > 0 ? `Resend in ${cooldown}s` : resetSuccess ? 'Resend link' : 'Send reset link') : busy ? 'Signing in…' : 'Sign in'}
             block
             loading={busy}
+            disabled={isResetMode && cooldown > 0}
             onPress={isResetMode ? handleReset : handleSignIn}
           />
 

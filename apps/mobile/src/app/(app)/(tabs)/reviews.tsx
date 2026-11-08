@@ -1,5 +1,6 @@
 import { Feather } from '@expo/vector-icons'
-import { useEffect, useMemo, useState } from 'react'
+import { useFocusEffect, useRouter } from 'expo-router'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Pressable, RefreshControl, ScrollView, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { listTracks } from '@tracknow/core/services/tracksService'
@@ -9,14 +10,9 @@ import { listCompletionHistory } from '@tracknow/core/services/historyService'
 import { loadReviewNote, saveReviewNote } from '@tracknow/core/services/reviewNotesStorage'
 import { getTodayDateString } from '@tracknow/core/domain/dates'
 import { addDays } from '@tracknow/core/domain/streaks'
-import {
-  buildReviewSummary,
-  getMonthRange,
-  getWeekRange,
-  makePeriodKey,
-  type ReviewKind,
-} from '@tracknow/core/domain/reviews'
+import { buildReviewSummary, getMonthRange, getWeekRange, makePeriodKey, type ReviewKind } from '@tracknow/core/domain/reviews'
 import { formatDateRangeLabel } from '@tracknow/core/domain/analytics'
+import { isDueForReview, PLAN_KIND_LABEL, planKindOf } from '@tracknow/core/domain/plans'
 import { pluralize } from '@tracknow/core/utils/format'
 import { PageHeader } from '@/components/PageHeader'
 import { Button, Card, LoadingState, ProgressBar, Segmented, Text, TextField } from '@/components/ui'
@@ -32,8 +28,9 @@ const PROMPTS: Record<ReviewKind, { id: string; label: string }[]> = {
     { id: 'differently', label: 'What will you do differently next week?' },
   ],
   monthly: [
-    { id: 'progress', label: 'Which tracks made real progress this month?' },
+    { id: 'progress', label: 'Which Tracks made real progress this month?' },
     { id: 'stalled', label: 'What stalled, and why?' },
+    { id: 'outcomes', label: 'Which Plan outcomes are on course, and which are not?' },
     { id: 'next_month', label: 'What deserves your focus next month?' },
   ],
 }
@@ -41,46 +38,33 @@ const PROMPTS: Record<ReviewKind, { id: string; label: string }[]> = {
 export default function ReviewsScreen() {
   const { user } = useAuth()
   const { colors } = useTheme()
+  const router = useRouter()
   const [tab, setTab] = useState<ReviewKind>('weekly')
   const [offset, setOffset] = useState(0)
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [savedAt, setSavedAt] = useState<string | null>(null)
 
   const now = useMemo(() => new Date(), [])
-  const range = useMemo(
-    () => (tab === 'weekly' ? getWeekRange(now, offset) : getMonthRange(now, offset)),
-    [tab, offset, now],
-  )
+  const range = useMemo(() => (tab === 'weekly' ? getWeekRange(now, offset) : getMonthRange(now, offset)), [tab, offset, now])
   const periodKey = makePeriodKey(tab, range)
 
   const { data, loading, error, reload, refreshing } = useAsync(async () => {
     if (!user) return null
     const today = getTodayDateString()
-    const [tracks, plans, items, completions] = await Promise.all([
-      listTracks(),
-      listPlans(),
-      listExecutionItems(),
-      listCompletionHistory(user.id, addDays(today, -400), today),
-    ])
+    const [tracks, plans, items, completions] = await Promise.all([listTracks(), listPlans(), listExecutionItems(), listCompletionHistory(user.id, addDays(today, -400), today)])
     return { tracks, plans, items, completions }
   }, [user?.id])
 
-  const summary = useMemo(
-    () =>
-      data
-        ? buildReviewSummary({
-            tracks: data.tracks,
-            plans: data.plans,
-            items: data.items,
-            completions: data.completions,
-            range,
-            now,
-          })
-        : null,
-    [data, range, now],
+  useFocusEffect(
+    useCallback(() => {
+      reload()
+    }, [reload]),
   )
 
-  // Load the saved note whenever the period changes.
+  const summary = useMemo(() => (data ? buildReviewSummary({ tracks: data.tracks, plans: data.plans, items: data.items, completions: data.completions, range, now }) : null), [data, range, now])
+  const dueForReview = useMemo(() => (data ? data.plans.filter((p) => isDueForReview(p, now)) : []), [data, now])
+  const trackName = (id: string) => data?.tracks.find((t) => t.id === id)?.name
+
   useEffect(() => {
     if (!user) return
     const note = loadReviewNote(user.id, periodKey)
@@ -106,6 +90,25 @@ export default function ReviewsScreen() {
         <PageHeader title="Reviews" subtitle="Reflect on what you shipped." />
 
         <View style={{ gap: spacing[4] }}>
+          {dueForReview.length > 0 ? (
+            <Card style={{ borderColor: colors.warning, gap: spacing[2] }}>
+              <Text variant="h3">Plans due for review ({dueForReview.length})</Text>
+              <Text variant="caption" tone="secondary">
+                These reached their end date. Review each one, then complete it or extend the date.
+              </Text>
+              {dueForReview.map((p) => (
+                <Pressable key={p.id} onPress={() => router.push(`/plan/${p.id}`)} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 36 }}>
+                  <Text variant="caption" weight="medium" numberOfLines={1} style={{ flex: 1 }}>
+                    {p.name}
+                  </Text>
+                  <Text variant="meta" tone="secondary">
+                    {trackName(p.track_id) ?? PLAN_KIND_LABEL[planKindOf(p)]}
+                  </Text>
+                </Pressable>
+              ))}
+            </Card>
+          ) : null}
+
           <Segmented
             value={tab}
             onChange={(t) => {
@@ -125,12 +128,7 @@ export default function ReviewsScreen() {
             <Text variant="caption" weight="semibold">
               {formatDateRangeLabel(range)}
             </Text>
-            <Pressable
-              onPress={() => setOffset((o) => Math.min(0, o + 1))}
-              hitSlop={8}
-              disabled={offset >= 0}
-              style={{ padding: spacing[2], opacity: offset >= 0 ? 0.3 : 1 }}
-            >
+            <Pressable onPress={() => setOffset((o) => Math.min(0, o + 1))} hitSlop={8} disabled={offset >= 0} style={{ padding: spacing[2], opacity: offset >= 0 ? 0.3 : 1 }}>
               <Feather name="chevron-right" size={20} color={colors.textPrimary} />
             </Pressable>
           </View>
@@ -174,6 +172,30 @@ export default function ReviewsScreen() {
                 </Card>
               ) : null}
 
+              {summary.completedPlans.length > 0 ? (
+                <Card style={{ gap: spacing[2] }}>
+                  <Text variant="h3">Plans completed</Text>
+                  {summary.completedPlans.map(({ plan, track }) => (
+                    <Pressable key={plan.id} onPress={() => router.push(`/plan/${plan.id}`)} style={{ gap: 2, paddingVertical: 4 }}>
+                      <Text variant="caption" weight="semibold">
+                        {plan.name}
+                        {track ? ` · ${track.name}` : ''}
+                      </Text>
+                      {plan.result_notes ? (
+                        <Text variant="caption" tone="secondary" numberOfLines={3}>
+                          {plan.result_notes}
+                        </Text>
+                      ) : null}
+                      {plan.next_decision ? (
+                        <Text variant="meta" tone="tertiary" style={{ textTransform: 'none', letterSpacing: 0 }}>
+                          Next: {plan.next_decision}
+                        </Text>
+                      ) : null}
+                    </Pressable>
+                  ))}
+                </Card>
+              ) : null}
+
               {summary.wins.length > 0 ? (
                 <Card style={{ gap: spacing[2] }}>
                   <Text variant="h3">Wins</Text>
@@ -192,16 +214,16 @@ export default function ReviewsScreen() {
 
               {summary.planArchiveCandidates.length > 0 ? (
                 <Card style={{ gap: spacing[2] }}>
-                  <Text variant="h3">Ready to archive</Text>
+                  <Text variant="h3">Ready to wrap up</Text>
                   {summary.planArchiveCandidates.map((c) => (
-                    <View key={c.plan.id} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: spacing[2] }}>
+                    <Pressable key={c.plan.id} onPress={() => router.push(`/plan/${c.plan.id}`)} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: spacing[2], minHeight: 32, alignItems: 'center' }}>
                       <Text variant="caption" numberOfLines={1} style={{ flex: 1 }}>
                         {c.plan.name}
                       </Text>
                       <Text variant="meta" tone="secondary">
                         {c.reason === 'ended' ? 'Ended' : 'Complete'}
                       </Text>
-                    </View>
+                    </Pressable>
                   ))}
                 </Card>
               ) : null}
@@ -229,7 +251,7 @@ export default function ReviewsScreen() {
                 ))}
                 <Button title="Save notes" block onPress={save} />
                 <Text variant="meta" tone="tertiary">
-                  Notes are stored on this device only.
+                  Notes are stored on this device only · {pluralize(prompts.length, 'prompt')}
                 </Text>
               </Card>
             </>

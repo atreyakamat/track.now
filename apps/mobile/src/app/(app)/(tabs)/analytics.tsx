@@ -1,5 +1,6 @@
 import { Feather } from '@expo/vector-icons'
-import { useMemo, useState } from 'react'
+import { useFocusEffect, useRouter } from 'expo-router'
+import { useCallback, useMemo, useState } from 'react'
 import { RefreshControl, ScrollView, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { listTracks } from '@tracknow/core/services/tracksService'
@@ -16,11 +17,16 @@ import {
 } from '@tracknow/core/domain/analytics'
 import { pluralize } from '@tracknow/core/utils/format'
 import { PageHeader } from '@/components/PageHeader'
+import { Heatmap } from '@/components/insights/Heatmap'
+import { ProgressPanel } from '@/components/insights/ProgressPanel'
+import { RetentionPanel } from '@/components/insights/RetentionPanel'
 import { Card, EmptyState, ErrorState, LoadingState, ProgressBar, Segmented, Text } from '@/components/ui'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useAsync } from '@/hooks/useAsync'
 import { useTheme } from '@/theme/ThemeProvider'
 import { resolveTrackColor, spacing } from '@/theme/tokens'
+
+const LIFETIME_START = '2000-01-01'
 
 function StatTile({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
@@ -43,37 +49,51 @@ function StatTile({ label, value, sub }: { label: string; value: string; sub?: s
 export default function AnalyticsScreen() {
   const { user } = useAuth()
   const { colors } = useTheme()
+  const router = useRouter()
   const [rangeDays, setRangeDays] = useState<AnalyticsRangeDays>(30)
 
   const { data, loading, error, reload, refreshing } = useAsync(async () => {
     if (!user) return null
     const today = getTodayDateString()
-    const historyStart = addDays(today, -(ANALYTICS_HISTORY_DAYS - 1))
-    const [tracks, plans, items, completions, completedTodayIds] = await Promise.all([
+    // One lifetime ledger (item id + date) feeds level, achievements, retention, the heatmap
+    // and the range analytics; nothing is loaded twice.
+    const [tracks, plans, items, ledger, completedTodayIds] = await Promise.all([
       listTracks(),
       listPlans(),
       listExecutionItems(),
-      listCompletionHistory(user.id, historyStart, today),
+      listCompletionHistory(user.id, LIFETIME_START, today),
       listCompletionsForDate(user.id, today),
     ])
-    return { tracks, plans, items, completions, completedTodayIds }
+    return { tracks, plans, items, ledger, completedTodayIds, loadedAt: new Date() }
   }, [user?.id])
 
-  const analytics = useMemo(
-    () =>
-      data
-        ? buildAnalytics({
-            tracks: data.tracks,
-            plans: data.plans,
-            items: data.items,
-            completions: data.completions,
-            completedTodayIds: data.completedTodayIds,
-            now: new Date(),
-            rangeDays,
-          })
-        : null,
-    [data, rangeDays],
+  useFocusEffect(
+    useCallback(() => {
+      reload()
+    }, [reload]),
   )
+
+  const analytics = useMemo(() => {
+    if (!data) return null
+    const historyStart = addDays(getTodayDateString(data.loadedAt), -(ANALYTICS_HISTORY_DAYS - 1))
+    return buildAnalytics({
+      tracks: data.tracks,
+      plans: data.plans,
+      items: data.items,
+      completions: data.ledger.filter((c) => c.completed_date >= historyStart),
+      completedTodayIds: data.completedTodayIds,
+      now: data.loadedAt,
+      rangeDays,
+    })
+  }, [data, rangeDays])
+
+  const dailyCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    data?.ledger.forEach((c) => {
+      counts[c.completed_date] = (counts[c.completed_date] ?? 0) + 1
+    })
+    return counts
+  }, [data])
 
   const chart = analytics?.weekly
     ? analytics.weekly.map((b) => ({ label: b.start.slice(5), count: b.count }))
@@ -93,120 +113,125 @@ export default function AnalyticsScreen() {
           <LoadingState label="Crunching your numbers…" />
         ) : error ? (
           <ErrorState description={error} onRetry={reload} />
-        ) : !analytics || !analytics.hasAnyData ? (
+        ) : !data || !analytics || !analytics.hasAnyData ? (
           <EmptyState
             icon={<Feather name="bar-chart-2" size={22} color={colors.textSecondary} />}
-            title="No analytics yet"
+            title="No insights yet"
             description="Create a track, add a habit or task, and complete it to see your first numbers here."
           />
         ) : (
-          <View style={{ gap: spacing[4] }}>
-            <Segmented
-              value={String(rangeDays)}
-              onChange={(v) => setRangeDays(Number(v) as AnalyticsRangeDays)}
-              options={ANALYTICS_RANGE_OPTIONS.map((d) => ({ key: String(d), label: `${d}d` }))}
+          <View style={{ gap: spacing[5] }}>
+            {user ? <ProgressPanel userId={user.id} items={data.items} plans={data.plans} tracks={data.tracks.length} ledger={data.ledger} /> : null}
+
+            <RetentionPanel
+              items={data.items}
+              plans={data.plans}
+              tracks={data.tracks}
+              completions={data.ledger}
+              now={data.loadedAt}
+              onOpenPlan={(plan) => router.push(`/plan/${plan.id}`)}
             />
 
-            <View style={{ flexDirection: 'row', gap: spacing[3] }}>
-              <StatTile
-                label="Completions"
-                value={String(analytics.totals.completions)}
-                sub={
-                  analytics.totals.comparison
-                    ? `${analytics.totals.comparison.percentChange >= 0 ? '+' : ''}${analytics.totals.comparison.percentChange}% vs prev`
-                    : 'this range'
-                }
+            <View style={{ gap: spacing[4] }}>
+              <Text variant="h2">Activity</Text>
+              <Segmented
+                value={String(rangeDays)}
+                onChange={(v) => setRangeDays(Number(v) as AnalyticsRangeDays)}
+                options={ANALYTICS_RANGE_OPTIONS.map((d) => ({ key: String(d), label: `${d}d` }))}
               />
-              <StatTile
-                label="Active days"
-                value={String(analytics.totals.activeDays)}
-                sub={analytics.totals.averagePerActiveDay !== null ? `${analytics.totals.averagePerActiveDay}/day avg` : 'no active days'}
-              />
-            </View>
 
-            <Card style={{ gap: spacing[3] }}>
-              <Text variant="h3">Completions over time</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 4, height: 120 }}>
-                {chart.map((c, i) => (
-                  <View key={i} style={{ flex: 1, alignItems: 'center', gap: 4 }}>
-                    <View
-                      style={{
-                        width: '70%',
-                        height: Math.max(2, (c.count / maxCount) * 96),
-                        backgroundColor: colors.accentPrimary,
-                        borderRadius: 3,
-                      }}
-                    />
-                  </View>
-                ))}
+              <View style={{ flexDirection: 'row', gap: spacing[3] }}>
+                <StatTile
+                  label="Completions"
+                  value={String(analytics.totals.completions)}
+                  sub={analytics.totals.comparison ? `${analytics.totals.comparison.percentChange >= 0 ? '+' : ''}${analytics.totals.comparison.percentChange}% vs prev` : 'this range'}
+                />
+                <StatTile
+                  label="Active days"
+                  value={String(analytics.totals.activeDays)}
+                  sub={analytics.totals.averagePerActiveDay !== null ? `${analytics.totals.averagePerActiveDay}/day avg` : 'no active days'}
+                />
               </View>
-              <Text variant="meta" tone="tertiary">
-                {analytics.weekly ? 'Per week' : 'Per day'} · {pluralize(analytics.totals.completions, 'completion')}
-              </Text>
-            </Card>
 
-            {analytics.habitTotals.rate !== null ? (
-              <Card style={{ gap: spacing[2] }}>
-                <Text variant="h3">Habit consistency</Text>
-                <ProgressBar value={analytics.habitTotals.rate} />
-                <Text variant="meta" tone="secondary">
-                  {analytics.habitTotals.completed}/{analytics.habitTotals.expected} scheduled habit days completed
+              <Heatmap counts={dailyCounts} />
+
+              <Card style={{ gap: spacing[3] }}>
+                <Text variant="h3">Completions over time</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 4, height: 120 }}>
+                  {chart.map((c, i) => (
+                    <View key={i} style={{ flex: 1, alignItems: 'center', gap: 4 }}>
+                      <View style={{ width: '70%', height: Math.max(2, (c.count / maxCount) * 96), backgroundColor: colors.accentPrimary, borderRadius: 3 }} />
+                    </View>
+                  ))}
+                </View>
+                <Text variant="meta" tone="tertiary">
+                  {analytics.weekly ? 'Per week' : 'Per day'} · {pluralize(analytics.totals.completions, 'completion')}
                 </Text>
               </Card>
-            ) : null}
 
-            {analytics.trackProgress.length > 0 ? (
-              <Card style={{ gap: spacing[3] }}>
-                <Text variant="h3">Progress by track</Text>
-                {analytics.trackProgress.map((row) => (
-                  <View key={row.track.id} style={{ gap: spacing[1] }}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                      <Text variant="caption" weight="medium" numberOfLines={1} style={{ flex: 1 }}>
-                        {row.track.name}
+              {analytics.habitTotals.rate !== null ? (
+                <Card style={{ gap: spacing[2] }}>
+                  <Text variant="h3">Habit consistency</Text>
+                  <ProgressBar value={analytics.habitTotals.rate} />
+                  <Text variant="meta" tone="secondary">
+                    {analytics.habitTotals.completed}/{analytics.habitTotals.expected} scheduled habit days completed
+                  </Text>
+                </Card>
+              ) : null}
+
+              {analytics.trackProgress.length > 0 ? (
+                <Card style={{ gap: spacing[3] }}>
+                  <Text variant="h3">Progress by track</Text>
+                  {analytics.trackProgress.map((row) => (
+                    <View key={row.track.id} style={{ gap: spacing[1] }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <Text variant="caption" weight="medium" numberOfLines={1} style={{ flex: 1 }}>
+                          {row.track.name}
+                        </Text>
+                        <Text variant="caption" tone="secondary">
+                          {pluralize(row.completionsInRange, 'completion')}
+                        </Text>
+                      </View>
+                      <ProgressBar value={row.progress.percent} color={resolveTrackColor(row.track.color)} />
+                    </View>
+                  ))}
+                </Card>
+              ) : null}
+
+              {analytics.overdue.length > 0 ? (
+                <Card style={{ gap: spacing[2] }}>
+                  <Text variant="h3" tone="danger">
+                    Overdue ({analytics.overdue.length})
+                  </Text>
+                  {analytics.overdue.slice(0, 5).map((o) => (
+                    <View key={o.item.id} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: spacing[2] }}>
+                      <Text variant="caption" numberOfLines={1} style={{ flex: 1 }}>
+                        {o.item.name}
                       </Text>
                       <Text variant="caption" tone="secondary">
-                        {pluralize(row.completionsInRange, 'completion')}
+                        {o.item.due_date}
                       </Text>
                     </View>
-                    <ProgressBar value={row.progress.percent} color={resolveTrackColor(row.track.color)} />
-                  </View>
-                ))}
-              </Card>
-            ) : null}
+                  ))}
+                </Card>
+              ) : null}
 
-            {analytics.overdue.length > 0 ? (
-              <Card style={{ gap: spacing[2] }}>
-                <Text variant="h3" tone="danger">
-                  Overdue ({analytics.overdue.length})
-                </Text>
-                {analytics.overdue.slice(0, 5).map((o) => (
-                  <View key={o.item.id} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: spacing[2] }}>
-                    <Text variant="caption" numberOfLines={1} style={{ flex: 1 }}>
-                      {o.item.name}
-                    </Text>
-                    <Text variant="caption" tone="secondary">
-                      {o.item.due_date}
-                    </Text>
-                  </View>
-                ))}
-              </Card>
-            ) : null}
-
-            {analytics.recent.length > 0 ? (
-              <Card style={{ gap: spacing[2] }}>
-                <Text variant="h3">Recent activity</Text>
-                {analytics.recent.slice(0, 8).map((r, i) => (
-                  <View key={`${r.itemId}-${i}`} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: spacing[2] }}>
-                    <Text variant="caption" numberOfLines={1} style={{ flex: 1 }}>
-                      {r.itemName}
-                    </Text>
-                    <Text variant="caption" tone="secondary">
-                      {r.date.slice(5)}
-                    </Text>
-                  </View>
-                ))}
-              </Card>
-            ) : null}
+              {analytics.recent.length > 0 ? (
+                <Card style={{ gap: spacing[2] }}>
+                  <Text variant="h3">Recent activity</Text>
+                  {analytics.recent.slice(0, 8).map((r, i) => (
+                    <View key={`${r.itemId}-${i}`} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: spacing[2] }}>
+                      <Text variant="caption" numberOfLines={1} style={{ flex: 1 }}>
+                        {r.itemName}
+                      </Text>
+                      <Text variant="caption" tone="secondary">
+                        {r.date.slice(5)}
+                      </Text>
+                    </View>
+                  ))}
+                </Card>
+              ) : null}
+            </View>
           </View>
         )}
       </ScrollView>

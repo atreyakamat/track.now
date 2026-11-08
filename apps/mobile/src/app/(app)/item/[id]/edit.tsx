@@ -2,10 +2,11 @@ import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useEffect, useState } from 'react'
 import { editExecutionItem, getExecutionItem } from '@tracknow/core/services/executionService'
 import { getReminderForItem, setReminderForItem } from '@tracknow/core/services/reminderService'
+import { NEEDS_MIGRATION_MESSAGE, isLegacySchema } from '@tracknow/core/services/schemaCompat'
 import type { ExecutionItem } from '@tracknow/core/types/domain'
-import type { HabitFrequency, TimeOfDayChoice } from '@tracknow/core/domain/habitSchedule'
+import type { TimeOfDayChoice } from '@tracknow/core/domain/habitSchedule'
 import { AppBar } from '@/components/AppBar'
-import { ItemForm, type ItemFormInitial } from '@/components/execution/ItemForm'
+import { ItemForm, repeatChoiceOf, type ItemFormInitial } from '@/components/execution/ItemForm'
 import { EmptyState, LoadingState, Screen } from '@/components/ui'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useToast } from '@/features/notifications/ToastContext'
@@ -19,12 +20,15 @@ function toInitial(item: ExecutionItem): ItemFormInitial {
     description: item.description ?? '',
     priority: item.priority,
     dueDate: item.due_date,
+    startDate: item.start_date ?? null,
     target: item.target_count ?? 1,
     unit: item.unit ?? '',
-    frequency: (sched?.frequency ?? 'daily') as HabitFrequency,
+    repeat: repeatChoiceOf(sched),
     daysOfWeek: sched?.days_of_week ?? [1, 2, 3, 4, 5],
+    timesPerWeek: sched?.times_per_week ?? 3,
     timeOfDay: ['anytime', 'morning', 'afternoon', 'evening'].includes(tod) ? tod : 'anytime',
     habitTime: sched?.reminder_time ?? '',
+    steps: item.checklist_entries ?? [],
     originalSchedule: sched ? { frequency: sched.frequency, days_of_week: sched.days_of_week } : null,
   }
 }
@@ -80,6 +84,9 @@ export default function EditItemScreen() {
           setBusy(true)
           try {
             const updated = await editExecutionItem(id, base, user.id)
+            if ((base.start_date || base.checklist_entries?.length || base.schedule?.times_per_week) && isLegacySchema()) {
+              showToast({ id: 'needs-migration', title: 'Saved with fewer details', message: NEEDS_MIGRATION_MESSAGE, type: 'warning', duration: 9000 })
+            }
             try {
               setReminderForItem(user.id, updated, nextPreset)
             } catch (remErr) {
@@ -91,11 +98,7 @@ export default function EditItemScreen() {
             }
             router.back()
           } catch (err) {
-            showToast({
-              title: 'Could not save item',
-              message: err instanceof Error ? err.message : 'Please try again.',
-              type: 'warning',
-            })
+            showToast({ title: 'Could not save item', message: err instanceof Error ? err.message : 'Please try again.', type: 'warning' })
             setBusy(false)
           }
         }}

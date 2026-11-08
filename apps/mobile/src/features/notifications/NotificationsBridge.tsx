@@ -11,7 +11,7 @@ function openFromResponse(response: Notifications.NotificationResponse | null, g
   const data = response?.notification.request.content.data as NotifData | undefined
   if (!data) return
   if (data.nudge === 'weekly') return go('/(app)/(tabs)/reviews')
-  if (data.nudge === 'streak') return go('/(app)/(tabs)/today')
+  if (data.nudge === 'streak') return go('/(app)/(tabs)')
   if (typeof data.planId === 'string' && data.planId) go(`/plan/${data.planId}`)
 }
 

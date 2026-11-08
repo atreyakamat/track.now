@@ -4,6 +4,7 @@ import type { ExecutionItem, UpdateExecutionItemInput } from '@tracknow/core/typ
 import {
   deleteExecutionItem,
   editExecutionItem,
+  setChecklistEntries,
   shouldResetHabitCount,
   stepItemCount,
   toggleItemStatus,
@@ -18,6 +19,8 @@ import {
 import { loadNotificationPreferences } from '@tracknow/core/services/notificationPreferences'
 import { calcHabitStreak, type HabitStreakSummary } from '@tracknow/core/domain/streaks'
 import { habitTrackedSince } from '@tracknow/core/domain/schedule'
+import { toggleChecklistEntry as toggleChecklistEntrySteps } from '@tracknow/core/domain/checklist'
+import { XP_PER_TYPE } from '@tracknow/core/domain/momentum'
 import { getTodayDateString } from '@tracknow/core/domain/dates'
 import { doneTodayAfterEdit } from '@tracknow/core/domain/itemEdit'
 import { useToast } from '@/features/notifications/ToastContext'
@@ -32,11 +35,10 @@ interface Options {
   onChanged?: (state: { items: ExecutionItem[]; completedTodayIds: string[] }) => void
 }
 
-
 const errorMessage = (err: unknown, fallback: string) => (err instanceof Error && err.message ? err.message : fallback)
 
 /**
- * Shared completion / count / edit / delete / reminder actions for item lists.
+ * Shared completion / count / checklist / edit / delete / reminder actions for item lists.
  *
  * - Per-item busy tracking (acting on one item never blocks or races another).
  * - Functional state updates (no stale closures between concurrent actions).
@@ -52,7 +54,6 @@ export function useExecutionItemActions({ userId, items, setItems, reload, onCha
   const [completionDates, setCompletionDates] = useState<Record<string, string[]>>({})
   const itemsRef = useRef(items)
   itemsRef.current = items
-  // Latest callbacks, so memoized handlers never call a stale reload/onChanged.
   const callbacksRef = useRef({ reload, onChanged })
   callbacksRef.current = { reload, onChanged }
   const completedRef = useRef(completedTodayIds)
@@ -74,10 +75,7 @@ export function useExecutionItemActions({ userId, items, setItems, reload, onCha
     return result
   }, [items, completionDates])
 
-  const isCompletedToday = useCallback(
-    (item: ExecutionItem) => completedTodayIds.has(item.id),
-    [completedTodayIds],
-  )
+  const isCompletedToday = useCallback((item: ExecutionItem) => completedTodayIds.has(item.id), [completedTodayIds])
 
   const beginBusy = (id: string) => {
     if (busyRef.current.has(id)) return false
@@ -125,10 +123,12 @@ export function useExecutionItemActions({ userId, items, setItems, reload, onCha
       const nextItem = nextItems.find(
         (it) => it.id !== item.id && it.status !== 'archived' && !nextCompleted.has(it.id) && it.status !== 'done',
       )
+      // Subtle XP feedback: the same points Insights derives from this completion.
+      const xp = `+${XP_PER_TYPE[item.type]} XP`
       showToast({
         id: `completion-${item.id}`,
-        title: `Completed: ${item.name}`,
-        message: item.type === 'habit' ? 'Logged for today.' : 'Nice work.',
+        title: item.type === 'milestone' ? `Milestone achieved: ${item.name}` : `Completed: ${item.name}`,
+        message: item.type === 'habit' ? `Logged for today · ${xp}` : `Nice work · ${xp}`,
         nextUp: nextItem?.name,
         type: 'success',
       })
@@ -140,7 +140,7 @@ export function useExecutionItemActions({ userId, items, setItems, reload, onCha
     try {
       await callbacksRef.current.reload()
     } catch {
-      /* the page shows its own load error */
+      /* the screen shows its own load error */
     }
   }
 
@@ -213,7 +213,27 @@ export function useExecutionItemActions({ userId, items, setItems, reload, onCha
     [userId],
   )
 
-  /** Throws so the edit dialog can show the error inline (and stay open). */
+  const toggleChecklistEntry = useCallback(
+    async (item: ExecutionItem, entryId: string) => {
+      if (!userId || !beginBusy(item.id)) return
+      const wasDoneToday = completedRef.current.has(item.id)
+      try {
+        const current = itemsRef.current.find((it) => it.id === item.id) ?? item
+        const entries = toggleChecklistEntrySteps(current.checklist_entries ?? [], entryId)
+        const updated = await setChecklistEntries(item.id, entries, userId)
+        const doneToday = updated.status === 'done' ? wasDoneToday || current.status !== 'done' : false
+        const { nextItems, nextCompleted } = applyResult(updated, doneToday, wasDoneToday)
+        if (doneToday && !wasDoneToday) completionFeedback(updated, nextItems, nextCompleted)
+      } catch (err) {
+        await fail(`Could not update “${item.name}”`, err)
+      } finally {
+        endBusy(item.id)
+      }
+    },
+    [userId],
+  )
+
+  /** Throws so the edit screen can show the error inline (and stay open). */
   const saveEdit = useCallback(
     async (itemId: string, input: UpdateExecutionItemInput) => {
       if (!userId) throw new Error('You are signed out.')
@@ -224,8 +244,6 @@ export function useExecutionItemActions({ userId, items, setItems, reload, onCha
         const doneToday = doneTodayAfterEdit(input, before, updated, wasDoneToday)
         applyResult(updated, doneToday, wasDoneToday)
       } catch (err) {
-        // The service may have saved part of the change (e.g. fields saved, schedule not):
-        // re-sync so the list reflects what is really stored.
         callbacksRef.current.reload().catch(() => undefined)
         throw err
       }
@@ -294,6 +312,7 @@ export function useExecutionItemActions({ userId, items, setItems, reload, onCha
     toggle,
     step,
     setCount,
+    toggleChecklistEntry,
     saveEdit,
     remove,
     snooze,
