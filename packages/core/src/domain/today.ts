@@ -19,6 +19,8 @@ function byDueThenPriority(a: ExecutionItem, b: ExecutionItem): number {
 }
 
 export interface TodayGroups {
+  /** Skipped today on purpose (not a miss); shown muted, never counted. */
+  skipped: ExecutionItem[]
   /** Up to MAX_FOCUS items the user chose as today's priorities (not yet completed). */
   focus: ExecutionItem[]
   overdue: ExecutionItem[]
@@ -31,6 +33,8 @@ export interface TodayGroups {
 export const MAX_FOCUS = 3
 
 export interface TodayGroupOptions {
+  /** Items skipped for today (see services/skipService). */
+  skippedIds?: Iterable<string>
   /** Items pinned as today's focus (device-local choice). */
   focusIds?: ReadonlySet<string> | readonly string[]
   /** Completion dates per item (needed for weekly-target habits; the current week is enough). */
@@ -53,7 +57,8 @@ export function groupTodayItems(
   now = new Date(),
   options: TodayGroupOptions = {},
 ): TodayGroups {
-  const groups: TodayGroups = { focus: [], overdue: [], dueToday: [], anytime: [], upcoming: [], completedToday: [] }
+  const groups: TodayGroups = { skipped: [], focus: [], overdue: [], dueToday: [], anytime: [], upcoming: [], completedToday: [] }
+  const skippedIds = new Set(options.skippedIds ?? [])
   const today = getTodayDateString(now)
   const focusIds = options.focusIds instanceof Set ? options.focusIds : new Set(options.focusIds ?? [])
   for (const item of items) {
@@ -63,6 +68,10 @@ export function groupTodayItems(
       continue
     }
     if (item.type !== 'habit' && item.status === 'done') continue // finished on an earlier day
+    if (skippedIds.has(item.id)) {
+      groups.skipped.push(item)
+      continue
+    }
     if (!hasStarted(item, today)) {
       groups.upcoming.push(item)
       continue

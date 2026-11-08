@@ -4,6 +4,7 @@ import { useAuth } from '@/features/auth/AuthProvider'
 import { authService } from '@/features/auth/authService'
 import { Button, Input, PasswordInput } from '@/components/ui'
 import { BrandMark } from '@/components/ui/BrandMark'
+import { OAuthButtons } from '@/components/auth/OAuthButtons'
 import { RESET_EMAIL_COOLDOWN_SECONDS } from '@tracknow/core/auth/password'
 import { returnPathFromState } from '@/routes/returnPath'
 
@@ -143,6 +144,7 @@ export function LoginPage() {
           </form>
         ) : (
           <form onSubmit={handleSubmit} className="auth__form" noValidate>
+            <OAuthButtons onError={setError} />
             {notice && (
               <div className="alert alert--info" role="status">
                 {notice}

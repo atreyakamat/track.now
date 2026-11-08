@@ -98,14 +98,14 @@ interface Tally {
 }
 
 /** Planned vs done for one habit inside [from, to] (already clipped to its tracked range). */
-function habitTally(item: ExecutionItem, dates: Set<string>, from: string, to: string): Tally {
+function habitTally(item: ExecutionItem, dates: Set<string>, from: string, to: string, skipped?: ReadonlySet<string>): Tally {
   if (from > to) return { planned: 0, done: 0 }
   const target = weeklyTarget(item.schedule)
   if (target === null) {
     let planned = 0
     let done = 0
     for (let d = from; d <= to; d = addDaysTo(d, 1)) {
-      if (!isFixedScheduleDay(item.schedule, d)) continue
+      if (!isFixedScheduleDay(item.schedule, d) || skipped?.has(d)) continue
       planned++
       if (dates.has(d)) done++
     }
@@ -141,6 +141,8 @@ export interface RetentionInput {
   planIds?: Set<string>
   /** Never count before this date (e.g. an Arc's start). */
   since?: string | null
+  /** Days skipped on purpose per item (not planned, not missed). */
+  skippedByItem?: Record<string, readonly string[]>
 }
 
 export function buildRetention(input: RetentionInput): RetentionResult {
@@ -173,12 +175,13 @@ export function buildRetention(input: RetentionInput): RetentionResult {
     const until = planMeasuredUntil(plan, today)
     const dates = datesByItem.get(item.id) ?? new Set<string>()
     const tallies = perPlan.get(item.plan_id)!
+    const skipped = input.skippedByItem?.[item.id] ? new Set(input.skippedByItem[item.id]) : undefined
     if (item.type === 'habit') {
       const tracked = habitTrackedSince(item)
       const start = [floor, tracked, plan?.start_date].filter((d): d is string => Boolean(d)).sort().at(-1)!
       weekStarts.forEach((ws, i) => {
         const we = addDaysTo(ws, 6)
-        const t = habitTally(item, dates, ws < start ? start : ws, we > until ? until : we)
+        const t = habitTally(item, dates, ws < start ? start : ws, we > until ? until : we, skipped)
         overall[i].planned += t.planned
         overall[i].done += t.done
         tallies[i].planned += t.planned
@@ -219,7 +222,7 @@ export function buildRetention(input: RetentionInput): RetentionResult {
 
   const habits = items
     .filter((i) => i.type === 'habit')
-    .map((item) => habitRetention(item, datesByItem.get(item.id) ?? new Set(), planMeasuredUntil(planById.get(item.plan_id), today), today, weekStarts))
+    .map((item) => habitRetention(item, datesByItem.get(item.id) ?? new Set(), planMeasuredUntil(planById.get(item.plan_id), today), today, weekStarts, input.skippedByItem?.[item.id] ? new Set(input.skippedByItem[item.id]) : undefined))
     .sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || (a.recentPercent ?? 101) - (b.recentPercent ?? 101))
 
   const establishedHabits = habits.filter((h) => h.status === 'kept' || h.status === 'slipping' || h.status === 'dropped')
@@ -242,6 +245,7 @@ function habitRetention(
   until: string,
   today: string,
   weekStarts: string[],
+  skipped?: ReadonlySet<string>,
 ): HabitRetention {
   const tracked = habitTrackedSince(item)
   const lastDone = [...dates].filter((d) => d <= today).sort().at(-1) ?? null
@@ -250,7 +254,7 @@ function habitRetention(
     return { ...base, status: 'not_started', recentPercent: null, previousPercent: null, weeksOnTrack: 0, bestWeeksOnTrack: 0 }
   }
   const start = tracked ?? '0000-01-01'
-  const clip = (from: string, to: string) => habitTally(item, dates, from < start ? start : from, to > until ? until : to)
+  const clip = (from: string, to: string) => habitTally(item, dates, from < start ? start : from, to > until ? until : to, skipped)
   const recent = clip(addDaysTo(today, -(WINDOW_DAYS - 1)), today)
   const previous = clip(addDaysTo(today, -(2 * WINDOW_DAYS - 1)), addDaysTo(today, -WINDOW_DAYS))
   const recentPercent = pct(recent.done, recent.planned)

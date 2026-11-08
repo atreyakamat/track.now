@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { Button, Drawer } from '@/components/ui'
 import { Sidebar } from './Sidebar'
+import { usePreferences } from '@/hooks/usePreferences'
 import { BrandMark } from '@/components/ui/BrandMark'
 
 interface MobileNavProps {
@@ -17,9 +18,10 @@ interface MobileNavProps {
 }
 
 export function MobileNav({ drawerOpen, onToggleDrawer, onCloseDrawer }: MobileNavProps) {
+  const { terms } = usePreferences()
   const links = [
     { to: '/today', label: 'Today', icon: Calendar },
-    { to: '/tracks', label: 'Tracks', icon: Target },
+    { to: '/tracks', label: terms.tracks, icon: Target },
     { to: '/reviews', label: 'Reviews', icon: CheckCircle2 },
     { to: '/analytics', label: 'Analytics', icon: BarChart3 },
   ]

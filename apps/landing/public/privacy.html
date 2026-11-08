@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Track.now — Privacy</title>
+    <meta name="description" content="Exactly what Track.now stores, where, and how to export or delete it." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <style>
+      :root { color-scheme: light dark; --bg: #f4efe6; --fg: #141414; --muted: #6b665c; --border: #ddd5c5; --lime: #c8f169; }
+      @media (prefers-color-scheme: dark) { :root { --bg: #0e0e0c; --fg: #f4efe6; --muted: #a8a396; --border: #2c2c27; } }
+      body { margin: 0; background: var(--bg); color: var(--fg); font-family: Inter, "Segoe UI", system-ui, sans-serif; line-height: 1.55; }
+      main { max-width: 720px; margin: 0 auto; padding: 48px 16px 80px; }
+      h1 { font-size: 2rem; letter-spacing: -0.02em; margin: 0 0 4px; }
+      h2 { font-size: 1.15rem; margin: 32px 0 8px; }
+      p, li { color: var(--muted); }
+      strong { color: var(--fg); }
+      table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+      th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
+      th { color: var(--fg); }
+      a { color: var(--fg); }
+      .mark { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; font-weight: 700; margin-bottom: 24px; }
+      .mark img { width: 28px; height: 28px; border-radius: 8px; }
+      .updated { font-size: 0.85rem; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <a class="mark" href="/"><img src="/favicon.svg" alt="" /> Track.now</a>
+      <h1>Privacy</h1>
+      <p class="updated">Last updated 9 November 2026. Short on purpose: this is exactly what is stored and where.</p>
+
+      <h2>What is stored, and where</h2>
+      <table>
+        <thead><tr><th>Data</th><th>Where</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Email address and password hash</strong></td><td>Supabase Auth (hosted database, EU/US region chosen at project creation)</td><td>To sign you in. We never see your password; Supabase stores only a hash.</td></tr>
+          <tr><td><strong>Display name</strong></td><td>Supabase (profiles table)</td><td>Shown in the app and on a Plan you choose to share.</td></tr>
+          <tr><td><strong>Tracks, Plans, items, schedules, completions</strong></td><td>Supabase, rows tagged with your user id and protected by row-level security</td><td>This is the app. Only your account can read or change your rows.</td></tr>
+          <tr><td><strong>Reminders, notification settings, review notes, preferences, skips, focus, onboarding progress</strong></td><td>Your device only (browser storage or the phone app’s local database)</td><td>They never leave the device. Signing out removes reminders and focus; clearing site data removes the rest.</td></tr>
+          <tr><td><strong>Share links</strong></td><td>Supabase (plan_shares table)</td><td>Only when you create one. Anyone with the link sees that one Plan, read-only, until you revoke it.</td></tr>
+        </tbody>
+      </table>
+
+      <h2>What is not collected</h2>
+      <ul>
+        <li>No analytics or tracking scripts, no advertising identifiers, no third-party cookies.</li>
+        <li>No location, contacts, photos or microphone access.</li>
+        <li>No sale or sharing of data with anyone. There is no AI model trained on your data.</li>
+      </ul>
+
+      <h2>Sign-in with Google or Apple</h2>
+      <p>If you use it, the provider tells Supabase your email and name so an account can be created or matched. Nothing is posted to your Google or Apple account.</p>
+
+      <h2>Your controls</h2>
+      <ul>
+        <li><strong>Export</strong> everything as JSON or CSV from Settings → Your data.</li>
+        <li><strong>Delete your account</strong> from Settings → Delete account. It removes your sign-in and every row you own immediately and permanently.</li>
+        <li><strong>Revoke</strong> any share link from the Plan it belongs to.</li>
+      </ul>
+
+      <h2>Contact</h2>
+      <p>Questions or deletion requests: <a href="mailto:hello@atreyakamat.dev">hello@atreyakamat.dev</a>.</p>
+    </main>
+  </body>
+</html>

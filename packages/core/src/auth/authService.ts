@@ -174,6 +174,24 @@ export const authService = {
     return { remoteRevoked: false }
   },
 
+  /**
+   * Google / Apple sign-in through Supabase Auth (OAuth, PKCE). Works once the provider is
+   * enabled in the Supabase dashboard; until then the server answers "provider is not enabled".
+   */
+  async signInWithProvider(provider: 'google' | 'apple', redirectTo?: string): Promise<void> {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: redirectTo ?? passwordResetRedirectTo?.()?.replace(/\/reset-password$/, '/today') },
+    })
+    if (error) {
+      const m = (error.message ?? '').toLowerCase()
+      if (m.includes('not enabled') || m.includes('unsupported provider')) {
+        throw new Error(`${provider === 'google' ? 'Google' : 'Apple'} sign-in is not switched on for this app yet. Use email and password, or ask the owner to enable it.`)
+      }
+      throw new Error(friendlyAuthError(error))
+    }
+  },
+
   async resetPasswordForEmail(email: string): Promise<void> {
     // NOTE (owner action): the redirect URL must be in Supabase Auth > URL Configuration > Redirect URLs.
     const { error } = await supabase.auth.resetPasswordForEmail(email, {

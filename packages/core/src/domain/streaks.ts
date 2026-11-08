@@ -78,12 +78,16 @@ export function calcHabitStreak(
   now = new Date(),
   evaluationDays = 90,
   trackedSince?: string | null,
+  /** Days the user skipped on purpose (sick, travelling, planned rest): treated as rest days. */
+  skippedDates?: Iterable<string>,
 ): HabitStreakSummary {
   const target = weeklyTarget(schedule as { times_per_week?: number | null } | null | undefined)
   if (target !== null) return calcWeeklyTargetStreak(itemId, target, completedDates, now, evaluationDays, trackedSince)
   const todayStr = getTodayDateString(now)
   const uniqueDates = Array.from(new Set(completedDates.filter(Boolean))).sort()
   const completionSet = new Set(uniqueDates)
+  const skipped = new Set(skippedDates ?? [])
+  const isScheduled = (d: string) => isHabitScheduledForDate(schedule, d) && !skipped.has(d)
 
   const isCompletedToday = completionSet.has(todayStr)
   const totalCompletions = uniqueDates.length
@@ -98,7 +102,7 @@ export function calcHabitStreak(
     let safetyCounter = 0
     while (safetyCounter < 730) {
       safetyCounter++
-      if (isHabitScheduledForDate(schedule, cursor)) {
+      if (isScheduled(cursor)) {
         if (completionSet.has(cursor)) {
           currentStreak++
           cursor = addDays(cursor, -1)
@@ -119,7 +123,7 @@ export function calcHabitStreak(
 
     while (safetyCounter < 30) {
       safetyCounter++
-      if (isHabitScheduledForDate(schedule, prevScheduled)) {
+      if (isScheduled(prevScheduled)) {
         foundPrevScheduled = true
         prevScheduledCompleted = completionSet.has(prevScheduled)
         break
@@ -134,7 +138,7 @@ export function calcHabitStreak(
       safetyCounter = 0
       while (safetyCounter < 730) {
         safetyCounter++
-        if (isHabitScheduledForDate(schedule, cursor)) {
+        if (isScheduled(cursor)) {
           if (completionSet.has(cursor)) {
             currentStreak++
             cursor = addDays(cursor, -1)
@@ -164,7 +168,7 @@ export function calcHabitStreak(
 
   while (current <= todayStr && safetyCounter < 1000) {
     safetyCounter++
-    if (isHabitScheduledForDate(schedule, current)) {
+    if (isScheduled(current)) {
       if (completionSet.has(current)) {
         runningStreak++
         if (runningStreak > longestStreak) {
@@ -199,7 +203,7 @@ export function calcHabitStreak(
     safetyCounter++
     // Today is still pending until it is completed; it is not a missed day.
     if (checkDate === todayStr && !isCompletedToday) break
-    if (isHabitScheduledForDate(schedule, checkDate)) {
+    if (isScheduled(checkDate)) {
       expectedInWindow++
       if (completionSet.has(checkDate)) {
         completedInWindow++

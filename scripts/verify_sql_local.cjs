@@ -35,8 +35,9 @@ const MIGRATIONS = {
   revokeTrigger: path.join(MIG, '20261014000000_revoke_trigger_function_execute.sql'),
   plansArcs: path.join(MIG, '20261108000000_plans_arcs_and_flexible_items.sql'),
   arcName: path.join(MIG, '20261108010000_plans_arc_name.sql'),
+  sharing: path.join(MIG, '20261109000000_account_deletion_and_plan_sharing.sql'),
 }
-const ALL_IN_ORDER = [MIGRATIONS.init, MIGRATIONS.harden, MIGRATIONS.secure, MIGRATIONS.habit, MIGRATIONS.revokeTrigger, MIGRATIONS.plansArcs, MIGRATIONS.arcName]
+const ALL_IN_ORDER = [MIGRATIONS.init, MIGRATIONS.harden, MIGRATIONS.secure, MIGRATIONS.habit, MIGRATIONS.revokeTrigger, MIGRATIONS.plansArcs, MIGRATIONS.arcName, MIGRATIONS.sharing]
 
 const exe = (name) => (process.platform === 'win32' ? `${name}.exe` : name)
 
@@ -241,10 +242,43 @@ async function main() {
     record('verify_increment_rpc_security.sql (after plans/arcs migration)', r.status === 0 && /ALL \d+ CHECKS PASSED/.test(out(r)))
     if (r.status !== 0) console.log(out(r))
 
+    // 6d. Account deletion + Plan sharing.
+    apply(DB, MIGRATIONS.sharing, 'account deletion + sharing migration')
+    record('sharing: anon cannot execute delete_my_account; authenticated can; shared-plan RPC is public',
+      scalar(DB, `SELECT has_function_privilege('anon', 'public.track_now_delete_my_account()', 'EXECUTE')::text || ',' ||
+                         has_function_privilege('authenticated', 'public.track_now_delete_my_account()', 'EXECUTE')::text || ',' ||
+                         has_function_privilege('anon', 'public.track_now_get_shared_plan(text)', 'EXECUTE')::text`) === 'false,true,true')
+    apply(DB, writeTemp(tmp, 'share_fixture.sql', `
+      SET request.jwt.claims = '{"sub":"00000000-0000-4000-8000-0000000000d1","role":"authenticated"}';
+      SET ROLE authenticated;
+      INSERT INTO public.track_now_plan_shares (user_id, plan_id, token) VALUES
+        ('00000000-0000-4000-8000-0000000000d1', '20000000-0000-4000-8000-0000000000d1', 'tok_valid_0123456789abcdef0123456789abcdef'),
+        ('00000000-0000-4000-8000-0000000000d1', '20000000-0000-4000-8000-0000000000d1', 'tok_revoked_123456789abcdef0123456789abcdef');
+      UPDATE public.track_now_plan_shares SET revoked_at = now() WHERE token LIKE 'tok_revoked%';
+      RESET ROLE;
+      RESET ROLE;`), 'share fixture')
+    record('sharing: another user sees none of the owner\'s share rows',
+      scalar(DB, `SET request.jwt.claims = '{"sub":"00000000-0000-4000-8000-0000000000a2","role":"authenticated"}'; SET ROLE authenticated; SELECT count(*) FROM public.track_now_plan_shares; RESET ROLE;`) === '0')
+    record('sharing: a valid token returns the plan (anon), a revoked one returns NULL, and the user id is never exposed',
+      scalar(DB, `SET ROLE anon; SELECT (public.track_now_get_shared_plan('tok_valid_0123456789abcdef0123456789abcdef')->'plan'->>'name') IS NOT NULL
+        AND public.track_now_get_shared_plan('tok_revoked_123456789abcdef0123456789abcdef') IS NULL
+        AND (public.track_now_get_shared_plan('tok_valid_0123456789abcdef0123456789abcdef')::text NOT LIKE '%00000000-0000-4000-8000-0000000000d1%'); RESET ROLE;`).includes('t'))
+    apply(DB, writeTemp(tmp, 'delete_account.sql', `
+      INSERT INTO auth.users (id, email) VALUES ('00000000-0000-4000-8000-0000000000a3', 'gone@example.invalid');
+      INSERT INTO public.track_now_tracks (id, user_id, name, status) VALUES ('10000000-0000-4000-8000-0000000000a3', '00000000-0000-4000-8000-0000000000a3', 'Gone track', 'active');
+      SET request.jwt.claims = '{"sub":"00000000-0000-4000-8000-0000000000a3","role":"authenticated"}';
+      SET ROLE authenticated;
+      SELECT public.track_now_delete_my_account();
+      RESET ROLE;`), 'delete account')
+    record('delete_my_account removes the user and their rows, and only theirs',
+      scalar(DB, `SELECT (SELECT count(*) FROM auth.users WHERE id = '00000000-0000-4000-8000-0000000000a3')::text || ',' ||
+                         (SELECT count(*) FROM public.track_now_tracks WHERE user_id = '00000000-0000-4000-8000-0000000000a3')::text || ',' ||
+                         (SELECT count(*) FROM public.track_now_plans WHERE id = '20000000-0000-4000-8000-0000000000d1')::text`) === '0,0,1')
+
     // 7. Re-applying migrations is safe and always ends in the secure state.
     let reapplyOk = true
     let reapplyErr = ''
-    for (const file of [...ALL_IN_ORDER, MIGRATIONS.secure, MIGRATIONS.habit, MIGRATIONS.revokeTrigger, MIGRATIONS.plansArcs, MIGRATIONS.arcName]) {
+    for (const file of [...ALL_IN_ORDER, MIGRATIONS.secure, MIGRATIONS.habit, MIGRATIONS.revokeTrigger, MIGRATIONS.plansArcs, MIGRATIONS.arcName, MIGRATIONS.sharing]) {
       const a = psqlFile(DB, file)
       if (a.status !== 0) {
         reapplyOk = false

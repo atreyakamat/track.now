@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons'
 import { useFocusEffect, useRouter } from 'expo-router'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { RefreshControl, ScrollView, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { listTracks } from '@tracknow/core/services/tracksService'
@@ -22,6 +22,7 @@ import { ProgressPanel } from '@/components/insights/ProgressPanel'
 import { RetentionPanel } from '@/components/insights/RetentionPanel'
 import { Card, EmptyState, ErrorState, LoadingState, ProgressBar, Segmented, Text } from '@/components/ui'
 import { useAuth } from '@/features/auth/AuthProvider'
+import { loadPreferences, onPreferencesChange } from '@tracknow/core/services/preferences'
 import { useAsync } from '@/hooks/useAsync'
 import { useTheme } from '@/theme/ThemeProvider'
 import { resolveTrackColor, spacing } from '@/theme/tokens'
@@ -51,6 +52,8 @@ export default function AnalyticsScreen() {
   const { colors } = useTheme()
   const router = useRouter()
   const [rangeDays, setRangeDays] = useState<AnalyticsRangeDays>(30)
+  const [gentle, setGentle] = useState(() => (user ? loadPreferences(user.id).gamification === 'gentle' : false))
+  useEffect(() => onPreferencesChange((p) => setGentle(p.gamification === 'gentle')), [])
 
   const { data, loading, error, reload, refreshing } = useAsync(async () => {
     if (!user) return null
@@ -121,7 +124,7 @@ export default function AnalyticsScreen() {
           />
         ) : (
           <View style={{ gap: spacing[5] }}>
-            {user ? <ProgressPanel userId={user.id} items={data.items} plans={data.plans} tracks={data.tracks.length} ledger={data.ledger} /> : null}
+            {user && !gentle ? <ProgressPanel userId={user.id} items={data.items} plans={data.plans} tracks={data.tracks.length} ledger={data.ledger} /> : null}
 
             <RetentionPanel
               items={data.items}

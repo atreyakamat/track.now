@@ -1,4 +1,5 @@
 import { clearFocusForUser } from '@tracknow/core/services/focusService'
+import { clearSkipsForUser } from '@tracknow/core/services/skipService'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { ensureProfile, getProfile } from '@tracknow/core/services/tracksService'
@@ -59,6 +60,7 @@ function wipeLocalUserData(userId: string | null): void {
   if (userId) {
     clearRemindersForUser(userId)
     clearFocusForUser(userId)
+    clearSkipsForUser(userId)
   }
   clearWidgetData().catch(() => undefined)
   closeShownNotifications()

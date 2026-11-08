@@ -2,7 +2,9 @@ import { NavLink } from 'react-router-dom'
 import {
   BarChart3,
   Calendar,
+  CalendarDays,
   CheckCircle2,
+  Library,
   LogOut,
   Moon,
   Plus,
@@ -12,6 +14,7 @@ import {
   X,
 } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthProvider'
+import { usePreferences } from '@/hooks/usePreferences'
 import { BrandMark } from '@/components/ui/BrandMark'
 import { useTheme } from '@/hooks/useTheme'
 import { initials } from '@tracknow/core/utils/format'
@@ -27,11 +30,14 @@ export function Sidebar({ onNavigate, isDrawer }: SidebarProps) {
   const { theme, toggleTheme } = useTheme()
   const { showToast } = useToast()
 
+  const { terms } = usePreferences()
   const links = [
     { to: '/today', label: 'Today', icon: Calendar },
-    { to: '/tracks', label: 'Tracks', icon: Target },
+    { to: '/calendar', label: 'Calendar', icon: CalendarDays },
+    { to: '/tracks', label: terms.tracks, icon: Target },
     { to: '/reviews', label: 'Reviews', icon: CheckCircle2 },
     { to: '/analytics', label: 'Analytics', icon: BarChart3 },
+    { to: '/library', label: 'Library', icon: Library },
   ]
 
   const handleSignOut = async () => {

@@ -16,12 +16,18 @@ import { AnalyticsPage } from '@/pages/AnalyticsPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import { ArcPage } from '@/pages/arcs/ArcPage'
+import { StartPage } from '@/pages/StartPage'
+import { LibraryPage } from '@/pages/LibraryPage'
+import { CalendarPage } from '@/pages/CalendarPage'
+import { SharedPlanPage } from '@/pages/SharedPlanPage'
 
 export function AppRoutes() {
   return (
     <Routes>
       {/* Password recovery: reachable with the recovery session the email link creates */}
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      {/* Public, read-only shared Plan (accountability partner link). */}
+      <Route path="/share/:token" element={<SharedPlanPage />} />
 
       {/* Public auth routes */}
       <Route element={<PublicRoute />}>
@@ -42,6 +48,9 @@ export function AppRoutes() {
           <Route path="/tracks/:trackId/plans/:planId" element={<PlanDetailPage />} />
           <Route path="/plans/:planId" element={<PlanDetailPage />} />
           <Route path="/arcs/:arcKey" element={<ArcPage />} />
+          <Route path="/start" element={<StartPage />} />
+          <Route path="/library" element={<LibraryPage />} />
+          <Route path="/calendar" element={<CalendarPage />} />
           <Route path="/today" element={<TodayPage />} />
           <Route path="/reviews" element={<ReviewsPage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />

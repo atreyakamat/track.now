@@ -84,7 +84,7 @@ describe('database boundary across all migrations', () => {
   it('enables row level security on every track_now_* table that is created', () => {
     const all = files.map((f) => stripComments(read(f))).join('\n')
     const created = [...all.matchAll(/CREATE TABLE IF NOT EXISTS public\.(\w+)/g)].map((m) => m[1])
-    expect(created.length).toBe(7)
+    expect(created.length).toBe(8)
     created.forEach((t) => expect(all).toContain(`ALTER TABLE public.${t} ENABLE ROW LEVEL SECURITY`))
   })
 })

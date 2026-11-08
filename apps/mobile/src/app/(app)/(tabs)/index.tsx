@@ -7,6 +7,7 @@ import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeabl
 import * as Haptics from 'expo-haptics'
 import { hasCompletedOnboarding } from '@tracknow/core/services/onboardingService'
 import { onboardingState } from '@tracknow/core/services/onboardingState'
+import { loadPreferences, onPreferencesChange } from '@tracknow/core/services/preferences'
 import {
   listCompletionsForDate,
   listCompletionsForItems,
@@ -172,6 +173,8 @@ export default function TodayScreen() {
   const [error, setError] = useState<string | null>(null)
   const [focusIds, setFocusIds] = useState<string[]>(() => (userId ? loadFocusIds(userId) : []))
   const [tourOpen, setTourOpen] = useState(false)
+  const [gentle, setGentle] = useState(() => (userId ? loadPreferences(userId).gamification === 'gentle' : false))
+  useEffect(() => onPreferencesChange((p) => setGentle(p.gamification === 'gentle')), [])
   const [tourDone, setTourDone] = useState(() => (userId ? onboardingState.tourDone(userId) : false))
   const [focusUsed, setFocusUsed] = useState(() => (userId ? onboardingState.focusUsed(userId) : false))
   const [questsDismissed, setQuestsDismissed] = useState(() => (userId ? onboardingState.questsDismissed(userId) : false))
@@ -432,11 +435,11 @@ export default function TodayScreen() {
                     </View>
                   ) : null}
                 </View>
-                {progress ? <LevelStrip level={progress.level} streak={progress.streak} week={progress.week} onPress={() => router.push('/(app)/(tabs)/analytics')} /> : null}
+                {progress && !gentle ? <LevelStrip level={progress.level} streak={progress.streak} week={progress.week} onPress={() => router.push('/(app)/(tabs)/analytics')} /> : null}
               </Card>
             ) : null}
 
-            {progress && !questsDismissed ? (
+            {progress && !gentle && !questsDismissed ? (
               <QuestCard
                 quests={progress.quests}
                 onQuest={onQuest}
@@ -484,9 +487,9 @@ export default function TodayScreen() {
                   <Card style={{ borderColor: colors.success, alignItems: 'center', gap: spacing[1], paddingVertical: spacing[4] }}>
                     {allDone ? (
                       <>
-                        <Text variant="display" style={{ fontSize: 32 }}>
-                          🎉
-                        </Text>
+                        <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.success, alignItems: 'center', justifyContent: 'center' }}>
+                          <Feather name="check" size={24} color={colors.controlText} />
+                        </View>
                         <Text variant="h3" style={{ color: colors.success }} center>
                           All done for today
                         </Text>

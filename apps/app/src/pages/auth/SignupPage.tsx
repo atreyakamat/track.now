@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { Button, Input, PasswordInput } from '@/components/ui'
 import { BrandMark } from '@/components/ui/BrandMark'
+import { OAuthButtons } from '@/components/auth/OAuthButtons'
 
 export function SignupPage() {
   const { signUp } = useAuth()
@@ -56,7 +57,7 @@ export function SignupPage() {
       )
 
       if (res.signedIn) {
-        navigate('/today', { replace: true })
+        navigate('/start', { replace: true })
       } else {
         setSuccessNotice(
           'Account created! Please check your email to confirm your account before logging in.',
@@ -93,6 +94,7 @@ export function SignupPage() {
           className="auth__form"
           noValidate
         >
+          <OAuthButtons onError={setError} />
           {successNotice ? (
             <div className="alert alert--info" role="status" style={{ textAlign: 'center' }}>
               <p>{successNotice}</p>

@@ -1294,8 +1294,11 @@ export function LandingPage() {
                 <a href={LOGIN_URL} className="landing__footer-link">
                   Sign In
                 </a>
-                <a href={`${APP_URL}/dashboard`} className="landing__footer-link">
-                  Open Dashboard
+                <a href={`${APP_URL}/today`} className="landing__footer-link">
+                  Open the app
+                </a>
+                <a href="/privacy.html" className="landing__footer-link">
+                  Privacy
                 </a>
               </div>
 

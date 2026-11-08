@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Bell, Calendar, Check, Clock, Edit2, Flame, Hourglass, Repeat, Star, Trash2 } from 'lucide-react'
+import { Bell, Calendar, Check, Clock, Edit2, Flame, Hourglass, MoreHorizontal, Repeat, Star, Trash2 } from 'lucide-react'
+import { SKIP_REASONS, type SkipReason } from '@tracknow/core/services/skipService'
+import { addDaysTo } from '@tracknow/core/domain/schedule'
 import type { ExecutionItem } from '@tracknow/core/types/domain'
 import { getTodayDateString } from '@tracknow/core/domain/dates'
 import { checklistProgress } from '@tracknow/core/domain/checklist'
@@ -37,6 +39,10 @@ interface ExecutionItemCardProps {
   focused?: boolean
   onToggleFocus?: (item: ExecutionItem) => void
   onToggleChecklistEntry?: (item: ExecutionItem, entryId: string) => void
+  /** Move a dated item (tasks, milestones, checklists, projects). */
+  onReschedule?: (item: ExecutionItem, dueDate: string) => void
+  /** Skip today with a reason (not a miss). */
+  onSkip?: (item: ExecutionItem, reason: SkipReason) => void
 }
 
 const fmtDay = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
@@ -74,7 +80,10 @@ export function ExecutionItemCard({
   focused,
   onToggleFocus,
   onToggleChecklistEntry,
+  onReschedule,
+  onSkip,
 }: ExecutionItemCardProps) {
+  const today = getTodayDateString()
   const entries = item.type === 'checklist' ? (item.checklist_entries ?? []) : []
   const steps = checklistProgress(entries)
   const notStarted = Boolean(item.start_date && item.start_date > getTodayDateString())
@@ -550,6 +559,41 @@ export function ExecutionItemCard({
           >
             <Star size={14} fill={focused ? 'currentColor' : 'none'} />
           </Button>
+        )}
+
+        {(onReschedule || onSkip) && !isDone && (
+          <details className="item-menu">
+            <summary className="btn btn--ghost btn--sm" aria-label={`More actions for ${item.name}`} title="Reschedule or skip">
+              <MoreHorizontal size={14} />
+            </summary>
+            <div className="item-menu__panel" role="menu">
+              {onReschedule && item.type !== 'habit' && (
+                <>
+                  <span className="t-meta">Move to</span>
+                  <button type="button" role="menuitem" className="item-menu__btn" onClick={() => onReschedule(item, addDaysTo(today, 1))}>
+                    Tomorrow
+                  </button>
+                  <button type="button" role="menuitem" className="item-menu__btn" onClick={() => onReschedule(item, addDaysTo(today, 7))}>
+                    Next week
+                  </button>
+                  <label className="item-menu__btn" style={{ gap: 'var(--space-2)' }}>
+                    <span>Pick a date</span>
+                    <input type="date" className="control" style={{ minHeight: 32, padding: '2px 6px' }} min={today} onChange={(e) => e.target.value && onReschedule(item, e.target.value)} aria-label={`Pick a new date for ${item.name}`} />
+                  </label>
+                </>
+              )}
+              {onSkip && (
+                <>
+                  <span className="t-meta">Skip today (not a miss)</span>
+                  {SKIP_REASONS.map((r) => (
+                    <button key={r.value} type="button" role="menuitem" className="item-menu__btn" onClick={() => onSkip(item, r.value)}>
+                      {r.label}
+                    </button>
+                  ))}
+                </>
+              )}
+            </div>
+          </details>
         )}
 
         {onEdit && (

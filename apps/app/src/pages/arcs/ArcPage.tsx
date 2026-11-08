@@ -16,6 +16,8 @@ import type { ExecutionItem, Plan, Track } from '@tracknow/core/types/domain'
 import { EmptyState, ErrorState, LoadingState, PageHeader, ProgressBar } from '@/components/ui'
 import { PlanCard } from '@/components/plans/PlanCard'
 import { RetentionPanel } from '@/components/insights/RetentionPanel'
+import { ShareWeekButton } from '@/components/insights/ShareWeekCard'
+import { buildWeekCard } from '@tracknow/core/domain/shareCard'
 import '@/styles/insights.css'
 
 interface Loaded {
@@ -107,6 +109,11 @@ export function ArcPage() {
         description={`${arc.plans.length} Plans across ${arc.trackIds.length} Tracks${arc.start || arc.end ? ` · ${formatDateRange(arc.start, arc.end)}` : ''}`}
       />
 
+      {data && (
+        <div className="row" style={{ justifyContent: 'flex-end', marginBottom: 'var(--space-3)' }}>
+          <ShareWeekButton card={buildWeekCard({ items: data.items, plans: data.plans, completions: data.completions, now: data.loadedAt, arcName: arc.name, planIds })} label="Share this week’s card" />
+        </div>
+      )}
       <section className="card stack" style={{ gap: 'var(--space-3)', marginBottom: 'var(--space-6)' }} aria-label="Arc overview">
         {t && (
           <div className="stack" style={{ gap: 'var(--space-1)' }}>

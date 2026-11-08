@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { PlanImportCard } from '@/components/settings/PlanImportCard'
 import { ChangePasswordCard } from '@/components/settings/ChangePasswordCard'
+import { PreferencesCard } from '@/components/settings/PreferencesCard'
+import { DataCard } from '@/components/settings/DataCard'
+import { DeleteAccountCard } from '@/components/settings/DeleteAccountCard'
 import { AlertCircle, Bell, Compass, Info, LogOut, Moon, RefreshCw, Save, Smartphone, Sun, User } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useNavigate } from 'react-router-dom'
@@ -295,6 +298,8 @@ export function SettingsPage() {
         </section>
 
         {/* Reminders & notifications */}
+        <PreferencesCard />
+
         {user?.email && <ChangePasswordCard email={user.email} />}
 
         <section className="card" aria-labelledby="settings-reminders-heading">
@@ -535,6 +540,7 @@ export function SettingsPage() {
 
         {/* Appearance */}
         {user?.id && <PlanImportCard userId={user.id} />}
+        {user?.id && <DataCard userId={user.id} />}
 
         <section className="card" aria-labelledby="settings-appearance-heading">
           <h2 id="settings-appearance-heading" className="t-h2" style={{ marginBottom: 'var(--space-3)' }}>
@@ -591,7 +597,12 @@ export function SettingsPage() {
             <LogOut size={16} aria-hidden="true" />
             <span>{signingOut ? 'Signing out…' : 'Sign Out'}</span>
           </Button>
+          <p className="t-caption" style={{ marginTop: 'var(--space-3)' }}>
+            What is stored and where: <a href="https://tracknow.atreyakamat.dev/privacy.html" target="_blank" rel="noreferrer">Privacy</a>.
+          </p>
         </section>
+
+        {user?.email && <DeleteAccountCard email={user.email} />}
       </div>
     </div>
   )

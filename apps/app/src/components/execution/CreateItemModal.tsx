@@ -5,6 +5,7 @@ import { Button, Input, Modal, Select, Textarea } from '@/components/ui'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { loadNotificationPreferences } from '@tracknow/core/services/notificationPreferences'
 import { previewReminder } from '@tracknow/core/services/reminderService'
+import { parseQuickAdd } from '@tracknow/core/domain/quickAdd'
 import { useToast } from '@/features/notifications/ToastContext'
 import {
   ChecklistStepsEditor,
@@ -68,6 +69,33 @@ export function CreateItemModal({
   const [habitReminderTime, setHabitReminderTime] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [quick, setQuick] = useState('')
+  const [quickHint, setQuickHint] = useState<string | null>(null)
+
+  /** "Gym Mon Wed Fri 6am" → fills type, name, days, time, due date. The fields stay editable. */
+  const applyQuick = (text: string) => {
+    setQuick(text)
+    if (!text.trim()) return setQuickHint(null)
+    const q = parseQuickAdd(text)
+    setName(q.name)
+    setType(q.type)
+    setPriority(q.priority)
+    if (q.dueDate && q.type !== 'habit') setDueDate(q.dueDate)
+    if (q.type === 'habit') {
+      if (q.timesPerWeek) {
+        setFrequency('flexible')
+        setTimesPerWeek(q.timesPerWeek)
+      } else if (q.daysOfWeek && q.daysOfWeek.length < 7) {
+        setFrequency('weekly')
+        setDaysOfWeek(q.daysOfWeek)
+      } else setFrequency('daily')
+      setTimeOfDay(q.timeOfDay)
+      if (q.time) setHabitReminderTime(q.time)
+    }
+    if (q.targetCount) setTargetInput(String(q.targetCount))
+    if (q.unit) setUnit(q.unit)
+    setQuickHint(q.recognised.length ? `Understood: ${q.recognised.join(', ')}` : 'Type days, a time, "3x a week" or "tomorrow" and they are picked up.')
+  }
 
   // Reset the form every time the dialog opens, honouring the requested type and the
   // user's default reminder preference from Settings.
@@ -91,6 +119,8 @@ export function CreateItemModal({
     setPresetTouched(false)
     setExactReminderTime('')
     setHabitReminderTime('')
+    setQuick('')
+    setQuickHint(null)
     setError(null)
     setBusy(false)
   }, [open, defaultType, user?.id])
@@ -198,6 +228,14 @@ export function CreateItemModal({
       }
     >
       <form id={formId} onSubmit={handleSubmit} className="form" style={{ gap: 'var(--space-3)' }} noValidate>
+        <Input
+          label="Quick add"
+          placeholder="e.g. Gym Mon Wed Fri 6am · Call dentist tomorrow · Read 20 pages every evening"
+          value={quick}
+          onChange={(e) => applyQuick(e.target.value)}
+          hint={quickHint ?? 'Describe it in plain words; the fields below fill in. Or skip this and use the fields.'}
+          autoComplete="off"
+        />
         {error && (
           <div className="alert alert--error" role="alert">
             {error}

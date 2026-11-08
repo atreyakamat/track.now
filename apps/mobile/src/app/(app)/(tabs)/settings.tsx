@@ -5,6 +5,7 @@ import { Switch, View } from 'react-native'
 import { updateProfile } from '@tracknow/core/services/tracksService'
 import { loadNotificationPreferences, saveNotificationPreferences } from '@tracknow/core/services/notificationPreferences'
 import { onboardingState } from '@tracknow/core/services/onboardingState'
+import { loadPreferences, savePreferences, type AppPreferences } from '@tracknow/core/services/preferences'
 import type { NotificationPreferences } from '@tracknow/core/types/notifications'
 import { Button, Card, ConfirmDialog, Screen, Text, TextField } from '@/components/ui'
 import { PageHeader } from '@/components/PageHeader'
@@ -46,9 +47,13 @@ export default function SettingsScreen() {
   const [notifEnabled, setNotifEnabled] = useState<boolean | null>(null)
   const [enablingNotif, setEnablingNotif] = useState(false)
   const [prefs, setPrefs] = useState<NotificationPreferences | null>(null)
+  const [appPrefs, setAppPrefs] = useState<AppPreferences | null>(null)
 
   useEffect(() => {
-    if (user?.id) setPrefs(loadNotificationPreferences(user.id))
+    if (user?.id) {
+      setPrefs(loadNotificationPreferences(user.id))
+      setAppPrefs(loadPreferences(user.id))
+    }
   }, [user?.id])
 
   const setPref = (patch: Partial<NotificationPreferences>) => {
@@ -176,6 +181,29 @@ export default function SettingsScreen() {
             </View>
           ) : null}
         </Card>
+
+        {appPrefs ? (
+          <Card style={{ gap: spacing[3] }}>
+            <Text variant="meta" tone="tertiary">
+              Motivation
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ flex: 1, paddingRight: spacing[3] }}>
+                <Text variant="caption">Gentle mode</Text>
+                <Text variant="meta" tone="tertiary" style={{ textTransform: 'none', letterSpacing: 0 }}>
+                  Hides XP, levels, quests and achievements. Momentum stays.
+                </Text>
+              </View>
+              <Switch
+                value={appPrefs.gamification === 'gentle'}
+                onValueChange={(v) => {
+                  if (user?.id) setAppPrefs(savePreferences(user.id, { gamification: v ? 'gentle' : 'full' }))
+                }}
+                trackColor={{ true: colors.accentPrimary, false: colors.surfaceMuted }}
+              />
+            </View>
+          </Card>
+        ) : null}
 
         <Card style={{ gap: spacing[3] }}>
           <Text variant="meta" tone="tertiary">

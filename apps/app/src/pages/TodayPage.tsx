@@ -22,6 +22,8 @@ import { LevelStrip } from '@/components/insights/LevelStrip'
 import { ledgerWithToday, useLifetimeLedger } from '@/hooks/useLifetimeLedger'
 import { weeklyTargetStatus } from '@tracknow/core/domain/schedule'
 import { loadFocusIds, toggleFocusId } from '@tracknow/core/services/focusService'
+import { addSkip, loadSkips, removeSkip, skippedDatesByItem, type SkipReason, SKIP_REASONS } from '@tracknow/core/services/skipService'
+import { usePreferences } from '@/hooks/usePreferences'
 import type { ExecutionItem, Plan } from '@tracknow/core/types/domain'
 import { groupArcs } from '@tracknow/core/domain/arcs'
 import { arcPath } from '@/components/plans/ArcCard'
@@ -52,6 +54,8 @@ export function TodayPage() {
   const requestRef = useRef(0)
   const [searchParams, setSearchParams] = useSearchParams()
   const [tourOpen, setTourOpen] = useState(false)
+  const { gentle, terms } = usePreferences()
+  const [skips, setSkips] = useState(() => (userId ? loadSkips(userId) : []))
   const [tourDone, setTourDone] = useState(() => (userId ? onboardingState.tourDone(userId) : false))
   const [focusUsed, setFocusUsed] = useState(() => (userId ? onboardingState.focusUsed(userId) : false))
   const [questsDismissed, setQuestsDismissed] = useState(() => (userId ? onboardingState.questsDismissed(userId) : false))
@@ -162,14 +166,14 @@ export function TodayPage() {
       focusUsed,
     })
     const xp = computeXp(rows, items).total + questXp(quests)
-    const week = buildRetention({ items, plans, completions: rows, now: new Date(), weeks: 1 }).weeks[0]
+    const week = buildRetention({ items, plans, completions: rows, now: new Date(), weeks: 1, skippedByItem: skippedDatesByItem(skips) }).weeks[0]
     return {
       level: levelFor(xp),
       streak: activeDayStreak(rows, today, addDays(today, -1)),
       quests,
       week: week ? { done: week.done, planned: week.planned } : null,
     }
-  }, [ledger, loading, actions.completedTodayIds, items, workspace, tourDone, focusUsed])
+  }, [ledger, loading, actions.completedTodayIds, items, workspace, tourDone, focusUsed, skips])
 
   // Announce a level-up once (the last level seen is remembered per user on this device).
   useEffect(() => {
@@ -218,10 +222,32 @@ export function TodayPage() {
   if (loading) return <LoadingState label="Preparing today’s queue…" />
   if (error) return <ErrorState message={error} onRetry={() => void loadData()} />
 
+  const todayStr = getTodayDateString()
+  const skippedToday = skips.filter((s) => s.date === todayStr)
   const groups = groupTodayItems(items, actions.completedTodayIds, new Date(), {
     focusIds,
     historyByItem: actions.completionDates,
+    skippedIds: skippedToday.map((s) => s.item_id),
   })
+  const skipReasonFor = (id: string) => SKIP_REASONS.find((r) => r.value === skippedToday.find((s) => s.item_id === id)?.reason)?.label ?? 'Skipped'
+
+  const skipItem = (item: ExecutionItem, reason: SkipReason) => {
+    if (!userId) return
+    setSkips(addSkip(userId, item.id, reason))
+    showToast({ id: `skip-${item.id}`, title: `Skipped today: ${item.name}`, message: 'Not counted as a miss. Undo from the Skipped section.', type: 'info' })
+  }
+  const unskipItem = (item: ExecutionItem) => {
+    if (!userId) return
+    setSkips(removeSkip(userId, item.id))
+  }
+  const rescheduleItem = async (item: ExecutionItem, due: string) => {
+    try {
+      await actions.saveEdit(item.id, { due_date: due })
+      showToast({ id: `resched-${item.id}`, title: `Moved to ${new Date(`${due}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`, message: item.name, type: 'info' })
+    } catch (err) {
+      showToast({ title: 'Could not move the item', message: err instanceof Error ? err.message : 'Please try again.', type: 'warning' })
+    }
+  }
   const summary = todaySummary(groups)
   const totalOpen = groups.focus.length + groups.overdue.length + groups.dueToday.length + groups.anytime.length
   const byId = new Map(items.map((i) => [i.id, i]))
@@ -262,6 +288,8 @@ export function TodayPage() {
         focused={focusSet.has(item.id)}
         onToggleFocus={toggleFocus}
         onToggleChecklistEntry={(it, entryId) => void actions.toggleChecklistEntry(it, entryId)}
+        onReschedule={(it, due) => void rescheduleItem(it, due)}
+        onSkip={skipItem}
         onToggleStatus={(id) => {
           const it = byId.get(id)
           if (it) void actions.toggle(it)
@@ -350,11 +378,16 @@ export function TodayPage() {
             </span>
             <span className="sr-only">{momentum.explanation}</span>
           </div>
-          {progress && <LevelStrip level={progress.level} streak={progress.streak} week={progress.week} />}
+          {progress && !gentle && <LevelStrip level={progress.level} streak={progress.streak} week={progress.week} />}
+          {progress && gentle && progress.week && progress.week.planned > 0 && (
+            <span className="t-meta" style={{ flexBasis: '100%' }}>
+              This week {progress.week.done}/{progress.week.planned} planned
+            </span>
+          )}
         </div>
       )}
 
-      {progress && !questsDismissed && (
+      {progress && !gentle && !questsDismissed && (
         <QuestCard
           quests={progress.quests}
           onTour={() => setTourOpen(true)}
@@ -388,7 +421,7 @@ export function TodayPage() {
           description={
             workspace.tracks.length
               ? 'Add a habit or task to one of your active Plans and it will show up here.'
-              : 'Create a Track (like Health or Career), start a Plan inside it, and add your first habit or task.'
+              : `Pick a ready-made setup, or create ${terms.track === 'Track' ? 'a Track' : 'an Area'} (like Health or Career), start a ${terms.plan} inside it, and add your first habit or task.`
           }
           action={
             canCreate ? (
@@ -396,8 +429,8 @@ export function TodayPage() {
                 <Plus size={16} /> Add your first item
               </Button>
             ) : (
-              <ButtonLink to={workspace.tracks.length ? '/tracks' : '/tracks/new'} variant="primary">
-                {workspace.tracks.length ? 'Open your Tracks' : 'Create a Track'}
+              <ButtonLink to={workspace.tracks.length ? '/tracks' : '/start'} variant="primary">
+                {workspace.tracks.length ? `Open your ${terms.tracks}` : 'Get started'}
               </ButtonLink>
             )
           }
@@ -422,6 +455,28 @@ export function TodayPage() {
           {section('Anytime', groups.anytime)}
           {section('Upcoming', groups.upcoming, { icon: 'clock' })}
           {section('Completed Today', groups.completedToday, { muted: true })}
+          {groups.skipped.length > 0 && (
+            <section className="section today-section today-section--muted" aria-label={`Skipped today (${groups.skipped.length})`}>
+              <div className="section__head">
+                <h2 className="t-h2" style={{ color: 'var(--text-secondary)' }}>
+                  Skipped today ({groups.skipped.length})
+                </h2>
+                <span className="t-meta">Not counted as missed</span>
+              </div>
+              <ul className="skipped-list">
+                {groups.skipped.map((it) => (
+                  <li key={it.id} className="skipped-list__item">
+                    <span>
+                      <strong>{it.name}</strong> <span className="t-meta">· {skipReasonFor(it.id)}</span>
+                    </span>
+                    <Button size="sm" variant="ghost" onClick={() => unskipItem(it)}>
+                      Undo
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
         </div>
       )}
 

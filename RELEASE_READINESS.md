@@ -65,6 +65,35 @@ the update.
 | Gamified tour (6 steps, Skip always available; auto-opens once for an account with no Tracks, replay from Settings or `/today?tour=1`) and getting-started quests (8, each verified from real records or a local flag; one-time +20 XP each) | `components/onboarding/*`, `domain/quests.ts`, `features/onboarding/onboardingState.ts` |
 | Level strip on Today (level, XP to next, active-day streak, this week planned/done), level-up toast once per level, 5 new achievements (Explorer, Perfect week, Comeback, Arc builder, Century) | `components/insights/LevelStrip.tsx`, `hooks/useLifetimeLedger.ts`, `domain/momentum.ts` |
 
+### Growth release — 2026-11-09
+
+Everything from the "make it friendlier for more people" list that can be built without the owner's external accounts:
+
+| Area | What shipped | Where |
+| :--- | :--- | :--- |
+| First five minutes | `/start` after sign-up: six one-tap setups (Student, Fitness, Freelancer, New parent, Exam prep, Side business) or "just one habit" in plain words (auto-creates Personal → Daily routine) | `pages/StartPage.tsx`, `constants/goalTemplates.ts` |
+| Plan library ("store") | `/library`: 8 ready-made setups (Winter Arc 90 days, routines, half-marathon, learn to code, declutter, money reset, creator sprint, exam countdown) with a start date, preview and one-tap import; never duplicates | `constants/planLibrary.ts`, `pages/LibraryPage.tsx` |
+| Plain language | Settings → Preferences → Names: Tracks/Plans/Arcs or Areas/Goals/Challenges (labels only) | `domain/terms.ts`, `services/preferences.ts`, `hooks/usePreferences.ts` |
+| Natural-language quick add | "Gym Mon Wed Fri 6am", "Call dentist tomorrow", "Run 3x a week !high" fill the Add item form | `domain/quickAdd.ts`, `CreateItemModal.tsx` |
+| Reschedule and skip | Item menu on Today: Tomorrow / Next week / pick a date; Skip today with a reason. Skips are rest days: left out of Today totals, streaks and retention | `services/skipService.ts`, `domain/streaks.ts`, `domain/retention.ts`, `domain/today.ts` |
+| Calendar | `/calendar`: "Plan my week" (7 days with one-tap moves) and a month grid | `pages/CalendarPage.tsx` |
+| Gentle mode | Settings → Preferences → Motivation: hides XP, levels, quests, achievements; Momentum stays (web + mobile) | `services/preferences.ts` |
+| Shareable weekly card | 1080×1080 PNG "Week N of my Arc: X/Y done" via the share sheet or download, on Analytics and each Arc | `domain/shareCard.ts`, `components/insights/ShareWeekCard.tsx` |
+| Accountability partner | Read-only share link per Plan (`/share/:token`), revocable; public RPC returns only that Plan | `services/shareService.ts`, `pages/SharedPlanPage.tsx`, migration `20261109000000` |
+| Google / Apple sign-in | Buttons on sign-in and sign-up (Supabase OAuth); **works once the owner enables the providers** in Supabase → Authentication → Providers | `components/auth/OAuthButtons.tsx`, `authService.signInWithProvider` |
+| Import from elsewhere | CSV import (Todoist / Habitica exports or any sheet with a name column) into a chosen Plan | `domain/csvImport.ts`, `components/settings/DataCard.tsx` |
+| Export and delete | Export everything as JSON or CSV; delete account (typed confirmation, server-side RPC) | `domain/exportData.ts`, `services/accountService.ts`, `DeleteAccountCard.tsx` |
+| Privacy page | `tracknow.atreyakamat.dev/privacy.html`: exactly what is stored and where; linked from the landing footer and Settings | `apps/landing/public/privacy.html` |
+| Clock | 12-hour / 24-hour / follow device preference | `services/preferences.ts` |
+| GTM | `docs/GTM_PLAYBOOK.md`: positioning, channels, accounts to register, content system, launch sequence, 100 strategies | `docs/GTM_PLAYBOOK.md` |
+
+**Needs the owner (2026-11-09):**
+1. **Apply** `supabase/migrations/20261109000000_account_deletion_and_plan_sharing.sql` in the SQL editor (delete-account RPC, plan_shares table + RLS, public shared-plan RPC; local harness 25/25). Until then sharing and account deletion show a clear "needs the latest database update" message; everything else works.
+2. **Enable Google and Apple** in Supabase → Authentication → Providers (needs a Google Cloud OAuth client and an Apple Services ID). The buttons already explain when a provider is off.
+3. Social accounts and the newsletter from `docs/GTM_PLAYBOOK.md` section 4.
+
+**Deliberately not built (and why):** iOS home-screen widget (needs a Mac and expo-apple-targets), full localisation into Hindi/Spanish/Portuguese (hundreds of strings; the preferences scaffold is in place), offline-first write queue on mobile (reads are cached already; a sync engine is a multi-week project), paid tier (needs a payment provider account), Google Calendar / Apple Reminders import (OAuth / native APIs; CSV covers Todoist/Habitica), Monday/Sunday week start (every calculation is Monday-based on purpose).
+
 ### Mobile (Expo) parity — 2026-11-08
 
 The same release on `apps/mobile`, sharing every calculation through `@tracknow/core`:
@@ -88,7 +117,7 @@ they show on a device; until then the old icon stays and everything else works.
 Verification (2026-11-08): mobile `tsc --noEmit` PASS (typed routes regenerated) · `expo export -p android -p web` PASS ·
 web suite still 41 files / 491 tests PASS · web typecheck PASS.
 
-Verification (2026-11-08, final): typecheck PASS (web, core, mobile `tsc --noEmit`) · `npm test` **PASS, 41 files, 491 tests** ·
+Verification (2026-11-08, final): typecheck PASS (web, core, mobile `tsc --noEmit`) · `npm test` **PASS, 42 files, 505 tests** ·
 both production builds PASS · `node scripts/verify_sql_local.cjs` **21/21** · `node scripts/run_mocked_e2e.cjs` **7/7 PASS** (responsive audit: no overflow 320–1920 px, light + dark) · `npm audit --omit=dev` 0.
 
 ## Verification evidence (2026-10-13, Windows 11, Node 24.14.0, npm 10.9.0)

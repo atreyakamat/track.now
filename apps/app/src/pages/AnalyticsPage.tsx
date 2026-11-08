@@ -24,6 +24,9 @@ import { pluralize } from '@tracknow/core/utils/format'
 import '@/styles/insights.css'
 import { ProgressPanel } from '@/components/insights/ProgressPanel'
 import { RetentionPanel } from '@/components/insights/RetentionPanel'
+import { ShareWeekButton } from '@/components/insights/ShareWeekCard'
+import { buildWeekCard } from '@tracknow/core/domain/shareCard'
+import { usePreferences } from '@/hooks/usePreferences'
 
 interface LoadedData {
   tracks: Track[]
@@ -45,6 +48,7 @@ export function AnalyticsPage() {
   const { user } = useAuth()
   const userId = user?.id ?? null
   const [rangeDays, setRangeDays] = useState<AnalyticsRangeDays>(30)
+  const { gentle } = usePreferences()
   const [data, setData] = useState<LoadedData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -139,7 +143,12 @@ export function AnalyticsPage() {
             <span className="t-caption">{formatDateRangeLabel(analytics.range)}</span>
           </div>
 
-          {userId && data && <ProgressPanel userId={userId} items={data.items} plans={data.plans} tracks={data.tracks.length} />}
+          {data && (
+            <div className="row" style={{ justifyContent: 'flex-end' }}>
+              <ShareWeekButton card={buildWeekCard({ items: data.items, plans: data.plans, completions: data.completions, now: data.loadedAt })} />
+            </div>
+          )}
+          {userId && data && !gentle && <ProgressPanel userId={userId} items={data.items} plans={data.plans} tracks={data.tracks.length} />}
           {data && (
             <RetentionPanel items={data.items} plans={data.plans} tracks={data.tracks} completions={data.completions} now={data.loadedAt} />
           )}

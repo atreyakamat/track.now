@@ -34,6 +34,7 @@ import { CalendarHeatmap } from '@/components/analytics/CalendarHeatmap'
 import { arcKey, arcNames } from '@tracknow/core/domain/arcs'
 import { ArcField } from '@/components/plans/ArcField'
 import { arcPath } from '@/components/plans/ArcCard'
+import { SharePlanCard } from '@/components/plans/SharePlanCard'
 import { summarizePlan } from '@tracknow/core/domain/progress'
 import { formatDateRange } from '@tracknow/core/utils/format'
 import {
@@ -544,6 +545,12 @@ export function PlanDetailPage() {
           Part of the Arc{' '}
           <Link to={arcPath({ key: arcKey(plan.arc_name) })}>{plan.arc_name.trim()}</Link>
         </p>
+      )}
+
+      {userId && !isArchived && (
+        <div style={{ marginBottom: 'var(--space-4)' }}>
+          <SharePlanCard userId={userId} planId={plan.id} />
+        </div>
       )}
 
       {dueForReview && (
