@@ -235,6 +235,8 @@ export type AchievementId =
   | 'perfect_week'
   | 'comeback'
   | 'century'
+  | 'streak_30'
+  | 'five_milestones'
 
 export interface Achievement {
   id: AchievementId
@@ -417,6 +419,20 @@ export function calcAchievements(input: AchievementInput): Achievement[] {
       title: 'Arc builder',
       description: 'Group Plans from different Tracks into one Arc.',
       earned: arcPlans.length > 0,
+      earnedOn: null,
+    },
+    {
+      id: 'streak_30',
+      title: 'Thirty in a row',
+      description: 'Complete a habit on 30 scheduled days in a row.',
+      earned: input.longestDailyStreak >= 30,
+      earnedOn: null,
+    },
+    {
+      id: 'five_milestones',
+      title: 'Five milestones',
+      description: 'Achieve five milestones.',
+      earned: new Set(milestoneDates.length ? input.completions.filter((c) => byId.get(c.item_id)?.type === 'milestone').map((c) => c.item_id) : []).size >= 5,
       earnedOn: null,
     },
     {

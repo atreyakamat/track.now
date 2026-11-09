@@ -12,7 +12,9 @@ import {
 import { listCompletionHistory, type CompletionRecord } from '@tracknow/core/services/historyService'
 import { getTodayDateString, greeting } from '@tracknow/core/domain/dates'
 import { groupTodayItems, MAX_FOCUS, todaySummary } from '@tracknow/core/domain/today'
-import { calcMomentum, computeXp, levelFor, MOMENTUM_WINDOW_DAYS } from '@tracknow/core/domain/momentum'
+import { calcAchievements, calcMomentum, computeXp, levelFor, MOMENTUM_WINDOW_DAYS } from '@tracknow/core/domain/momentum'
+import { buildWeeklyRecap, daysSinceLastCompletion, encouragement, newlyEarned } from '@tracknow/core/domain/recap'
+import { WeeklyRecapCard } from '@/components/WeeklyRecapCard'
 import { activeDayStreak, calcQuests, questXp } from '@tracknow/core/domain/quests'
 import { buildRetention } from '@tracknow/core/domain/retention'
 import { onboardingState } from '@/features/onboarding/onboardingState'
@@ -60,6 +62,7 @@ export function TodayPage() {
   const [tourDone, setTourDone] = useState(() => (userId ? onboardingState.tourDone(userId) : false))
   const [focusUsed, setFocusUsed] = useState(() => (userId ? onboardingState.focusUsed(userId) : false))
   const [questsDismissed, setQuestsDismissed] = useState(() => (userId ? onboardingState.questsDismissed(userId) : false))
+  const [recapDismissed, setRecapDismissed] = useState<string | null>(() => (userId ? onboardingState.recapDismissedFor(userId) : null))
   const { ledger, reload: reloadLedger } = useLifetimeLedger(userId)
 
   const persistWidget = useCallback(
@@ -180,13 +183,29 @@ export function TodayPage() {
     })
     const xp = computeXp(rows, items).total + questXp(quests)
     const week = buildRetention({ items, plans, completions: rows, now: new Date(), weeks: 1, skippedByItem: skippedDatesByItem(skips) }).weeks[0]
+    const longestDailyStreak = Object.values(actions.streakSummaries).reduce((best, s) => Math.max(best, s.longestStreak), 0)
     return {
       level: levelFor(xp),
       streak: activeDayStreak(rows, today, addDays(today, -1)),
       quests,
       week: week ? { done: week.done, planned: week.planned } : null,
+      achievements: calcAchievements({ completions: rows, items, plans, longestDailyStreak, extras: { tourCompleted: tourDone }, habits: items.filter((i) => i.type === 'habit') }),
+      recap: buildWeeklyRecap(rows, today),
+      daysAway: daysSinceLastCompletion(rows, today),
     }
-  }, [ledger, loading, deferredDoneIds, deferredItems, workspace, tourDone, focusUsed, skips])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ledger, loading, deferredDoneIds, deferredItems, workspace, tourDone, focusUsed, skips, actions.streakSummaries])
+
+  // Announce a newly earned achievement once (what was announced is remembered per user on this
+  // device). The first run records what is already earned without a toast.
+  useEffect(() => {
+    if (!userId || !progress || gentle) return
+    const seen = onboardingState.seenAchievements(userId)
+    const earnedIds = progress.achievements.filter((a) => a.earned).map((a) => a.id)
+    const fresh = newlyEarned(progress.achievements, seen)
+    if (seen === null || fresh.length) onboardingState.setSeenAchievements(userId, earnedIds)
+    fresh.slice(0, 2).forEach((a) => showToast({ id: `achievement-${a.id}`, title: `Achievement: ${a.title}`, message: a.description, type: 'success', duration: 8000 }))
+  }, [progress, userId, gentle, showToast])
 
   // Announce a level-up once (the last level seen is remembered per user on this device).
   useEffect(() => {
@@ -266,6 +285,7 @@ export function TodayPage() {
     }
   }
   const summary = todaySummary(liveGroups)
+  const encourage = encouragement({ done: summary.done, total: summary.total, daysAway: progress?.daysAway ?? null, streak: progress?.streak ?? 0 })
   const totalOpen = liveGroups.focus.length + liveGroups.overdue.length + liveGroups.dueToday.length + liveGroups.anytime.length
   const byId = new Map(items.map((i) => [i.id, i]))
   const focusSet = new Set(focusIds)
@@ -379,6 +399,7 @@ export function TodayPage() {
             <span className="today-summary__count">
               {summary.done} of {summary.total} done
             </span>
+            {encourage && <span className="t-caption" style={{ display: 'block', color: 'var(--text-secondary)' }}>{encourage}</span>}
             <div
               className="today-summary__bar"
               role="progressbar"
@@ -405,6 +426,16 @@ export function TodayPage() {
             </span>
           )}
         </div>
+      )}
+
+      {progress?.recap && recapDismissed !== progress.recap.weekStart && (
+        <WeeklyRecapCard
+          recap={progress.recap}
+          onDismiss={() => {
+            if (userId && progress.recap) onboardingState.setRecapDismissedFor(userId, progress.recap.weekStart)
+            setRecapDismissed(progress.recap?.weekStart ?? null)
+          }}
+        />
       )}
 
       {progress && !gentle && !questsDismissed && (

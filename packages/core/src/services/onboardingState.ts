@@ -36,6 +36,42 @@ export const onboardingState = {
   /** A one-shot request (e.g. from Settings) for the home screen to open the tour. */
   tourRequested: (userId: string) => read(userId, 'tour_requested'),
   setTourRequested: (userId: string, requested = true) => write(userId, 'tour_requested', requested),
+  /**
+   * Achievements already announced on this device, or null when none was ever recorded (the first
+   * run records what is already earned silently, so an old account is not greeted by a pile of toasts).
+   */
+  seenAchievements: (userId: string): string[] | null => {
+    try {
+      const raw = getStorage()?.getItem(key(userId, 'achievements'))
+      if (raw === null || raw === undefined) return null
+      const parsed: unknown = JSON.parse(raw)
+      return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : null
+    } catch {
+      return null
+    }
+  },
+  setSeenAchievements: (userId: string, ids: readonly string[]) => {
+    try {
+      getStorage()?.setItem(key(userId, 'achievements'), JSON.stringify(ids))
+    } catch {
+      /* ignore */
+    }
+  },
+  /** Monday of the last weekly recap the user dismissed. */
+  recapDismissedFor: (userId: string): string | null => {
+    try {
+      return getStorage()?.getItem(key(userId, 'recap')) ?? null
+    } catch {
+      return null
+    }
+  },
+  setRecapDismissedFor: (userId: string, weekStart: string) => {
+    try {
+      getStorage()?.setItem(key(userId, 'recap'), weekStart)
+    } catch {
+      /* ignore */
+    }
+  },
   /** The level last shown to the user, to announce level-ups once. */
   lastLevel: (userId: string): number => {
     try {

@@ -68,6 +68,6 @@ describe('new achievements', () => {
     const earned = Object.fromEntries(a.map((x) => [x.id, x.earned]))
     expect(earned).toMatchObject({ explorer: true, arc_builder: true, comeback: true, century: true, perfect_week: false })
     expect(a.find((x) => x.id === 'comeback')?.earnedOn).toBe('2026-06-01')
-    expect(a).toHaveLength(12)
+    expect(a).toHaveLength(14)
   })
 })

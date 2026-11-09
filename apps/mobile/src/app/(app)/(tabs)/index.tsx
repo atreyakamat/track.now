@@ -24,7 +24,8 @@ import { reconcileRemindersWithActiveItems } from '@tracknow/core/services/remin
 import { getTodayDateString, greeting } from '@tracknow/core/domain/dates'
 import { addDays } from '@tracknow/core/domain/streaks'
 import { groupTodayItems, MAX_FOCUS, todaySummary } from '@tracknow/core/domain/today'
-import { calcMomentum, computeXp, levelFor } from '@tracknow/core/domain/momentum'
+import { calcAchievements, calcMomentum, computeXp, levelFor } from '@tracknow/core/domain/momentum'
+import { buildWeeklyRecap, daysSinceLastCompletion, encouragement, newlyEarned, recapHeadline } from '@tracknow/core/domain/recap'
 import { activeDayStreak, calcQuests, questXp, type Quest } from '@tracknow/core/domain/quests'
 import { buildRetention } from '@tracknow/core/domain/retention'
 import { weeklyTargetStatus } from '@tracknow/core/domain/schedule'
@@ -184,6 +185,7 @@ export default function TodayScreen() {
   const [tourDone, setTourDone] = useState(() => (userId ? onboardingState.tourDone(userId) : false))
   const [focusUsed, setFocusUsed] = useState(() => (userId ? onboardingState.focusUsed(userId) : false))
   const [questsDismissed, setQuestsDismissed] = useState(() => (userId ? onboardingState.questsDismissed(userId) : false))
+  const [recapDismissed, setRecapDismissed] = useState<string | null>(() => (userId ? onboardingState.recapDismissedFor(userId) : null))
   const requestRef = useRef(0)
   const actionsRef = useRef<ReturnType<typeof useExecutionItemActions> | null>(null)
 
@@ -297,14 +299,31 @@ export default function TodayScreen() {
     })
     const xp = computeXp(rows, items).total + questXp(quests)
     const week = buildRetention({ items, plans, completions: rows, now: new Date(), weeks: 1, skippedByItem: skippedDatesByItem(skips) }).weeks[0]
+    const longestDailyStreak = Object.values(actions.streakSummaries).reduce((best, s) => Math.max(best, s.longestStreak), 0)
     return {
       momentum: calcMomentum(items, rows),
       level: levelFor(xp),
       streak: activeDayStreak(rows, today, addDays(today, -1)),
       quests,
       week: week ? { done: week.done, planned: week.planned } : null,
+      achievements: calcAchievements({ completions: rows, items, plans, longestDailyStreak, extras: { tourCompleted: tourDone }, habits: items.filter((i) => i.type === 'habit') }),
+      recap: buildWeeklyRecap(rows, today),
+      daysAway: daysSinceLastCompletion(rows, today),
     }
-  }, [ledger, loading, deferredDoneIds, deferredItems, workspace, tourDone, focusUsed, skips])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ledger, loading, deferredDoneIds, deferredItems, workspace, tourDone, focusUsed, skips, actions.streakSummaries])
+
+  // Announce a newly earned achievement once (what was announced is remembered per user on this
+  // device). The first run records what is already earned without a toast.
+  useEffect(() => {
+    if (!userId || !progress || gentle) return
+    const seen = onboardingState.seenAchievements(userId)
+    const earnedIds = progress.achievements.filter((a) => a.earned).map((a) => a.id)
+    const fresh = newlyEarned(progress.achievements, seen)
+    if (seen === null || fresh.length) onboardingState.setSeenAchievements(userId, earnedIds)
+    if (fresh.length) void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined)
+    fresh.slice(0, 2).forEach((a) => showToast({ id: `achievement-${a.id}`, title: `Achievement: ${a.title}`, message: a.description, type: 'success', duration: 8000 }))
+  }, [progress, userId, gentle, showToast])
 
   // Announce a level-up once (the last level seen is remembered per user on this device).
   useEffect(() => {
@@ -435,6 +454,7 @@ export default function TodayScreen() {
   const groups = groupTodayItems(actions.groupingItems, actions.groupingCompletedIds, new Date(), groupOptions)
   const liveGroups = groupTodayItems(items, actions.completedTodayIds, new Date(), groupOptions)
   const summary = todaySummary(liveGroups)
+  const encourage = encouragement({ done: summary.done, total: summary.total, daysAway: progress?.daysAway ?? null, streak: progress?.streak ?? 0 })
   const totalOpen = liveGroups.focus.length + liveGroups.overdue.length + liveGroups.dueToday.length + liveGroups.anytime.length
   const nothingAtAll = items.filter((i) => i.status !== 'archived').length === 0
   const allDone = !loading && !nothingAtAll && totalOpen === 0 && groups.completedToday.length > 0
@@ -483,6 +503,11 @@ export default function TodayScreen() {
                     <Text variant="h3">
                       {summary.done} of {summary.total} done
                     </Text>
+                    {encourage ? (
+                      <Text variant="caption" tone="secondary">
+                        {encourage}
+                      </Text>
+                    ) : null}
                     <View style={{ height: 6, borderRadius: radius.pill, backgroundColor: colors.surfaceMuted, overflow: 'hidden' }} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: summary.percent }}>
                       <View style={{ width: `${summary.percent}%`, height: '100%', backgroundColor: colors.controlBg }} />
                     </View>
@@ -502,6 +527,31 @@ export default function TodayScreen() {
                   ) : null}
                 </View>
                 {progress && !gentle ? <LevelStrip level={progress.level} streak={progress.streak} week={progress.week} onPress={() => router.push('/(app)/(tabs)/analytics')} /> : null}
+              </Card>
+            ) : null}
+
+            {progress?.recap && recapDismissed !== progress.recap.weekStart ? (
+              <Card style={{ gap: spacing[1] }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text variant="h3">Your last week</Text>
+                  <Pressable
+                    hitSlop={10}
+                    accessibilityRole="button"
+                    accessibilityLabel="Hide last week's recap"
+                    onPress={() => {
+                      if (userId && progress.recap) onboardingState.setRecapDismissedFor(userId, progress.recap.weekStart)
+                      setRecapDismissed(progress.recap?.weekStart ?? null)
+                    }}
+                  >
+                    <Feather name="x" size={16} color={colors.textSecondary} />
+                  </Pressable>
+                </View>
+                <Text variant="caption" tone="secondary">
+                  {recapHeadline(progress.recap)}
+                  {progress.recap.bestDay && progress.recap.bestDay.count > 1
+                    ? ` Your best day was ${new Date(`${progress.recap.bestDay.date}T00:00:00`).toLocaleDateString(undefined, { weekday: 'long' })} with ${progress.recap.bestDay.count}.`
+                    : ''}
+                </Text>
               </Card>
             ) : null}
 
