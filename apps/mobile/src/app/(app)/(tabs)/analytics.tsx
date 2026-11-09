@@ -90,14 +90,6 @@ export default function AnalyticsScreen() {
     })
   }, [data, rangeDays])
 
-  const dailyCounts = useMemo(() => {
-    const counts: Record<string, number> = {}
-    data?.ledger.forEach((c) => {
-      counts[c.completed_date] = (counts[c.completed_date] ?? 0) + 1
-    })
-    return counts
-  }, [data])
-
   const chart = analytics?.weekly
     ? analytics.weekly.map((b) => ({ label: b.start.slice(5), count: b.count }))
     : (analytics?.daily ?? []).map((d) => ({ label: d.date.slice(5), count: d.count }))
@@ -156,7 +148,7 @@ export default function AnalyticsScreen() {
                 />
               </View>
 
-              <Heatmap counts={dailyCounts} />
+              <Heatmap completions={data.ledger} items={data.items} now={data.loadedAt} onOpenPlan={(planId) => router.push(`/plan/${planId}`)} />
 
               <Card style={{ gap: spacing[3] }}>
                 <Text variant="h3">Completions over time</Text>

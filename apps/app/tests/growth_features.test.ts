@@ -168,3 +168,50 @@ describe('routines: a habit with steps is ticked off again every day', () => {
     expect(routines.file!.tracks[0].plans[0].items[0].steps.length).toBeGreaterThan(2)
   })
 })
+
+describe('activity heatmap', () => {
+  it('lays days out in Mon–Sun weeks ending with the current week', async () => {
+    const { buildActivityHeatmap, countByDate } = await import('@tracknow/core/domain/heatmap')
+    const rows = [
+      { item_id: 'a', completed_date: '2026-11-06' },
+      { item_id: 'b', completed_date: '2026-11-07' },
+      { item_id: 'a', completed_date: '2026-11-07' },
+      { item_id: 'a', completed_date: '2026-11-08' },
+      { item_id: 'a', completed_date: '2026-10-20' },
+    ]
+    const map = buildActivityHeatmap({ counts: countByDate(rows), now: NOW, weeks: 4, highlight: { start: '2026-11-02', end: '2026-11-08' } })
+    expect(map.weeks).toHaveLength(4)
+    expect(map.weeks.at(-1)!.start).toBe('2026-11-02') // Monday of the week containing Sun 8 Nov
+    expect(map.weeks[0].start).toBe('2026-10-12')
+    expect(map.weeks.every((w) => w.days.length === 7)).toBe(true)
+    expect(map.total).toBe(5)
+    expect(map.activeDays).toBe(4)
+    expect(map.currentStreak).toBe(3)
+    expect(map.longestStreak).toBe(3)
+    expect(map.bestDay).toEqual({ date: '2026-11-07', count: 2 })
+    const cell = (d: string) => map.weeks.flatMap((w) => w.days).find((c) => c.date === d)!
+    expect(cell('2026-11-07').level).toBe(4)
+    expect(cell('2026-11-06').level).toBe(2)
+    expect(cell('2026-11-05').level).toBe(0)
+    expect(cell('2026-11-08').isToday).toBe(true)
+    expect(cell('2026-11-03').inRange).toBe(true)
+    expect(cell('2026-10-20').inRange).toBe(false)
+    expect(map.months.some((m) => m.label === 'Nov')).toBe(true)
+  })
+
+  it('keeps a run alive while today is still open, hides the future, and filters rows', async () => {
+    const { buildActivityHeatmap, countByDate } = await import('@tracknow/core/domain/heatmap')
+    const rows = [
+      { item_id: 'a', completed_date: '2026-11-06' },
+      { item_id: 'b', completed_date: '2026-11-07' },
+    ]
+    const map = buildActivityHeatmap({ counts: countByDate(rows), now: NOW, weeks: 2 })
+    expect(map.currentStreak).toBe(2)
+    const monday = new Date(2026, 10, 9, 9)
+    const next = buildActivityHeatmap({ counts: countByDate(rows), now: monday, weeks: 1 })
+    expect(next.weeks[0].days.filter((c) => c.isFuture)).toHaveLength(6)
+    expect(next.currentStreak).toBe(0)
+    expect(countByDate(rows, (r) => r.item_id === 'a')).toEqual({ '2026-11-06': 1 })
+    expect(buildActivityHeatmap({ counts: {}, now: NOW, weeks: 3 })).toMatchObject({ total: 0, activeDays: 0, bestDay: null, currentStreak: 0 })
+  })
+})

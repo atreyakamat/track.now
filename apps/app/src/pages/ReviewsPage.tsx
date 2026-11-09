@@ -17,6 +17,7 @@ import {
   rescheduleReminderForItem,
 } from '@tracknow/core/services/reminderService'
 import { listCompletionHistory, type CompletionRecord } from '@tracknow/core/services/historyService'
+import { ActivityHeatmap } from '@/components/insights/ActivityHeatmap'
 import {
   loadReviewNote,
   saveReviewNote,
@@ -396,6 +397,10 @@ export function ReviewsPage() {
         title="Reviews"
         description="A short, honest look back — built from what you actually completed — and a clear choice of what comes next."
       />
+
+      {userId && data && !isEmptyAccount && (
+        <ActivityHeatmap userId={userId} items={data.items} tracks={data.tracks} highlight={range} now={anchorNow} idPrefix="review-heatmap" />
+      )}
 
       <Tabs
         tabs={TABS}

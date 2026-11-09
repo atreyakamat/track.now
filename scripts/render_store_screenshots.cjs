@@ -54,6 +54,7 @@ const uid = (kind, n) => `${kind}0000000-0000-4000-8000-${String(n).padStart(12,
 const ARC = 'Winter Arc'
 const START = -20 // the Arc began 20 days ago
 const END = 69
+const HISTORY = -84 // ongoing routines go back twelve weeks
 
 const tracks = [
   { id: uid('1', 1), name: 'Health', icon: 'Dumbbell', color: '#22c55e', description: 'Gym, cardio, sleep and routines.' },
@@ -69,10 +70,10 @@ const plan = (n, track, name, extra = {}) => ({
 })
 const plans = [
   plan(1, 0, 'Winter Arc · Fitness', { outcome: 'Four gym days a week plus weekend cardio.', success_criteria: '4 gym sessions in most weeks\nOne cardio session at the weekend' }),
-  plan(2, 0, 'Morning & night routines', { plan_kind: 'ongoing', end_date: null, arc_name: null }),
+  plan(2, 0, 'Morning & night routines', { plan_kind: 'ongoing', end_date: null, arc_name: null, start_date: day(-84), created_at: iso(-85) }),
   plan(3, 1, 'Winter Arc · Learning', { outcome: 'Finish one practical project.' }),
   plan(4, 2, 'Winter Arc · Finances', { outcome: 'Weekly reviews and tracked spending.' }),
-  plan(5, 3, 'Household routine', { plan_kind: 'ongoing', end_date: null, arc_name: null }),
+  plan(5, 3, 'Household routine', { plan_kind: 'ongoing', end_date: null, arc_name: null, start_date: day(-84), created_at: iso(-85) }),
 ]
 
 let itemSeq = 0
@@ -84,7 +85,7 @@ function item(planIdx, type, name, extra = {}, sched = null) {
   const row = {
     id, plan_id: p.id, track_id: p.track_id, user_id: USER, type, name, description: null, status: 'todo', priority: 'medium',
     due_date: null, start_date: null, target_count: 1, current_count: 0, count_date: null, unit: null, checklist_entries: null,
-    position: itemSeq, metadata: {}, created_at: iso(START - 1), updated_at: iso(-1), ...extra,
+    position: itemSeq, metadata: {}, created_at: iso(p.plan_kind === 'ongoing' ? HISTORY : START - 1), updated_at: iso(-1), ...extra,
   }
   const s = type === 'habit' ? { id: uid('4', itemSeq), item_id: id, user_id: USER, frequency: 'daily', days_of_week: [0, 1, 2, 3, 4, 5, 6], time_of_day: 'anytime', reminder_time: null, times_per_week: null, created_at: iso(START - 1), ...(sched || {}) } : null
   if (s) schedules.push(s)
@@ -126,7 +127,8 @@ const scheduled = (it, offset) => {
 const adherence = new Map([[gym, 6], [cardio, 4], [morning, 9], [night, 5], [learn, 5], [spend, 7], [laundry, 9]])
 for (const [it, keepOutOf10] of adherence) {
   let n = 0
-  for (let o = START + 1; o <= -1; o++) {
+  const from = plans.find((p) => p.id === it.plan_id).plan_kind === 'ongoing' ? HISTORY + 1 : START + 1
+  for (let o = from; o <= -1; o++) {
     if (!scheduled(it, o)) continue
     n++
     // Miss a deterministic share of days; the most recent week is the strongest.
@@ -289,7 +291,7 @@ const SHOTS = [
   { file: '05-plan', path: `/plan/${plans[0].id}`, caption: 'Plans that know where they are going', sub: 'Outcome, milestones, habits and a review at the end', scheme: 'light' },
   { file: '06-calendar', path: '/calendar', caption: 'Plan my week in one tap', sub: 'Move a task to tomorrow or next week', scheme: 'dark' },
   { file: '07-library', path: '/library', caption: 'Start from a ready-made setup', sub: 'Winter Arc, routines, a first half-marathon and more', scheme: 'light' },
-  { file: '08-tracks', path: '/tracks', caption: 'Your life in Tracks', sub: 'Health, Growth, Money, Home. Anything you care about', scheme: 'dark' },
+  { file: '08-activity', path: '/reviews', caption: 'Your year at a glance', sub: 'Tap any day to see exactly what you did', scheme: 'dark' },
 ]
 
 const markSvg = fs.readFileSync(path.join(ROOT, 'brand', 'tracknow-mark.svg'), 'utf8')

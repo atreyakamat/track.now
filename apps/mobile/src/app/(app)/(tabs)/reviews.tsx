@@ -15,6 +15,7 @@ import { formatDateRangeLabel } from '@tracknow/core/domain/analytics'
 import { isDueForReview, PLAN_KIND_LABEL, planKindOf } from '@tracknow/core/domain/plans'
 import { pluralize } from '@tracknow/core/utils/format'
 import { PageHeader } from '@/components/PageHeader'
+import { Heatmap } from '@/components/insights/Heatmap'
 import { Button, Card, LoadingState, ProgressBar, Segmented, Text, TextField } from '@/components/ui'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useAsync } from '@/hooks/useAsync'
@@ -108,6 +109,8 @@ export default function ReviewsScreen() {
               ))}
             </Card>
           ) : null}
+
+          {data ? <Heatmap completions={data.completions} items={data.items} highlight={range} now={now} onOpenPlan={(planId) => router.push(`/plan/${planId}`)} /> : null}
 
           <Segmented
             value={tab}

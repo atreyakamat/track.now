@@ -76,6 +76,7 @@ the update.
 | Mobile: reschedule and skip | "More" on each Today card: Tomorrow / In 3 days / Next week, or skip with a reason; Skipped section with Undo | `app/(app)/(tabs)/index.tsx` |
 | Mobile: share links | Create, send (system share sheet) and revoke read-only Plan links | `components/plans/SharePlanCard.tsx` |
 | Motion | Web: page and list entrances, tick pop and ring pulse on completion, modal pop, press feedback. Mobile: staggered fade-in lists, spring pop on ticks, eased progress bars. All respect reduced-motion settings | `styles/workspace.css`, `components/ui/Motion.tsx` |
+| Activity heatmap | A year of days at a glance on Reviews and Analytics (web) and Reviews and Insights (phone): Mon–Sun weeks, month labels, five intensity levels tuned for light and dark, 3 / 6 / 12-month spans, completions / active days / current and longest run / best day, click or arrow to a day to see what was completed, Track filter (web), the reviewed week or month ringed | `domain/heatmap.ts`, `components/insights/ActivityHeatmap.tsx` (web), `components/insights/Heatmap.tsx` (mobile) |
 | Play Store pack | `Playstore readiness/`: listing text, data-safety and content-rating answers, release checklist, icon, feature graphic, 8 captioned phone screenshots (1080×1920) plus raw captures | `Playstore readiness/`, `scripts/render_store_screenshots.cjs` |
 
 Migration `20261109000000` (sharing + account deletion): **applied 2026-11-09** (verified: the shared-plan RPC answers 200 and `track_now_plan_shares` exists with anonymous access refused).
@@ -133,7 +134,7 @@ they show on a device; until then the old icon stays and everything else works.
 Verification (2026-11-08): mobile `tsc --noEmit` PASS (typed routes regenerated) · `expo export -p android -p web` PASS ·
 web suite still 41 files / 491 tests PASS · web typecheck PASS.
 
-Verification (2026-11-08, final): typecheck PASS (web, core, mobile `tsc --noEmit`) · `npm test` **PASS, 42 files, 510 tests** ·
+Verification (2026-11-08, final): typecheck PASS (web, core, mobile `tsc --noEmit`) · `npm test` **PASS, 42 files, 512 tests** ·
 both production builds PASS · `node scripts/verify_sql_local.cjs` **21/21** · `node scripts/run_mocked_e2e.cjs` **7/7 PASS** (responsive audit: no overflow 320–1920 px, light + dark) · `npm audit --omit=dev` 0.
 
 ## Verification evidence (2026-10-13, Windows 11, Node 24.14.0, npm 10.9.0)

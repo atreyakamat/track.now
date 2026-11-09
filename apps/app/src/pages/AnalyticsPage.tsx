@@ -24,6 +24,7 @@ import { pluralize } from '@tracknow/core/utils/format'
 import '@/styles/insights.css'
 import { ProgressPanel } from '@/components/insights/ProgressPanel'
 import { RetentionPanel } from '@/components/insights/RetentionPanel'
+import { ActivityHeatmap } from '@/components/insights/ActivityHeatmap'
 import { ShareWeekButton } from '@/components/insights/ShareWeekCard'
 import { buildWeekCard } from '@tracknow/core/domain/shareCard'
 import { usePreferences } from '@/hooks/usePreferences'
@@ -152,6 +153,8 @@ export function AnalyticsPage() {
           {data && (
             <RetentionPanel items={data.items} plans={data.plans} tracks={data.tracks} completions={data.completions} now={data.loadedAt} />
           )}
+
+          {userId && data && <ActivityHeatmap userId={userId} items={data.items} tracks={data.tracks} now={data.loadedAt} />}
 
           <MethodNote />
           <SummaryTiles analytics={analytics} />
