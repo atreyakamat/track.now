@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { Pressable, View } from 'react-native'
 import type { ExecutionItem } from '@tracknow/core/types/domain'
 import { getTodayDateString, isOverdue } from '@tracknow/core/domain/dates'
-import { checklistProgress } from '@tracknow/core/domain/checklist'
+import { checklistProgress, effectiveHabitSteps } from '@tracknow/core/domain/checklist'
 import { DAYS } from '@tracknow/core/domain/habitSchedule'
 import { weeklyTarget } from '@tracknow/core/domain/schedule'
 import { effectiveCurrentCount } from '@tracknow/core/domain/habitCounter'
@@ -11,6 +11,7 @@ import type { HabitStreakSummary } from '@tracknow/core/domain/streaks'
 import { formatReminderLabel, getReminderForItem } from '@tracknow/core/services/reminderService'
 import { onAppEvent } from '@tracknow/core/platform/events'
 import { Badge, Card, Text } from '@/components/ui'
+import { Pop } from '@/components/ui/Motion'
 import { useTheme } from '@/theme/ThemeProvider'
 import { radius, spacing } from '@/theme/tokens'
 
@@ -34,6 +35,8 @@ interface ExecutionItemCardProps {
   focused?: boolean
   onToggleFocus?: (item: ExecutionItem) => void
   onToggleChecklistEntry?: (item: ExecutionItem, entryId: string) => void
+  /** Opens the reschedule / skip sheet. */
+  onMore?: (item: ExecutionItem) => void
 }
 
 const fmtDay = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
@@ -88,15 +91,22 @@ export function ExecutionItemCard({
   focused,
   onToggleFocus,
   onToggleChecklistEntry,
+  onMore,
 }: ExecutionItemCardProps) {
   const { colors } = useTheme()
   const isDone = isCompletedOverride !== undefined ? isCompletedOverride : item.status === 'done'
   const overdue = item.type !== 'habit' && !isDone && isOverdue(item.due_date)
   const targetCount = Math.max(1, item.target_count ?? 1)
   const currentCount = effectiveCurrentCount(item, isDone)
-  const hasNumericTarget = targetCount > 1 || Boolean(item.unit)
+  const entries =
+    item.type === 'checklist'
+      ? (item.checklist_entries ?? [])
+      : item.type === 'habit'
+        ? effectiveHabitSteps(item, getTodayDateString(), isDone)
+        : []
+  // A routine's progress is its ticked steps, not a counter.
+  const hasNumericTarget = (targetCount > 1 || Boolean(item.unit)) && !(item.type === 'habit' && entries.length > 0)
   const progressPercent = Math.min(100, Math.round((currentCount / targetCount) * 100))
-  const entries = item.type === 'checklist' ? (item.checklist_entries ?? []) : []
   const steps = checklistProgress(entries)
   const notStarted = Boolean(item.start_date && item.start_date > getTodayDateString())
   const weekTarget = item.type === 'habit' ? weeklyTarget(item.schedule) : null
@@ -156,7 +166,7 @@ export function ExecutionItemCard({
             marginTop: 2,
           }}
         >
-          {isDone ? <Feather name="check" size={16} color={colors.controlText} /> : null}
+          <Pop active={isDone}>{isDone ? <Feather name="check" size={16} color={colors.controlText} /> : null}</Pop>
         </Pressable>
 
         <View style={{ flex: 1, gap: spacing[1] }}>
@@ -213,7 +223,9 @@ export function ExecutionItemCard({
                   accessibilityState={{ checked: e.done }}
                   style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2], minHeight: 32 }}
                 >
-                  <Feather name={e.done ? 'check-square' : 'square'} size={16} color={e.done ? colors.success : colors.textSecondary} />
+                  <Pop active={e.done}>
+                    <Feather name={e.done ? 'check-square' : 'square'} size={16} color={e.done ? colors.success : colors.textSecondary} />
+                  </Pop>
                   <Text variant="caption" tone={e.done ? 'secondary' : 'primary'} style={{ flex: 1, textDecorationLine: e.done ? 'line-through' : 'none' }}>
                     {e.label}
                   </Text>
@@ -336,6 +348,7 @@ export function ExecutionItemCard({
             color={focused ? colors.warning : undefined}
           />
         ) : null}
+        {onMore && !isDone ? <IconButton name="more-horizontal" label={`Reschedule or skip ${item.name}`} onPress={() => onMore(item)} disabled={busy} /> : null}
         {onOpenDetail && item.type === 'habit' ? (
           <IconButton name="bar-chart-2" label={`View ${item.name} history`} onPress={() => onOpenDetail(item)} disabled={busy} />
         ) : null}

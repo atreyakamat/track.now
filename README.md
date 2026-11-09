@@ -145,4 +145,5 @@ Important limits of the current v1:
 | `verify_rls_security`, `verify_e2e_journey`, `verify_browser_e2e`, `verify_rpc_http_dev` | **Live.** Create real users. They refuse to start unless `SUPABASE_SERVICE_ROLE_KEY` is set and `ALLOW_LIVE_SUPABASE` equals the target project ref (and it is not in `PRODUCTION_SUPABASE_REFS`). Disposable projects only. |
 | `verify_sql_local` | **Local database.** Creates, uses and deletes a throw-away PostgreSQL cluster on 127.0.0.1; never touches Supabase. |
 | `docs/GTM_PLAYBOOK.md` | Go-to-market playbook: positioning, channels, accounts, content system, 100 strategies. |
+| `render_store_screenshots` | **Local only, mock data.** Exports the phone app for the web against a fake project, captures it in headless Chrome and writes the captioned Play Store screenshots and feature graphic into `Playstore readiness/`. |
 | `render_brand` | **Local only.** Re-renders every icon, the Open Graph image and the Expo icon set from `brand/tracknow-mark.svg` with the local Chrome. |

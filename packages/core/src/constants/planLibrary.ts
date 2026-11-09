@@ -37,8 +37,8 @@ export const PLAN_LIBRARY: LibraryEntry[] = [
           name: 'Health', icon: 'Dumbbell', color: '#22c55e',
           plans: [
             { name: 'Morning & night routines', kind: 'ongoing', arc: null, start_date: '{START}', outcome: 'An early start and a consistent bedtime.', items: [
-              habit('Morning routine', { time_of_day: 'morning', reminder_time: '06:00' }, { description: 'Water, teeth, stretch, make the bed, plan the day.' }),
-              habit('Night routine', { time_of_day: 'evening', reminder_time: '21:00' }, { description: 'Tidy, prepare tomorrow, no screens before bed.' }),
+              habit('Morning routine', { time_of_day: 'morning', reminder_time: '06:00' }, { steps: ['Drink water', 'Brush teeth', 'Stretch for 5 minutes', 'Make the bed', 'Look at Today'] }),
+              habit('Night routine', { time_of_day: 'evening', reminder_time: '21:00' }, { steps: ['Tidy the room', 'Prepare tomorrow’s clothes', 'Check tomorrow’s plan', 'Phone away, wind down'] }),
             ] },
             arc('Winter Arc · Fitness', { outcome: 'Four gym days a week plus weekend cardio.', success_criteria: '4 gym sessions in most weeks\nOne cardio session at the weekend', items: [
               task('Prepare gym membership and kit', '{START+6}', { priority: 'high' }),
@@ -96,8 +96,8 @@ export const PLAN_LIBRARY: LibraryEntry[] = [
     lengthDays: null,
     file: { format: 'tracknow.plan.v1', title: 'Morning & night routines', tracks: [{ name: 'Health', icon: 'Dumbbell', color: '#22c55e', plans: [
       { name: 'Morning & night routines', kind: 'ongoing', start_date: '{START}', outcome: 'A calm start and a consistent bedtime.', items: [
-        habit('Morning routine', { time_of_day: 'morning', reminder_time: '06:30' }, { description: 'Water, teeth, 5 minutes of stretching, make the bed, look at Today.' }),
-        habit('Night routine', { time_of_day: 'evening', reminder_time: '21:00' }, { description: 'Tidy up, prepare tomorrow, phone away.' }),
+        habit('Morning routine', { time_of_day: 'morning', reminder_time: '06:30' }, { steps: ['Drink water', 'Brush teeth', 'Stretch for 5 minutes', 'Make the bed', 'Look at Today'] }),
+        habit('Night routine', { time_of_day: 'evening', reminder_time: '21:00' }, { steps: ['Tidy up', 'Prepare tomorrow’s clothes', 'Check tomorrow’s plan', 'Phone away'] }),
         habit('In bed by 22:30', { time_of_day: 'evening', reminder_time: '22:15' }),
       ] }] }] },
   },

@@ -1,0 +1,7 @@
+First release.
+- Today, Tracks, Plans and 90-day Arcs
+- Habits on fixed days or "times a week", routines with daily steps
+- Focus, calendar, quick add in plain words, skip without a miss
+- Honest progress: Momentum, retention, levels and achievements from real completions
+- Plan library with ready-made setups
+- Email code sign-in, reminders, home-screen widget

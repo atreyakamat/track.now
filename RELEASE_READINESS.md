@@ -65,6 +65,21 @@ the update.
 | Gamified tour (6 steps, Skip always available; auto-opens once for an account with no Tracks, replay from Settings or `/today?tour=1`) and getting-started quests (8, each verified from real records or a local flag; one-time +20 XP each) | `components/onboarding/*`, `domain/quests.ts`, `features/onboarding/onboardingState.ts` |
 | Level strip on Today (level, XP to next, active-day streak, this week planned/done), level-up toast once per level, 5 new achievements (Explorer, Perfect week, Comeback, Arc builder, Century) | `components/insights/LevelStrip.tsx`, `hooks/useLifetimeLedger.ts`, `domain/momentum.ts` |
 
+### Routines, mobile parity round two, Play Store pack — 2026-11-09
+
+| Area | What shipped | Where |
+| :--- | :--- | :--- |
+| Tickable routines | A habit can carry steps (a routine). Steps are ticked per day and reset the next day; the last tick completes the habit for that day through the normal completion log (un-tick removes it). Web and mobile cards, both item forms, plan files (`steps` on habits), library routines | `domain/checklist.ts` (`effectiveHabitSteps`), `executionService.toggleHabitStep`, cards, forms, `domain/planImport.ts` |
+| Mobile: calendar | "Plan my week" with +1 day / Next week, and a month grid | `apps/mobile/src/app/(app)/calendar.tsx` |
+| Mobile: library | The 8 ready-made setups with start date, preview and import | `apps/mobile/src/app/(app)/library.tsx` |
+| Mobile: quick add | "Gym Mon Wed Fri 6am" fills the new-item form | `components/execution/ItemForm.tsx` |
+| Mobile: reschedule and skip | "More" on each Today card: Tomorrow / In 3 days / Next week, or skip with a reason; Skipped section with Undo | `app/(app)/(tabs)/index.tsx` |
+| Mobile: share links | Create, send (system share sheet) and revoke read-only Plan links | `components/plans/SharePlanCard.tsx` |
+| Motion | Web: page and list entrances, tick pop and ring pulse on completion, modal pop, press feedback. Mobile: staggered fade-in lists, spring pop on ticks, eased progress bars. All respect reduced-motion settings | `styles/workspace.css`, `components/ui/Motion.tsx` |
+| Play Store pack | `Playstore readiness/`: listing text, data-safety and content-rating answers, release checklist, icon, feature graphic, 8 captioned phone screenshots (1080×1920) plus raw captures | `Playstore readiness/`, `scripts/render_store_screenshots.cjs` |
+
+Migration `20261109000000` (sharing + account deletion): **applied 2026-11-09** (verified: the shared-plan RPC answers 200 and `track_now_plan_shares` exists with anonymous access refused).
+
 ### Growth release — 2026-11-09
 
 Everything from the "make it friendlier for more people" list that can be built without the owner's external accounts:
@@ -89,7 +104,7 @@ Everything from the "make it friendlier for more people" list that can be built 
 | GTM | `docs/GTM_PLAYBOOK.md`: positioning, channels, accounts to register, content system, launch sequence, 100 strategies | `docs/GTM_PLAYBOOK.md` |
 
 **Needs the owner (2026-11-09):**
-1. **Apply** `supabase/migrations/20261109000000_account_deletion_and_plan_sharing.sql` in the SQL editor (delete-account RPC, plan_shares table + RLS, public shared-plan RPC; local harness 25/25). Until then sharing and account deletion show a clear "needs the latest database update" message; everything else works.
+1. ~~Apply `20261109000000_account_deletion_and_plan_sharing.sql`~~ **Applied 2026-11-09.**
 2. **Email code template:** in Supabase → Authentication → Email Templates, add `{{ .Token }}` to the **Magic Link** and **Confirm signup** templates (for example: "Your Track.now code is {{ .Token }}"). Without it the email contains only the link (which still signs in on the web). Custom SMTP (item 2 at the top) matters more now: the built-in sender allows only a few emails per hour.
 3. Social accounts and the newsletter from `docs/GTM_PLAYBOOK.md` section 4.
 
@@ -118,7 +133,7 @@ they show on a device; until then the old icon stays and everything else works.
 Verification (2026-11-08): mobile `tsc --noEmit` PASS (typed routes regenerated) · `expo export -p android -p web` PASS ·
 web suite still 41 files / 491 tests PASS · web typecheck PASS.
 
-Verification (2026-11-08, final): typecheck PASS (web, core, mobile `tsc --noEmit`) · `npm test` **PASS, 42 files, 508 tests** ·
+Verification (2026-11-08, final): typecheck PASS (web, core, mobile `tsc --noEmit`) · `npm test` **PASS, 42 files, 510 tests** ·
 both production builds PASS · `node scripts/verify_sql_local.cjs` **21/21** · `node scripts/run_mocked_e2e.cjs` **7/7 PASS** (responsive audit: no overflow 320–1920 px, light + dark) · `npm audit --omit=dev` 0.
 
 ## Verification evidence (2026-10-13, Windows 11, Node 24.14.0, npm 10.9.0)

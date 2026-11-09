@@ -206,26 +206,32 @@ export function TimesPerWeekField({ value, onChange }: { value: number; onChange
 export function ChecklistStepsEditor({
   value,
   onChange,
+  routine,
 }: {
   value: { id: string; label: string; done: boolean }[]
   onChange: (next: { id: string; label: string; done: boolean }[]) => void
+  /** A habit's steps: ticked off again every day, so the editor has no done boxes. */
+  routine?: boolean
 }) {
   const labelId = useId()
   const add = () => onChange([...value, { id: `new-${Date.now()}-${value.length}`, label: '', done: false }])
   return (
     <div className="stack" style={{ gap: 'var(--space-2)' }}>
       <span id={labelId} className="field__label">
-        Steps (optional)
+        {routine ? 'Routine steps (optional)' : 'Steps (optional)'}
       </span>
+      {routine && <span className="field__hint">Tick these off each day. The habit is done for the day when every step is ticked.</span>}
       <ul className="checklist-editor" aria-labelledby={labelId}>
         {value.map((step, i) => (
           <li key={step.id} className="row" style={{ gap: 'var(--space-2)', alignItems: 'center' }}>
-            <input
-              type="checkbox"
-              checked={step.done}
-              aria-label={`Step ${i + 1} done`}
-              onChange={() => onChange(value.map((s) => (s.id === step.id ? { ...s, done: !s.done } : s)))}
-            />
+            {!routine && (
+              <input
+                type="checkbox"
+                checked={step.done}
+                aria-label={`Step ${i + 1} done`}
+                onChange={() => onChange(value.map((s) => (s.id === step.id ? { ...s, done: !s.done } : s)))}
+              />
+            )}
             <input
               className="control"
               style={{ flex: 1, minWidth: 0 }}

@@ -1,0 +1,38 @@
+Track.now is a personal operating system for getting things done: your whole life in one place, focused 30, 60 or 90-day pushes, and progress numbers that never flatter you.
+
+ONE PLACE FOR EVERYTHING
+Organise your life into Tracks (Health, Work, Money, Home, anything). Each Track holds Plans; each Plan holds the habits, tasks, checklists and milestones you actually do. Today shows everything that is due across all of them.
+
+ARCS: 30, 60 OR 90 DAYS WITH A PURPOSE
+Give a Plan an end date and it becomes an Arc. Group Arcs from different areas under one name, like "Winter Arc", and see Day 42 of 90, overall progress and how consistent you have been. When an Arc ends you review it: what happened, what you learned, what is next.
+
+HABITS THAT FIT REAL LIFE
+- Fixed days (Mon, Wed, Fri) or "3 times a week, any days"
+- Routines with steps you tick off each day
+- Start dates, so next month's habit does not count against you today
+- Skip a day with a reason (sick, travelling, planned rest) and it is not a miss
+- Reminders that work even when the app is closed
+
+HONEST PROGRESS, QUIET MOTIVATION
+Points come only from things you complete. Undo a completion and the points go with it. Missing a day never takes anything away. Momentum, levels and achievements are calculated from your real history, and a Gentle mode hides them entirely if you prefer.
+
+SEE WHETHER YOU ARE STICKING WITH IT
+Week-by-week consistency, which habits you are keeping, which are slipping and which you have dropped. No guesses, no sample data.
+
+READY-MADE SETUPS
+Start from the library: a full 90-day Winter Arc, morning and night routines, a first half-marathon, learn to code, an exam countdown and more. Import in one tap, then change anything.
+
+ALSO INCLUDED
+- Focus: star up to three things that matter most today
+- Calendar and "Plan my week" with one-tap rescheduling
+- Add items in plain words: "Gym Mon Wed Fri 6am"
+- Share one Plan, read-only, with a friend or coach
+- Home-screen widget
+- Weekly and monthly reviews
+- Sign in with a code sent to your email; no password needed
+- Light and dark themes
+
+YOUR DATA
+No ads and no tracking scripts. Export everything as a file, or delete your account, at any time. The privacy page says exactly what is stored: https://tracknow.atreyakamat.dev/privacy.html
+
+Track.now is also available on the web at https://trackapp.atreyakamat.dev with the same account.

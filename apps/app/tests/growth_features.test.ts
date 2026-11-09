@@ -136,3 +136,35 @@ describe('vocabulary, templates and the plan library', () => {
     expect(card.activeDays).toBe(2)
   })
 })
+
+describe('routines: a habit with steps is ticked off again every day', () => {
+  const steps = [
+    { id: 'a', label: 'Water', done: true },
+    { id: 'b', label: 'Stretch', done: false },
+  ]
+  it('shows stored ticks only for the day they were made', async () => {
+    const { effectiveHabitSteps, isRoutine } = await import('@tracknow/core/domain/checklist')
+    const routine = { type: 'habit', checklist_entries: steps, count_date: '2026-11-08' }
+    expect(isRoutine(routine)).toBe(true)
+    expect(effectiveHabitSteps(routine, '2026-11-08', false).map((s) => s.done)).toEqual([true, false])
+    // A new day starts with every step open.
+    expect(effectiveHabitSteps(routine, '2026-11-09', false).map((s) => s.done)).toEqual([false, false])
+    // Completed for the day: every step shows done.
+    expect(effectiveHabitSteps(routine, '2026-11-08', true).every((s) => s.done)).toBe(true)
+    // Un-completed after a full day of ticks: open again rather than "all ticked but not done".
+    const stale = { checklist_entries: steps.map((s) => ({ ...s, done: true })), count_date: '2026-11-08' }
+    expect(effectiveHabitSteps(stale, '2026-11-08', false).some((s) => s.done)).toBe(false)
+    expect(effectiveHabitSteps({ checklist_entries: null }, '2026-11-08', false)).toEqual([])
+  })
+  it('plan files can give habits steps; the library routines use them', () => {
+    const r = parsePlanFile({
+      format: 'tracknow.plan.v1',
+      tracks: [{ name: 'T', plans: [{ name: 'P', kind: 'ongoing', items: [{ type: 'habit', name: 'Night routine', steps: ['Tidy', 'Phone away'] }, { type: 'task', name: 'X', steps: ['ignored'] }] }] }],
+    })
+    expect(r.errors).toEqual([])
+    expect(r.file!.tracks[0].plans[0].items[0].steps).toEqual(['Tidy', 'Phone away'])
+    expect(r.file!.tracks[0].plans[0].items[1].steps).toEqual([])
+    const routines = parsePlanFile(materializeLibraryEntry(PLAN_LIBRARY.find((e) => e.key === 'morning-night')!, '2026-11-09'))
+    expect(routines.file!.tracks[0].plans[0].items[0].steps.length).toBeGreaterThan(2)
+  })
+})

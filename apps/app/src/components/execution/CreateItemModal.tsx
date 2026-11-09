@@ -181,7 +181,7 @@ export function CreateItemModal({
           track_id: targetTrackId,
           type,
           start_date: startDate || null,
-          checklist_entries: type === 'checklist' ? steps.filter((st) => st.label.trim()) : null,
+          checklist_entries: type === 'checklist' || type === 'habit' ? steps.filter((st) => st.label.trim()) : null,
           name: trimmed,
           description: description.trim() || null,
           priority,
@@ -322,7 +322,7 @@ export function CreateItemModal({
           </div>
         )}
 
-        {type === 'checklist' && <ChecklistStepsEditor value={steps} onChange={setSteps} />}
+        {(type === 'checklist' || type === 'habit') && <ChecklistStepsEditor value={steps} onChange={setSteps} routine={type === 'habit'} />}
 
         <div className="grid grid--2" style={{ gap: 'var(--space-3)' }}>
           <Input

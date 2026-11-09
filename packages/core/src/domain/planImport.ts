@@ -188,7 +188,7 @@ export function parsePlanFile(input: unknown): ParseResult {
           target_count: Number.isInteger(target) && target >= 1 ? target : 1,
           unit: str(rawItem.unit, 30),
           schedule,
-          steps: type === 'checklist' ? steps : [],
+          steps: type === 'checklist' || type === 'habit' ? steps : [],
         })
       })
       plans.push({

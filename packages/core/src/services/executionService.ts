@@ -19,7 +19,7 @@ import {
 } from '../domain/habitCounter'
 import { chunk, fetchAllPages, unwrap } from './helpers'
 import { ITEM_OPTIONAL_COLUMNS, SCHEDULE_OPTIONAL_COLUMNS, writeWithOptionalColumns } from './schemaCompat'
-import { normalizeChecklistEntries } from '../domain/checklist'
+import { normalizeChecklistEntries, effectiveHabitSteps, toggleChecklistEntry as toggleChecklistEntrySteps } from '../domain/checklist'
 import { habitTrackedSince } from '../domain/schedule'
 
 export function mapExecutionItemRow(row: any): ExecutionItem {
@@ -154,9 +154,16 @@ export async function createExecutionItem(
   }
 
   const { schedule: scheduleInput, checklist_entries: rawEntries, start_date: startDate, ...itemFields } = input
-  const targetCount = Math.max(1, input.target_count ?? 1)
   const currentCount = Math.max(0, input.current_count ?? 0)
-  const entries = input.type === 'checklist' ? normalizeChecklistEntries(rawEntries) : null
+  // Checklists keep their steps' done-state; a habit's steps (a routine) always start open.
+  const entries =
+    input.type === 'checklist'
+      ? normalizeChecklistEntries(rawEntries)
+      : input.type === 'habit'
+        ? (normalizeChecklistEntries(rawEntries)?.map((e) => ({ ...e, done: false })) ?? null)
+        : null
+  // A routine is complete when every step is ticked, so its target is its number of steps.
+  const targetCount = input.type === 'habit' && entries?.length ? entries.length : Math.max(1, input.target_count ?? 1)
   const initialStatus =
     itemFields.status || (currentCount >= targetCount && targetCount > 0 ? 'done' : 'todo')
 
@@ -443,6 +450,11 @@ export async function editExecutionItem(
 ): Promise<ExecutionItem> {
   const currentItem = await getExecutionItem(itemId)
   const dateStr = completedDate || getTodayDateString()
+  // Editing a routine's steps changes how many ticks complete it.
+  if ((input.type ?? currentItem.type) === 'habit' && input.checklist_entries !== undefined) {
+    const steps = normalizeChecklistEntries(input.checklist_entries)
+    if (steps?.length && steps.length !== currentItem.target_count) input = { ...input, target_count: steps.length }
+  }
 
   // Count/completion state is only recomputed when the edit touches it. A plain rename,
   // description or priority change must never change progress or completion history.
@@ -709,6 +721,33 @@ export async function setChecklistEntries(
     await syncCompletionLog(userId, itemId, dateStr, wasDone, willBeDone, currentItem.type)
   }
   return mapExecutionItemRow(row)
+}
+
+/**
+ * Ticks or un-ticks one step of a routine (a habit with steps) for a day. The day's progress is
+ * the number of ticked steps; ticking the last one completes the habit for that day, exactly
+ * like any other habit completion (one row in the completion log, removed again on un-tick).
+ */
+export async function toggleHabitStep(
+  itemId: string,
+  entryId: string,
+  userId?: string,
+  completedDate?: string,
+): Promise<ExecutionItem> {
+  const currentItem = await getExecutionItem(itemId)
+  const dateStr = completedDate || getTodayDateString()
+  if (isStaleDayWrite(currentItem, dateStr)) throw new Error(STALE_DAY_MESSAGE)
+  const completed = await hasCompletionOnDate(itemId, dateStr)
+  const steps = toggleChecklistEntrySteps(effectiveHabitSteps(currentItem, dateStr, completed), entryId)
+  if (!steps.length) return currentItem
+  const doneCount = steps.filter((e) => e.done).length
+  const payload: Record<string, unknown> = { checklist_entries: steps }
+  if ((currentItem.target_count ?? 1) !== steps.length) payload.target_count = steps.length
+  const { dropped } = await writeWithOptionalColumns<unknown>(payload, ITEM_OPTIONAL_COLUMNS, (p) =>
+    supabase.from('track_now_execution_items').update(p).eq('id', itemId).select('id').single(),
+  )
+  if (dropped.includes('checklist_entries')) throw new Error(CHECKLIST_NEEDS_MIGRATION_MESSAGE)
+  return updateItemProgress(itemId, doneCount, userId, dateStr)
 }
 
 export async function deleteExecutionItem(itemId: string): Promise<void> {

@@ -44,6 +44,28 @@ export function checklistProgress(entries: readonly ChecklistEntry[] | null | un
   return { done, total: list.length, percent: list.length ? Math.round((done / list.length) * 100) : 0 }
 }
 
+/**
+ * A habit with steps is a routine: the steps are ticked off again every day. The stored `done`
+ * flags belong to `count_date`; on any other day (or after the routine was un-completed) every
+ * step is open again, and once the day is completed every step shows as done.
+ */
+export function effectiveHabitSteps(
+  item: { checklist_entries?: ChecklistEntry[] | null; count_date?: string | null },
+  today: string,
+  completedToday: boolean,
+): ChecklistEntry[] {
+  const entries = item.checklist_entries ?? []
+  if (!entries.length) return []
+  if (completedToday) return entries.map((e) => ({ ...e, done: true }))
+  if (item.count_date !== today || entries.every((e) => e.done)) return entries.map((e) => ({ ...e, done: false }))
+  return entries
+}
+
+/** True for a habit that carries routine steps. */
+export function isRoutine(item: { type?: string; checklist_entries?: ChecklistEntry[] | null }): boolean {
+  return item.type === 'habit' && (item.checklist_entries?.length ?? 0) > 0
+}
+
 /** Returns a copy with one step toggled. */
 export function toggleChecklistEntry(entries: readonly ChecklistEntry[], id: string): ChecklistEntry[] {
   return entries.map((e) => (e.id === id ? { ...e, done: !e.done } : e))

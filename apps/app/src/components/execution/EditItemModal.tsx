@@ -183,7 +183,7 @@ export function EditItemModal({ open, onClose, item, onSubmit, completedToday = 
         priority,
         due_date: dueDate || null,
         start_date: startDate || null,
-        ...(type === 'checklist' ? { checklist_entries: steps.filter((st) => st.label.trim()) } : {}),
+        ...(type === 'checklist' || type === 'habit' ? { checklist_entries: steps.filter((st) => st.label.trim()) } : {}),
         // Only send progress fields the user actually changed, so a rename or description
         // edit can never rewrite today's count or completion history.
         ...(targetCount !== Math.max(1, item.target_count ?? 1) ? { target_count: targetCount } : {}),
@@ -306,7 +306,7 @@ export function EditItemModal({ open, onClose, item, onSubmit, completedToday = 
           </div>
         )}
 
-        {type === 'checklist' && <ChecklistStepsEditor value={steps} onChange={setSteps} />}
+        {(type === 'checklist' || type === 'habit') && <ChecklistStepsEditor value={steps} onChange={setSteps} routine={type === 'habit'} />}
 
         <div className="grid grid--2" style={{ gap: 'var(--space-3)' }}>
           <Input

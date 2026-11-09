@@ -17,6 +17,7 @@ import type { ExecutionItem, Plan, PlanStatus } from '@tracknow/core/types/domai
 import { AppBar } from '@/components/AppBar'
 import { ExecutionItemCard } from '@/components/execution/ExecutionItemCard'
 import { arcPath } from '@/components/plans/ArcCard'
+import { SharePlanCard } from '@/components/plans/SharePlanCard'
 import { Badge, Button, Card, ConfirmDialog, EmptyState, ErrorState, LoadingState, ProgressBar, Text } from '@/components/ui'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useToast } from '@/features/notifications/ToastContext'
@@ -369,6 +370,8 @@ export default function PlanDetailScreen() {
             {group('Completed', doneTasks, true)}
           </View>
         )}
+
+        {user?.id && !isArchived ? <SharePlanCard userId={user.id} planId={plan.id} planName={plan.name} /> : null}
 
         <View style={{ gap: spacing[2], marginTop: spacing[3] }}>
           <Button

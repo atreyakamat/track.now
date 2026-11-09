@@ -5,6 +5,7 @@ import {
   deleteExecutionItem,
   editExecutionItem,
   setChecklistEntries,
+  toggleHabitStep,
   shouldResetHabitCount,
   stepItemCount,
   toggleItemStatus,
@@ -219,9 +220,17 @@ export function useExecutionItemActions({ userId, items, setItems, reload, onCha
       const wasDoneToday = completedRef.current.has(item.id)
       try {
         const current = itemsRef.current.find((it) => it.id === item.id) ?? item
-        const entries = toggleChecklistEntrySteps(current.checklist_entries ?? [], entryId)
-        const updated = await setChecklistEntries(item.id, entries, userId)
-        const doneToday = updated.status === 'done' ? wasDoneToday || current.status !== 'done' : false
+        let updated: ExecutionItem
+        let doneToday: boolean
+        if (current.type === 'habit') {
+          // A routine: steps are ticked per day; the last tick completes the habit for today.
+          updated = await toggleHabitStep(item.id, entryId, userId)
+          doneToday = (updated.current_count ?? 0) >= Math.max(1, updated.target_count ?? 1)
+        } else {
+          const entries = toggleChecklistEntrySteps(current.checklist_entries ?? [], entryId)
+          updated = await setChecklistEntries(item.id, entries, userId)
+          doneToday = updated.status === 'done' ? wasDoneToday || current.status !== 'done' : false
+        }
         const { nextItems, nextCompleted } = applyResult(updated, doneToday, wasDoneToday)
         if (doneToday && !wasDoneToday) completionFeedback(updated, nextItems, nextCompleted)
       } catch (err) {

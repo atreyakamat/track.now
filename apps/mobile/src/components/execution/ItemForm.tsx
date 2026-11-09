@@ -18,6 +18,7 @@ import {
 } from '@tracknow/core/domain/habitSchedule'
 import { MAX_CHECKLIST_ENTRIES, MAX_CHECKLIST_LABEL, newChecklistEntryId, normalizeChecklistEntries } from '@tracknow/core/domain/checklist'
 import type { ReminderPreset } from '@tracknow/core/types/notifications'
+import { parseQuickAdd } from '@tracknow/core/domain/quickAdd'
 import { Button, Card, ChoiceChips, DateField, Text, TextField } from '@/components/ui'
 import { useTheme } from '@/theme/ThemeProvider'
 import { spacing } from '@/theme/tokens'
@@ -119,24 +120,35 @@ interface ItemFormProps {
   }) => void
 }
 
-function StepsEditor({ value, onChange }: { value: ChecklistEntry[]; onChange: (next: ChecklistEntry[]) => void }) {
+function StepsEditor({ value, onChange, routine }: { value: ChecklistEntry[]; onChange: (next: ChecklistEntry[]) => void; routine?: boolean }) {
   const { colors } = useTheme()
   return (
     <View style={{ gap: spacing[2] }}>
       <Text variant="caption" weight="medium">
-        Steps (optional)
+        {routine ? 'Routine steps (optional)' : 'Steps (optional)'}
       </Text>
+      {routine ? (
+        <Text variant="meta" tone="tertiary" style={{ textTransform: 'none', letterSpacing: 0 }}>
+          Tick these off each day. The habit is done for the day when every step is ticked.
+        </Text>
+      ) : null}
       {value.map((step, i) => (
         <View key={step.id} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2] }}>
-          <Pressable
-            onPress={() => onChange(value.map((s) => (s.id === step.id ? { ...s, done: !s.done } : s)))}
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: step.done }}
-            accessibilityLabel={`Step ${i + 1} done`}
-            hitSlop={6}
-          >
-            <Feather name={step.done ? 'check-square' : 'square'} size={18} color={step.done ? colors.success : colors.textSecondary} />
-          </Pressable>
+          {routine ? (
+            <Text variant="caption" tone="tertiary" style={{ width: 18, textAlign: 'center' }}>
+              {i + 1}
+            </Text>
+          ) : (
+            <Pressable
+              onPress={() => onChange(value.map((s) => (s.id === step.id ? { ...s, done: !s.done } : s)))}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: step.done }}
+              accessibilityLabel={`Step ${i + 1} done`}
+              hitSlop={6}
+            >
+              <Feather name={step.done ? 'check-square' : 'square'} size={18} color={step.done ? colors.success : colors.textSecondary} />
+            </Pressable>
+          )}
           <View style={{ flex: 1 }}>
             <TextField
               value={step.label}
@@ -182,6 +194,33 @@ export function ItemForm({ initial, submitLabel, busy, allowTypeChange = true, o
   const [steps, setSteps] = useState<ChecklistEntry[]>(initial.steps)
   const [reminderPreset, setReminderPreset] = useState<ReminderPreset>(initial.reminderPreset ?? 'none')
   const [error, setError] = useState<string | null>(null)
+  const [quick, setQuick] = useState('')
+  const [quickHint, setQuickHint] = useState<string | null>(null)
+  const isCreate = !initial.name
+
+  /** "Gym Mon Wed Fri 6am" fills type, name, days and time; every field stays editable. */
+  const applyQuick = (text: string) => {
+    setQuick(text)
+    if (!text.trim()) return setQuickHint(null)
+    const q = parseQuickAdd(text)
+    setName(q.name)
+    if (allowTypeChange) setType(q.type)
+    setPriority(q.priority)
+    if (q.dueDate && q.type !== 'habit') setDueDate(q.dueDate)
+    if (q.type === 'habit') {
+      if (q.timesPerWeek) {
+        setRepeat('flexible')
+        setTimesPerWeek(q.timesPerWeek)
+      } else if (q.daysOfWeek && q.daysOfWeek.length < 7) {
+        setRepeat('weekly')
+        setDaysOfWeek(q.daysOfWeek)
+      } else setRepeat('daily')
+      setTimeOfDay(q.timeOfDay)
+    }
+    if (q.targetCount) setTargetInput(String(q.targetCount))
+    if (q.unit) setUnit(q.unit)
+    setQuickHint(q.recognised.length ? `Understood: ${q.recognised.join(', ')}` : null)
+  }
 
   const isHabit = type === 'habit'
   const hasDueOrSchedule = isHabit || Boolean(dueDate)
@@ -236,7 +275,7 @@ export function ItemForm({ initial, submitLabel, busy, allowTypeChange = true, o
       : null
 
     const effectivePreset = reminderOptions.some((o) => o.value === reminderPreset) ? reminderPreset : 'none'
-    const entries = type === 'checklist' ? normalizeChecklistEntries(steps.filter((s) => s.label.trim())) : null
+    const entries = type === 'checklist' || isHabit ? normalizeChecklistEntries(steps.filter((s) => s.label.trim())) : null
 
     onSubmit({
       base: {
@@ -265,6 +304,17 @@ export function ItemForm({ initial, submitLabel, busy, allowTypeChange = true, o
         </Card>
       ) : null}
 
+      {isCreate ? (
+        <TextField
+          label="Quick add"
+          value={quick}
+          onChangeText={applyQuick}
+          placeholder="Gym Mon Wed Fri 6am · Call dentist tomorrow"
+          hint={quickHint ?? 'Describe it in plain words; the fields below fill in.'}
+          autoCorrect={false}
+        />
+      ) : null}
+
       {allowTypeChange ? <ChoiceChips label="Type" options={TYPE_OPTIONS} value={type} onChange={setType} /> : null}
 
       <TextField label="Name" value={name} onChangeText={setName} placeholder="What needs doing?" maxLength={MAX_NAME} />
@@ -288,7 +338,7 @@ export function ItemForm({ initial, submitLabel, busy, allowTypeChange = true, o
         </Text>
       ) : null}
 
-      {type === 'checklist' ? <StepsEditor value={steps} onChange={setSteps} /> : null}
+      {type === 'checklist' || isHabit ? <StepsEditor value={steps} onChange={setSteps} routine={isHabit} /> : null}
 
       <View style={{ gap: spacing[3] }}>
         <Text variant="meta" tone="tertiary">

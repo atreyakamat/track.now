@@ -5,7 +5,7 @@ import { SKIP_REASONS, type SkipReason } from '@tracknow/core/services/skipServi
 import { addDaysTo } from '@tracknow/core/domain/schedule'
 import type { ExecutionItem } from '@tracknow/core/types/domain'
 import { getTodayDateString } from '@tracknow/core/domain/dates'
-import { checklistProgress } from '@tracknow/core/domain/checklist'
+import { checklistProgress, effectiveHabitSteps } from '@tracknow/core/domain/checklist'
 import { DAYS } from '@tracknow/core/domain/habitSchedule'
 import { weeklyTarget } from '@tracknow/core/domain/schedule'
 import { Badge, Button } from '@/components/ui'
@@ -84,7 +84,13 @@ export function ExecutionItemCard({
   onSkip,
 }: ExecutionItemCardProps) {
   const today = getTodayDateString()
-  const entries = item.type === 'checklist' ? (item.checklist_entries ?? []) : []
+  const isDoneForSteps = isCompletedOverride !== undefined ? isCompletedOverride : item.status === 'done'
+  const entries =
+    item.type === 'checklist'
+      ? (item.checklist_entries ?? [])
+      : item.type === 'habit'
+        ? effectiveHabitSteps(item, getTodayDateString(), isDoneForSteps)
+        : []
   const steps = checklistProgress(entries)
   const notStarted = Boolean(item.start_date && item.start_date > getTodayDateString())
   const weekTarget = item.type === 'habit' ? weeklyTarget(item.schedule) : null
@@ -95,7 +101,8 @@ export function ExecutionItemCard({
   const targetCount = Math.max(1, item.target_count ?? 1)
   // A habit's stored count may belong to an earlier day (see domain/habitCounter.ts).
   const currentCount = effectiveCurrentCount(item, isDone)
-  const hasNumericTarget = targetCount > 1 || Boolean(item.unit)
+  // A routine's progress is its ticked steps, not a counter.
+  const hasNumericTarget = (targetCount > 1 || Boolean(item.unit)) && !(item.type === 'habit' && entries.length > 0)
   const progressPercent = Math.min(100, Math.round((currentCount / targetCount) * 100))
 
   const [, setReminderRev] = useState(0)

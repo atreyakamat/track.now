@@ -16,6 +16,9 @@ import {
 } from '@tracknow/core/services/executionService'
 import { listCompletionHistory, type CompletionRecord } from '@tracknow/core/services/historyService'
 import { loadFocusIds, toggleFocusId } from '@tracknow/core/services/focusService'
+import { addSkip, loadSkips, removeSkip, skippedDatesByItem, SKIP_REASONS, type SkipReason } from '@tracknow/core/services/skipService'
+import { addDaysTo } from '@tracknow/core/domain/schedule'
+import { FadeIn } from '@/components/ui/Motion'
 import { reconcileRemindersWithActiveItems } from '@tracknow/core/services/reminderService'
 import { getTodayDateString, greeting } from '@tracknow/core/domain/dates'
 import { addDays } from '@tracknow/core/domain/streaks'
@@ -173,6 +176,8 @@ export default function TodayScreen() {
   const [error, setError] = useState<string | null>(null)
   const [focusIds, setFocusIds] = useState<string[]>(() => (userId ? loadFocusIds(userId) : []))
   const [tourOpen, setTourOpen] = useState(false)
+  const [skips, setSkips] = useState(() => (userId ? loadSkips(userId) : []))
+  const [sheetItem, setSheetItem] = useState<ExecutionItem | null>(null)
   const [gentle, setGentle] = useState(() => (userId ? loadPreferences(userId).gamification === 'gentle' : false))
   useEffect(() => onPreferencesChange((p) => setGentle(p.gamification === 'gentle')), [])
   const [tourDone, setTourDone] = useState(() => (userId ? onboardingState.tourDone(userId) : false))
@@ -278,7 +283,7 @@ export default function TodayScreen() {
       focusUsed,
     })
     const xp = computeXp(rows, items).total + questXp(quests)
-    const week = buildRetention({ items, plans, completions: rows, now: new Date(), weeks: 1 }).weeks[0]
+    const week = buildRetention({ items, plans, completions: rows, now: new Date(), weeks: 1, skippedByItem: skippedDatesByItem(skips) }).weeks[0]
     return {
       momentum: calcMomentum(items, rows),
       level: levelFor(xp),
@@ -286,7 +291,7 @@ export default function TodayScreen() {
       quests,
       week: week ? { done: week.done, planned: week.planned } : null,
     }
-  }, [ledger, loading, actions.completedTodayIds, items, workspace, tourDone, focusUsed])
+  }, [ledger, loading, actions.completedTodayIds, items, workspace, tourDone, focusUsed, skips])
 
   // Announce a level-up once (the last level seen is remembered per user on this device).
   useEffect(() => {
@@ -327,6 +332,25 @@ export default function TodayScreen() {
   }
 
   const focusSet = new Set(focusIds)
+  const todayStr = getTodayDateString()
+  const skippedToday = skips.filter((s) => s.date === todayStr)
+  const skipReasonFor = (id: string) => SKIP_REASONS.find((r) => r.value === skippedToday.find((s) => s.item_id === id)?.reason)?.label ?? 'Skipped'
+
+  const skipItem = (item: ExecutionItem, reason: SkipReason) => {
+    if (!userId) return
+    setSkips(addSkip(userId, item.id, reason))
+    setSheetItem(null)
+    showToast({ id: `skip-${item.id}`, title: `Skipped today: ${item.name}`, message: 'Not counted as a miss.', type: 'info' })
+  }
+  const rescheduleItem = async (item: ExecutionItem, due: string) => {
+    setSheetItem(null)
+    try {
+      await actions.saveEdit(item.id, { due_date: due })
+      showToast({ id: `resched-${item.id}`, title: `Moved to ${new Date(`${due}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`, message: item.name, type: 'info' })
+    } catch (err) {
+      showToast({ title: 'Could not move the item', message: err instanceof Error ? err.message : 'Please try again.', type: 'warning' })
+    }
+  }
   const renderCard = (item: ExecutionItem, swipe = false) => {
     const weekly = item.type === 'habit' ? weeklyTargetStatus(item.schedule, actions.completionDates[item.id] ?? [], getTodayDateString()) : null
     const ctx = context.get(item.plan_id)
@@ -341,6 +365,7 @@ export default function TodayScreen() {
         focused={focusSet.has(item.id)}
         onToggleFocus={toggleFocus}
         onToggleChecklistEntry={(it, entryId) => void actions.toggleChecklistEntry(it, entryId)}
+        onMore={setSheetItem}
         onToggle={actions.toggle}
         onStep={actions.step}
         onEdit={(it) => router.push(`/item/${it.id}/edit`)}
@@ -373,11 +398,15 @@ export default function TodayScreen() {
             </Text>
           ) : null}
         </View>
-        {list.map((it) => renderCard(it, opts?.swipe ?? false))}
+        {list.map((it, i) => (
+          <FadeIn key={it.id} index={i}>
+            {renderCard(it, opts?.swipe ?? false)}
+          </FadeIn>
+        ))}
       </View>
     ) : null
 
-  const groups = groupTodayItems(items, actions.completedTodayIds, new Date(), { focusIds, historyByItem: actions.completionDates })
+  const groups = groupTodayItems(items, actions.completedTodayIds, new Date(), { focusIds, historyByItem: actions.completionDates, skippedIds: skippedToday.map((s) => s.item_id) })
   const summary = todaySummary(groups)
   const totalOpen = groups.focus.length + groups.overdue.length + groups.dueToday.length + groups.anytime.length
   const nothingAtAll = items.filter((i) => i.status !== 'archived').length === 0
@@ -402,6 +431,16 @@ export default function TodayScreen() {
         <PageHeader
           title="Today"
           subtitle={`${greeting()}${displayName ? `, ${displayName.split(' ')[0]}` : ''} · ${new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}`}
+          right={
+            <View style={{ flexDirection: 'row', gap: spacing[1] }}>
+              <Pressable onPress={() => router.push('/calendar')} hitSlop={6} accessibilityRole="button" accessibilityLabel="Open the calendar" style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}>
+                <Feather name="calendar" size={20} color={colors.textPrimary} />
+              </Pressable>
+              <Pressable onPress={() => router.push('/library')} hitSlop={6} accessibilityRole="button" accessibilityLabel="Open the plan library" style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}>
+                <Feather name="book" size={20} color={colors.textPrimary} />
+              </Pressable>
+            </View>
+          }
         />
 
         {loading ? (
@@ -518,6 +557,30 @@ export default function TodayScreen() {
                 {section('Anytime', groups.anytime, { swipe: true })}
                 {section('Upcoming', groups.upcoming, { icon: 'clock' })}
                 {section('Completed today', groups.completedToday, { tone: 'muted' })}
+                {groups.skipped.length > 0 ? (
+                  <View style={{ gap: spacing[2] }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                      <Text variant="meta" tone="tertiary">
+                        Skipped today ({groups.skipped.length})
+                      </Text>
+                      <Text variant="meta" tone="tertiary">
+                        Not counted as missed
+                      </Text>
+                    </View>
+                    {groups.skipped.map((it) => (
+                      <View key={it.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing[2], paddingHorizontal: spacing[3], minHeight: 44, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.borderStrong, borderRadius: radius.md }}>
+                        <Text variant="caption" tone="secondary" numberOfLines={1} style={{ flex: 1 }}>
+                          {it.name} · {skipReasonFor(it.id)}
+                        </Text>
+                        <Pressable onPress={() => userId && setSkips(removeSkip(userId, it.id))} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Undo skipping ${it.name}`}>
+                          <Text variant="caption" weight="semibold">
+                            Undo
+                          </Text>
+                        </Pressable>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
               </View>
             )}
           </View>
@@ -525,6 +588,48 @@ export default function TodayScreen() {
       </ScrollView>
       {!loading && !error ? <QuickAddFab plans={quickAddPlans} loading={false} /> : null}
       <TourModal visible={tourOpen} onClose={() => setTourOpen(false)} onFinish={finishTour} />
+
+      <Modal visible={Boolean(sheetItem)} transparent animationType="slide" onRequestClose={() => setSheetItem(null)}>
+        <Pressable onPress={() => setSheetItem(null)} style={{ flex: 1, backgroundColor: colors.scrim, justifyContent: 'flex-end' }}>
+          <Pressable onPress={(e) => e.stopPropagation()} style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: spacing[4], paddingBottom: spacing[6], gap: spacing[2] }}>
+            {sheetItem ? (
+              <>
+                <Text variant="h3" numberOfLines={2}>
+                  {sheetItem.name}
+                </Text>
+                {sheetItem.type !== 'habit' ? (
+                  <>
+                    <Text variant="meta" tone="tertiary">
+                      Move to
+                    </Text>
+                    {[
+                      { label: 'Tomorrow', date: addDaysTo(todayStr, 1) },
+                      { label: 'In 3 days', date: addDaysTo(todayStr, 3) },
+                      { label: 'Next week', date: addDaysTo(todayStr, 7) },
+                    ].map((o) => (
+                      <Pressable key={o.label} onPress={() => void rescheduleItem(sheetItem, o.date)} accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: spacing[3], borderRadius: radius.md, backgroundColor: colors.surfaceMuted }}>
+                        <Text variant="caption" weight="medium">
+                          {o.label}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </>
+                ) : null}
+                <Text variant="meta" tone="tertiary" style={{ marginTop: spacing[2] }}>
+                  Skip today (not a miss)
+                </Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] }}>
+                  {SKIP_REASONS.map((r) => (
+                    <Pressable key={r.value} onPress={() => skipItem(sheetItem, r.value)} accessibilityRole="button" style={{ minHeight: 40, justifyContent: 'center', paddingHorizontal: spacing[3], borderRadius: radius.md, borderWidth: 1, borderColor: colors.borderStrong }}>
+                      <Text variant="caption">{r.label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </>
+            ) : null}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   )
 }

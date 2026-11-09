@@ -39,7 +39,10 @@ export default function TracksScreen() {
           title="Tracks"
           subtitle="Your long-term areas of focus."
           right={
-            <Button title="New" size="sm" icon={<Feather name="plus" size={16} color={colors.controlText} />} onPress={() => router.push('/track/new')} />
+            <View style={{ flexDirection: 'row', gap: spacing[2] }}>
+              <Button title="Library" size="sm" variant="secondary" onPress={() => router.push('/library')} />
+              <Button title="New" size="sm" icon={<Feather name="plus" size={16} color={colors.controlText} />} onPress={() => router.push('/track/new')} />
+            </View>
           }
         />
 
