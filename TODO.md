@@ -25,12 +25,14 @@ Security findings and remediations are in `SECURITY_AUDIT.md`.
 | Plans: create, edit (date validation), archive, restore, delete | Done | Archive/delete also cancel device reminders. |
 | Plans as Arcs: time-bound (30/60/90/custom days) or ongoing; outcome + success criteria; draft → active → paused → completed → archived; completion review; "start the next Arc" | Done | Needs migration `20261108000000` for outcome/criteria/review/pause. Before it: Plans still create; extra fields are dropped with a visible notice; pausing explains why it is unavailable. A Plan past its end date is flagged "Due for review", never auto-closed. |
 | Items: start date, weekly-target habits ("3× a week, any day"), checklist steps | Done | Same migration. Not-started items wait in Upcoming and never count against progress/streaks; weekly-target habits never "miss" a day and streak in weeks. |
-| Today as home: Focus (≤ 3, device-local per day), Overdue / Due Today / Anytime / Upcoming / Completed, quick add, Plan · Track context, day summary, Momentum | Done | Dashboard removed from navigation; `/dashboard` redirects to `/today`. |
+| Today as home: Focus (≤ 3, per day, synced to the account), Overdue / Due Today / Anytime / Upcoming / Completed, quick add, Plan · Track context, day summary, Momentum | Done | Dashboard removed from navigation; `/dashboard` redirects to `/today`. |
 | Quiet gamification: Momentum, XP, levels, 7 achievements | Done | Derived only from completion records (no client-side points). Duplicates impossible; un-completing removes the points; daily cap on one-off items; no penalties, leaderboards or streak shaming. |
 | Plan file import (`tracknow.plan.v1`) in Settings | Done | Preview first, reuses Tracks by name, skips existing Plans (re-import is safe). Example: `docs/examples/90-day-arc.plan.json`. |
 | Execution items: habit, task, checklist, milestone, project — create/edit/delete | Done | Delete now asks for confirmation; schedule failures are never silent. |
 | Today view sections | Done | Only active Plans in active Tracks (paused/draft/completed Plans leave Today); midnight rollover reloads. |
-| Completion log, idempotent per item per day | Done | Unique index `(item_id, completed_date)`. |
+| Completion log, idempotent per item per day | Done | Unique index `(item_id, completed_date)`; written with one duplicate-safe upsert. |
+| Instant ticks (web and phone) | Done | The screen changes on the tap and the save runs in the background, in tap order per item; a failed save is reported and rolled back. `scripts/verify_instant_ticks_e2e.cjs`, `tests/optimistic_actions.test.ts`. |
+| Usage events and error reports | Done (needs migration `20261110000000`) | First-party, opt-out in Settings, never typed text. Funnel queries in `supabase/analytics/funnel.sql`. Inert until the migration is applied. |
 | Numeric targets with +/- stepper | Done | Atomic RPC once the prepared migrations are applied; RLS-protected fallback before that. Habits restart daily from `count_date` (renaming/editing a habit on a new day no longer carries yesterday's count or logs a fake completion). |
 | Progress rollups (item, plan, track, dashboard) | Done | Habits count as done only if completed today; habits not scheduled today are left out of today's total. Empty = 0%. History queries are paged (no 1000-row truncation). |
 | Habit streaks, consistency, calendar heatmap | Done | Rest days do not break streaks. "Monthly" habits are treated as daily (see Future). |
@@ -38,10 +40,11 @@ Security findings and remediations are in `SECURITY_AUDIT.md`.
 | Daily briefing and overdue alerts | Partial | Once a day while the app is open; no background delivery. |
 | Settings: profile, theme, notification preferences, honest capability table | Done | |
 | Analytics v1 (trends, habit consistency, per-track progress, overdue, recent) | Done | Built only from real completions; no sample data. |
-| Reviews v1 (weekly review + monthly reflection) | Partial | Notes are stored on this device only (no table approved), per user; unsaved notes are kept when navigating away. "Mark done" is idempotent. |
+| Reviews v1 (weekly review + monthly reflection) | Done (sync needs migration `20261111000000`) | Notes are saved on the device first and copied to the account (newest edit wins, deletes travel). Before the migration they stay device-only and the screen says so. Unsaved notes are kept when navigating away. "Mark done" is idempotent. |
 | PWA manifest + service worker (offline shell, notification click routing) | Partial | Shell + assets precached, old deploys pruned, in-app routing on notification click. No Web Push sender; SVG-only icon. |
 | Security remediation of `track_now_increment_item_count` + habit `count_date` + trigger revoke | Done | `20261012000000`, `20261013000000`, `20261014000000` applied by the owner (verified read-only via anon REST, 2026-11-05). |
-| Plans/Arcs + flexible items schema | Blocked | `20261108000000_plans_arcs_and_flexible_items.sql` verified on a disposable local PostgreSQL (`node scripts/verify_sql_local.cjs`, 21/21); **not applied**; owner applies it in the SQL editor. |
+| Plans/Arcs + flexible items schema | Done | Migrations through `20261109000000` applied by the owner. |
+| New in this release, not applied yet | Blocked (owner) | `20261110000000_client_events.sql` and `20261111000000_synced_state.sql`. Verified on a disposable local PostgreSQL (`node scripts/verify_sql_local.cjs`, 40/40). The apps work without them. |
 | Live multi-user RLS verification | Blocked | Requires an isolated Supabase project and admin credentials; not run. |
 
 ## Reminders — what actually works
@@ -51,14 +54,15 @@ Security findings and remediations are in `SECURITY_AUDIT.md`.
 | App open, active tab | In-app alert always; system notification if enabled and permitted. |
 | App open, background tab | System notification if enabled and permitted and no other Track.now tab is visible; otherwise it waits for a visible tab. One delivery across tabs. |
 | Browser / installed app closed | Nothing fires. Due reminders appear on next open (3 individually, rest as a summary; anything more than 1 day late only in the summary). Reminders of items completed/deleted elsewhere are reconciled away first. |
-| Native Android / iOS | Not available — no native app is built. |
+| Phone app (Expo, Android) | Reminders are scheduled with the operating system and fire while the app is closed. Not on Google Play yet; once it is, set `VITE_ANDROID_APP_URL` and web Settings links to it. |
 
 ## Blocked — owner actions
 
 1. ~~Apply `20261012000000`, `20261013000000`, `20261014000000`~~ — done by the owner.
-1a. Apply `supabase/migrations/20261108000000_plans_arcs_and_flexible_items.sql` in the Supabase SQL editor (additive; see `RELEASE_READINESS.md`).
+1a. ~~Apply `20261108000000` … `20261109000000`~~: done by the owner.
+1b. Apply `supabase/migrations/20261110000000_client_events.sql` and `supabase/migrations/20261111000000_synced_state.sql` in the Supabase SQL editor (additive; see "2026-11-10" in `RELEASE_READINESS.md`).
 2. ~~Add `https://trackapp.atreyakamat.dev/reset-password` to Supabase Auth redirect URLs~~ — done 2026-10-14 (owner).
-3. Investigate the live signup rate limit / bounced emails in the Supabase dashboard (Auth logs, SMTP settings).
+3. Set up custom SMTP and raise the email rate limit (exact steps: "Custom SMTP" in `RELEASE_READINESS.md`). Email-code sign-in is the default, so every sign-in sends an email.
 4. Run a cross-tenant RLS test against an isolated (non-production) Supabase project.
 
 ## Native mobile — Blocked
@@ -72,11 +76,9 @@ Security findings and remediations are in `SECURITY_AUDIT.md`.
 
 - Hierarchical subtasks inside projects (checklists now have steps).
 - Recurring Plan cycles (`plan_kind = 'recurring'` is stored; there is no automatic next-cycle creation by design).
-- Synced Today focus (device-local today).
 - Drag-and-drop reordering persisted to `position`.
 - True monthly habit cadence (schedule semantics + streak rules).
-- Synced review notes (needs an approved `track_now_reviews` table).
-- Web Push (VAPID keys, subscription storage, a sender service) for closed-browser reminders.
+- Web Push for closed-browser reminders. Needs reminders stored on the server (they are per device today), VAPID keys, a subscription table, and a scheduled sender (Edge Function + cron) that the owner deploys. Until then the web says plainly that nothing fires while it is closed and points to the phone app once its store link is configured.
 - Offline mutation queue and Supabase Realtime multi-device sync.
 - Domain modules: fitness logs, finance balances, career OKRs, reading lists, business pipeline.
 - Track balance radar, created-vs-completed velocity over long horizons, average days to completion.

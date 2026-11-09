@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { CheckCircle2, Clock, Layers, Plus, Star } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthProvider'
@@ -22,6 +22,7 @@ import { LevelStrip } from '@/components/insights/LevelStrip'
 import { ledgerWithToday, useLifetimeLedger } from '@/hooks/useLifetimeLedger'
 import { weeklyTargetStatus } from '@tracknow/core/domain/schedule'
 import { loadFocusIds, toggleFocusId } from '@tracknow/core/services/focusService'
+import { pushFocus, syncFocus } from '@tracknow/core/services/syncedState'
 import { addSkip, loadSkips, removeSkip, skippedDatesByItem, type SkipReason, SKIP_REASONS } from '@tracknow/core/services/skipService'
 import { usePreferences } from '@/hooks/usePreferences'
 import type { ExecutionItem, Plan } from '@tracknow/core/types/domain'
@@ -77,6 +78,7 @@ export function TodayPage() {
     async (opts: { silent?: boolean } = {}) => {
       if (!userId) return
       const requestId = ++requestRef.current
+      const snapshot = actionsRef.current?.snapshotToken() ?? 0
       try {
         if (!opts.silent) setLoading(true)
         setError(null)
@@ -91,6 +93,8 @@ export function TodayPage() {
         // Streaks only need roughly the last year of history.
         const history = habitIds.length ? await listCompletionsForItems(habitIds, addDays(today, -400)) : {}
         if (requestId !== requestRef.current) return
+        // Taps saved while this was loading are newer than this snapshot: skip it (the hook re-syncs).
+        if (actionsRef.current && !actionsRef.current.acceptSnapshot(snapshot)) return
 
         setItems(ws.items)
         setWorkspace(ws)
@@ -98,6 +102,10 @@ export function TodayPage() {
         actionsRef.current?.setCompletionState(todayIds, history)
         setLoadedDate(today)
         setFocusIds(loadFocusIds(userId))
+        // Focus picked on another device today: take it over (the newest change wins).
+        void syncFocus(userId).then((result) => {
+          if (result.ids && requestId === requestRef.current) setFocusIds(result.ids)
+        })
         if (opts.silent) void reloadLedger()
         // Reminders for items that were deleted elsewhere or whose plan/track is archived.
         reconcileRemindersWithActiveItems(userId, ws.items.map((i) => i.id))
@@ -150,11 +158,16 @@ export function TodayPage() {
 
   // Level, streak, quests and this week's planned work: derived from the lifetime ledger, kept
   // in step with today's toggles so a completion is reflected at once.
+  // (It walks the whole history, so it reads deferred copies: a tap redraws the list first and
+  // these numbers follow right after, without holding up the tick.)
+  const deferredItems = useDeferredValue(items)
+  const deferredDoneIds = useDeferredValue(actions.completedTodayIds)
   const progress = useMemo(() => {
     // Wait for the page's own data too, or the first level seen would be a phantom level 1.
     if (!ledger || loading) return null
+    const items = deferredItems
     const today = getTodayDateString()
-    const rows = ledgerWithToday(ledger, today, actions.completedTodayIds)
+    const rows = ledgerWithToday(ledger, today, deferredDoneIds)
     const plans = workspace.plans as Plan[]
     const quests = calcQuests({
       tracks: workspace.tracks.length,
@@ -173,7 +186,7 @@ export function TodayPage() {
       quests,
       week: week ? { done: week.done, planned: week.planned } : null,
     }
-  }, [ledger, loading, actions.completedTodayIds, items, workspace, tourDone, focusUsed, skips])
+  }, [ledger, loading, deferredDoneIds, deferredItems, workspace, tourDone, focusUsed, skips])
 
   // Announce a level-up once (the last level seen is remembered per user on this device).
   useEffect(() => {
@@ -224,11 +237,15 @@ export function TodayPage() {
 
   const todayStr = getTodayDateString()
   const skippedToday = skips.filter((s) => s.date === todayStr)
-  const groups = groupTodayItems(items, actions.completedTodayIds, new Date(), {
+  const groupOptions = {
     focusIds,
     historyByItem: actions.completionDates,
     skippedIds: skippedToday.map((s) => s.item_id),
-  })
+  }
+  // Sections use the "held" view: a just-ticked item stays put for a moment so the tick is seen
+  // before the item moves to Completed. Counts below use the live state, so they update at once.
+  const groups = groupTodayItems(actions.groupingItems, actions.groupingCompletedIds, new Date(), groupOptions)
+  const liveGroups = groupTodayItems(items, actions.completedTodayIds, new Date(), groupOptions)
   const skipReasonFor = (id: string) => SKIP_REASONS.find((r) => r.value === skippedToday.find((s) => s.item_id === id)?.reason)?.label ?? 'Skipped'
 
   const skipItem = (item: ExecutionItem, reason: SkipReason) => {
@@ -248,8 +265,8 @@ export function TodayPage() {
       showToast({ title: 'Could not move the item', message: err instanceof Error ? err.message : 'Please try again.', type: 'warning' })
     }
   }
-  const summary = todaySummary(groups)
-  const totalOpen = groups.focus.length + groups.overdue.length + groups.dueToday.length + groups.anytime.length
+  const summary = todaySummary(liveGroups)
+  const totalOpen = liveGroups.focus.length + liveGroups.overdue.length + liveGroups.dueToday.length + liveGroups.anytime.length
   const byId = new Map(items.map((i) => [i.id, i]))
   const focusSet = new Set(focusIds)
 
@@ -270,9 +287,12 @@ export function TodayPage() {
       return
     }
     setFocusIds(next)
+    void pushFocus(userId)
   }
 
-  const renderCard = (item: ExecutionItem) => {
+  const renderCard = (grouped: ExecutionItem) => {
+    // `grouped` decides the section; the card itself always shows the live item.
+    const item = byId.get(grouped.id) ?? grouped
     const weekly =
       item.type === 'habit'
         ? weeklyTargetStatus(item.schedule, actions.completionDates[item.id] ?? [], getTodayDateString())

@@ -38,7 +38,7 @@ function chain(result: Result) {
   const calls: Array<{ method: string; args: unknown[] }> = []
   const obj: Record<string, unknown> = { calls }
   const methods = [
-    'select', 'insert', 'update', 'delete', 'eq', 'neq', 'in', 'order', 'gte',
+    'select', 'insert', 'upsert', 'update', 'delete', 'eq', 'neq', 'in', 'order', 'gte',
     'maybeSingle', 'single', 'limit',
   ]
   for (const m of methods) {
@@ -229,30 +229,25 @@ describe('completion-log consistency is surfaced, never swallowed', () => {
   it('updateItemProgress throws a descriptive error when the completion insert fails after the status update', async () => {
     const getChain = chain({ data: baseRow, error: null })
     const updateChain = chain({ data: { ...baseRow, current_count: 3, status: 'done' }, error: null })
-    // recordCompletion: item existence check -> ok; existing completion -> none; insert -> error
-    const itemExists = chain({ data: { id: 'item-1' }, error: null })
-    const noExisting = chain({ data: null, error: null })
-    const insertFail = chain({ data: null, error: { message: 'insert failed', code: '42501' } })
+    // recordCompletion is a single upsert; Row Level Security refuses it here.
+    const upsertFail = chain({ data: null, error: { message: 'insert failed', code: '42501' } })
 
     let itemCalls = 0
-    let completionCalls = 0
     ;(supabase.from as ReturnType<typeof vi.fn>).mockImplementation((table: string) => {
       if (table === 'track_now_execution_items') {
         itemCalls += 1
         if (itemCalls === 1) return getChain
         if (itemCalls === 2) return updateChain
-        return itemExists
+        throw new Error('unexpected third read of the item')
       }
-      if (table === 'track_now_item_completions') {
-        completionCalls += 1
-        return completionCalls === 1 ? noExisting : insertFail
-      }
+      if (table === 'track_now_item_completions') return upsertFail
       throw new Error(`unexpected table ${table}`)
     })
 
     await expect(updateItemProgress('item-1', 3, 'user-1', '2026-10-12')).rejects.toThrow(
-      /completion history could not be updated/,
+      /completion history could not be updated \(Unauthorized or target execution item does not exist\)/,
     )
+    expect(upsertFail.upsert).toHaveBeenCalledTimes(1)
   })
 
   it('toggleItemStatus surfaces a failed completion delete on uncomplete', async () => {

@@ -127,6 +127,7 @@ export function PlanDetailPage() {
     async (opts: { silent?: boolean } = {}) => {
       if (!planId) return
       const requestId = ++requestRef.current
+      const snapshot = actionsRef.current?.snapshotToken() ?? 0
       try {
         if (!opts.silent) setLoading(true)
         setError(null)
@@ -161,6 +162,7 @@ export function PlanDetailPage() {
         }
         setTrack(t)
         setPlan(p)
+        if (actionsRef.current && !actionsRef.current.acceptSnapshot(snapshot)) return
         setItems(itemList)
         actionsRef.current?.setCompletionState(todayIds, history)
       } catch (err) {

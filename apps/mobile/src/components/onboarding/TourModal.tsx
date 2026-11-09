@@ -2,6 +2,7 @@ import { Feather } from '@expo/vector-icons'
 import { useEffect, useState } from 'react'
 import { Modal, Pressable, View } from 'react-native'
 import { QUEST_XP } from '@tracknow/core/domain/quests'
+import { track } from '@tracknow/core/services/telemetry'
 import { Button, Text } from '@/components/ui'
 import { useTheme } from '@/theme/ThemeProvider'
 import { radius, spacing } from '@/theme/tokens'
@@ -46,7 +47,9 @@ export function TourModal({ visible, onClose, onFinish }: { visible: boolean; on
   const { colors } = useTheme()
   const [step, setStep] = useState(0)
   useEffect(() => {
-    if (visible) setStep(0)
+    if (!visible) return
+    setStep(0)
+    track('tour_started')
   }, [visible])
   const last = step === STEPS.length - 1
   const current = STEPS[step]
@@ -110,7 +113,12 @@ export function TourModal({ visible, onClose, onFinish }: { visible: boolean; on
               title={last ? `Finish · +${QUEST_XP} XP` : 'Next'}
               size="sm"
               icon={last ? <Feather name="star" size={14} color={colors.controlText} /> : undefined}
-              onPress={() => (last ? onFinish() : setStep((s) => s + 1))}
+              onPress={() => {
+                if (last) {
+                  track('tour_finished')
+                  onFinish()
+                } else setStep((s) => s + 1)
+              }}
             />
           </View>
         </Pressable>

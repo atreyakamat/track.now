@@ -31,7 +31,7 @@ type Result = { data: unknown; error: { message: string; code?: string } | null 
 function chain(result: Result | ((calls: Array<{ method: string; args: unknown[] }>) => Result)) {
   const calls: Array<{ method: string; args: unknown[] }> = []
   const obj: Record<string, unknown> = { calls }
-  for (const m of ['select', 'insert', 'update', 'delete', 'eq', 'neq', 'in', 'order', 'gte', 'lte', 'range', 'maybeSingle', 'single', 'limit']) {
+  for (const m of ['select', 'insert', 'upsert', 'update', 'delete', 'eq', 'neq', 'in', 'order', 'gte', 'lte', 'range', 'maybeSingle', 'single', 'limit']) {
     obj[m] = vi.fn((...args: unknown[]) => {
       calls.push({ method: m, args })
       return obj
@@ -216,7 +216,15 @@ describe('stepItemCount fallback path (RPC not deployed)', () => {
     const { write, completions } = wire({ ...habitRow, status: 'todo', current_count: 2 })
     await stepItemCount('h1', -1, 'u1', '2026-10-13', false)
     expect(write.update.mock.calls[0][0]).toMatchObject({ current_count: 0 })
-    expect(completions.delete).not.toHaveBeenCalled()
+    // Below target means "not done today": today's completion row is cleared idempotently.
+    // Every delete is scoped to this item and to today, so yesterday's history is never touched.
+    expect(completions.upsert).not.toHaveBeenCalled()
+    expect(completions.delete).toHaveBeenCalledTimes(1)
+    const afterDelete = completions.calls.slice(completions.calls.findIndex((c) => c.method === 'delete') + 1)
+    expect(afterDelete).toEqual([
+      { method: 'eq', args: ['item_id', 'h1'] },
+      { method: 'eq', args: ['completed_date', '2026-10-13'] },
+    ])
   })
 
   it('a stale reset hint never wipes a habit completed today', async () => {
@@ -225,6 +233,10 @@ describe('stepItemCount fallback path (RPC not deployed)', () => {
     await stepItemCount('h1', 1, 'u1', '2026-10-13', true)
     expect(write.update.mock.calls[0][0]).toMatchObject({ current_count: 4, status: 'done' })
     expect(completions.delete).not.toHaveBeenCalled()
+    // Still done: the day's row is re-asserted with a duplicate-safe upsert (never a second row).
+    expect(completions.upsert).toHaveBeenCalledTimes(1)
+    expect(completions.upsert.mock.calls[0][0]).toMatchObject({ item_id: 'h1', user_id: 'u1', completed_date: '2026-10-13' })
+    expect(completions.upsert.mock.calls[0][1]).toEqual({ onConflict: 'item_id,completed_date', ignoreDuplicates: true })
   })
 
   it('rejects a request for an older day without writing', async () => {

@@ -105,6 +105,16 @@ export function ExecutionItemCard({
   const hasNumericTarget = (targetCount > 1 || Boolean(item.unit)) && !(item.type === 'habit' && entries.length > 0)
   const progressPercent = Math.min(100, Math.round((currentCount / targetCount) * 100))
 
+  // The tick animates only when it changes while the card is on screen: not on page load and not
+  // again when the card moves to another section. (State derived during render, so the pop
+  // starts in the same frame as the tap.)
+  const [seenDone, setSeenDone] = useState(isDone)
+  const [justTicked, setJustTicked] = useState(false)
+  if (seenDone !== isDone) {
+    setSeenDone(isDone)
+    setJustTicked(isDone)
+  }
+
   const [, setReminderRev] = useState(0)
   useEffect(() => {
     const handleUpdate = () => setReminderRev((v) => v + 1)
@@ -145,7 +155,10 @@ export function ExecutionItemCard({
     >
       <button
         type="button"
-        className="btn btn--icon btn--sm"
+        className={`btn btn--icon btn--sm tick${justTicked ? ' tick--pop' : ''}`}
+        onAnimationEnd={(e) => {
+          if (e.target === e.currentTarget) setJustTicked(false)
+        }}
         style={{
           borderRadius: '50%',
           width: '36px',
@@ -157,7 +170,6 @@ export function ExecutionItemCard({
           color: isDone ? 'var(--control-text)' : 'transparent',
           border: '2px solid',
           borderColor: isDone ? 'var(--control-bg)' : 'var(--border-strong)',
-          transition: 'all 0.15s ease',
           flexShrink: 0,
         }}
         onClick={() => onToggleStatus(item.id, item.status)}
@@ -528,7 +540,7 @@ export function ExecutionItemCard({
                 textAlign: 'center',
               }}
             >
-              {currentCount} / {targetCount} {item.unit || ''}
+              <span key={currentCount} className="count-bump">{currentCount}</span> / {targetCount} {item.unit || ''}
             </span>
             <button
               type="button"

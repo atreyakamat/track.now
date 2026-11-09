@@ -205,6 +205,29 @@ export default function SettingsScreen() {
           </Card>
         ) : null}
 
+        {appPrefs ? (
+          <Card style={{ gap: spacing[3] }}>
+            <Text variant="meta" tone="tertiary">
+              Diagnostics
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ flex: 1, paddingRight: spacing[3] }}>
+                <Text variant="caption">Share usage and error reports</Text>
+                <Text variant="meta" tone="tertiary" style={{ textTransform: 'none', letterSpacing: 0 }}>
+                  Helps fix bugs and improve Track.now. Sends which features you use and crash details, never your item names or notes.
+                </Text>
+              </View>
+              <Switch
+                value={appPrefs.shareDiagnostics}
+                onValueChange={(v) => {
+                  if (user?.id) setAppPrefs(savePreferences(user.id, { shareDiagnostics: v }))
+                }}
+                trackColor={{ true: colors.accentPrimary, false: colors.surfaceMuted }}
+              />
+            </View>
+          </Card>
+        ) : null}
+
         <Card style={{ gap: spacing[3] }}>
           <Text variant="meta" tone="tertiary">
             Tour and quests

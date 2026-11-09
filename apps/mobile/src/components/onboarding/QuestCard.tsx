@@ -2,6 +2,7 @@ import { Feather } from '@expo/vector-icons'
 import { Pressable, View } from 'react-native'
 import type { Quest } from '@tracknow/core/domain/quests'
 import { questXp } from '@tracknow/core/domain/quests'
+import { track } from '@tracknow/core/services/telemetry'
 import { Button, Card, ProgressBar, Text } from '@/components/ui'
 import { useTheme } from '@/theme/ThemeProvider'
 import { radius, spacing } from '@/theme/tokens'
@@ -42,7 +43,11 @@ export function QuestCard({ quests, onQuest, onDismiss }: { quests: Quest[]; onQ
           {quests.map((q) => (
             <Pressable
               key={q.id}
-              onPress={() => (q.done ? undefined : onQuest(q))}
+              onPress={() => {
+                if (q.done) return
+                track('quest_clicked', { quest: q.id })
+                onQuest(q)
+              }}
               disabled={q.done}
               accessibilityRole="button"
               accessibilityState={{ checked: q.done }}

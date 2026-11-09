@@ -12,6 +12,7 @@ import type { Session, User } from '@supabase/supabase-js'
 import { ensureProfile, getProfile } from '@tracknow/core/services/tracksService'
 import type { Profile } from '@tracknow/core/types/domain'
 import { clearRemindersForUser } from '@tracknow/core/services/reminderService'
+import { setTelemetryUser, track } from '@tracknow/core/services/telemetry'
 import {
   AuthNetworkError,
   authService,
@@ -113,6 +114,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const userId = session?.user.id
   const metaName = (session?.user.user_metadata?.display_name as string | undefined) ?? null
 
+  // Usage events and error reports are only sent for a signed-in user.
+  useEffect(() => {
+    setTelemetryUser(userId ?? null)
+  }, [userId])
+
   // Ensure a profile row exists (a DB trigger normally creates it; this is a safety net).
   useEffect(() => {
     setProfile(null)
@@ -152,10 +158,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       signIn: async (email, password) => {
         await authService.signIn(email, password)
+        track('sign_in_completed', { method: 'password' })
         setNotice(null)
         setSignedOutManually(false)
       },
-      signUp: (email, password, name) => authService.signUp(email, password, name),
+      signUp: async (email, password, name) => {
+        const result = await authService.signUp(email, password, name)
+        track('sign_up_completed', { method: 'password' })
+        return result
+      },
       signOut: async () => {
         if (signOutInFlight.current) return signOutInFlight.current
         const run = async () => {

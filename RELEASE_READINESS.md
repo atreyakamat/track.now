@@ -2,6 +2,56 @@
 
 Last updated: 2026-11-08 · Branch: `main` (pushed; Netlify auto-deploys from it). First written 2026-10-13.
 
+## 2026-11-10: instant ticks, usage visibility, synced notes and focus (branch `feat/product-generalisation`, not pushed)
+
+**What changed**
+
+| Area | Change |
+| :--- | :--- |
+| Ticks, counters, checklist steps (web and phone) | The screen changes on the tap. Saves run in the background, one at a time per item, in tap order. A failed save shows a message and the list is re-read from the server. A ticked item stays in its section for 0.7 s, then moves to Completed. One habit tick is 3 requests instead of 6. |
+| Usage and errors | First-party events and crash reports (`packages/core/src/services/telemetry.ts`), switch in Settings, funnel queries in `supabase/analytics/funnel.sql`. Sends nothing until migration `20261110000000` is applied. |
+| Review notes and Today's focus | Saved on the device first, then copied to the account (`packages/core/src/services/syncedState.ts`). Device-only, and labelled so, until migration `20261111000000` is applied. |
+| Web reminders while closed | Still not possible (no push server). Settings says so and links to the Android app once `VITE_ANDROID_APP_URL` is set. |
+
+**Verification (2026-11-10, this machine; nothing contacted Supabase)**
+
+| Gate | Result |
+| :--- | :--- |
+| `npm run typecheck` (core, landing, app, tests) | PASS, exit 0 |
+| `apps/mobile`: `npx tsc --noEmit` | PASS, exit 0 |
+| `npm test` | PASS, 45 files, 582 tests |
+| `node scripts/verify_sql_local.cjs` (disposable local PostgreSQL) | PASS, 40/40 |
+| `node scripts/run_mocked_e2e.cjs` (mocked backend, temporary Chrome profile) | PASS, 8/8 scripts, including the new `verify_instant_ticks_e2e.cjs`: with every write delayed 900 ms a tick is on screen about 25 ms after the tap |
+| `node scripts/verify_phone_ticks_e2e.cjs` (phone app exported for the web, mocked backend) | PASS: tick shown about 17 ms after the tap, rapid taps, counter, failed-save rollback |
+| `npm run build:landing`, app build (inside the browser suite) | PASS |
+| Phone app on a real device | NOT RUN. The phone code is typechecked and passes the browser check above, which cannot show frame rate, haptics or touch handling on a device. |
+
+**Owner actions for this release, in order**
+
+1. ✅ `supabase/migrations/20261110000000_client_events.sql` and `supabase/migrations/20261111000000_synced_state.sql`
+   applied by the owner in the SQL editor (the owner's word, 2026-11-10; not yet probed read-only).
+2. Before shipping builds that include this: publish the updated privacy page (`apps/landing/public/privacy.html`)
+   and update the Play Console Data safety form (`Playstore readiness/data-safety.md` has the two new rows).
+3. Custom SMTP (below): the owner has said it is not theirs to do. Someone with dashboard access has to.
+4. When the Android app is live on Google Play, set `VITE_ANDROID_APP_URL` on the Netlify app site.
+
+### Custom SMTP (owner only; nothing in the code can do this)
+
+Email-code sign-in is the default, so every sign-in sends an email. Supabase's built-in sender is meant for testing
+and allows only a handful of emails per hour for the whole project.
+
+1. Pick a provider with a free tier (Resend, Brevo, Postmark, Amazon SES) and verify a sending domain there
+   (it gives you SPF and DKIM DNS records to add at your DNS host).
+2. Supabase dashboard → Authentication → Emails → SMTP Settings → enable custom SMTP. Enter the provider's host, port,
+   username and password, a sender address on the verified domain (for example `no-reply@atreyakamat.dev`) and the
+   sender name `Track.now`. The password goes only into this dashboard field: never into the repository, `.env` files
+   or Netlify variables.
+3. Supabase dashboard → Authentication → Rate Limits → raise "emails sent per hour" to what you expect at peak
+   (sign-ins per hour, with headroom). The default after enabling custom SMTP is low; check the number shown there.
+4. Authentication → Emails → Templates: keep `{{ .Token }}` in the Magic Link and Confirm signup templates (already
+   listed below as the email-code template step).
+5. Send yourself one sign-in code from the live site and check it arrives, lands in the inbox, and shows the code.
+
 ## Verdict
 
 **LAUNCHED — READY.** Both web sites are live and the hosted database has all three security/habit migrations

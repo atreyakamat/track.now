@@ -354,7 +354,9 @@ export async function updateItemProgress(
   const nextStatus: ItemStatus = willBeDone ? 'done' : 'todo'
   const dateStr = completedDate || getTodayDateString()
   if (isStaleDayWrite(currentItem, dateStr)) throw new Error(STALE_DAY_MESSAGE)
-  const wasDone = userId ? await wasItemDoneBefore(currentItem, dateStr) : currentItem.status === 'done'
+  // Habits: the day's completion row is written or removed idempotently, so there is no need
+  // to read it first (one round trip fewer on every tick). One-off items: status is the truth.
+  const wasDone = currentItem.type === 'habit' ? !willBeDone : currentItem.status === 'done'
 
   const updated = await updateExecutionItem(itemId, {
     current_count: clampedCount,
@@ -552,6 +554,11 @@ export async function editExecutionItem(
   return updated
 }
 
+/**
+ * Records that an item was completed on a day. Idempotent: the unique index on
+ * (item_id, completed_date) makes a repeat a no-op, so this is a single round trip.
+ * Ownership is enforced by Row Level Security (the row must be the caller's own item).
+ */
 export async function recordCompletion(
   userId: string,
   itemId: string,
@@ -559,44 +566,23 @@ export async function recordCompletion(
   completedDate?: string,
 ): Promise<void> {
   const dateStr = completedDate || getTodayDateString()
-
-  // Validate that target execution item exists and belongs to this user
-  const { data: item, error: itemErr } = await supabase
-    .from('track_now_execution_items')
-    .select('id')
-    .eq('id', itemId)
-    .maybeSingle()
-  if (itemErr || !item) {
+  const { error } = await supabase.from('track_now_item_completions').upsert(
+    {
+      item_id: itemId,
+      user_id: userId,
+      completed_date: dateStr,
+      notes: notes || null,
+    },
+    { onConflict: 'item_id,completed_date', ignoreDuplicates: true },
+  )
+  if (!error || error.code === '23505') return // 23505: a concurrent insert won; same outcome
+  // 42501 = RLS refused the row, 23503 = the item no longer exists.
+  if (error.code === '42501' || error.code === '23503') {
     throw new Error('Unauthorized or target execution item does not exist')
   }
-
-  // Prevent duplicate completions for the same item and date
-  const { data: existing } = await supabase
-    .from('track_now_item_completions')
-    .select('id')
-    .eq('item_id', itemId)
-    .eq('completed_date', dateStr)
-    .maybeSingle()
-
-  if (existing) {
-    return
-  }
-
-  // 2. Perform insert and gracefully handle database unique constraint conflicts (23505)
-  const { error } = await supabase.from('track_now_item_completions').insert({
-    item_id: itemId,
-    user_id: userId,
-    completed_date: dateStr,
-    notes: notes || null,
-  })
-
-  // Code 23505 indicates a concurrent insert satisfied the unique index; treat as idempotent success
-  if (error && error.code !== '23505') {
-    throw new Error(error.message)
-  }
+  throw new Error(error.message)
 }
 
-/** Removes every completion row for an item (used when a one-off item is un-completed). */
 export async function deleteAllCompletionsForItem(itemId: string): Promise<void> {
   const { error } = await supabase.from('track_now_item_completions').delete().eq('item_id', itemId)
   if (error) throw new Error(error.message)
@@ -652,19 +638,28 @@ export async function toggleItemStatus(
   // Derive the transition from the freshly loaded row, not the caller's possibly stale copy,
   // so double clicks / two tabs cannot invert the intended action.
   const currentItem = await getExecutionItem(itemId)
-  const nextStatus: ItemStatus = currentItem.status === 'done' ? 'todo' : 'done'
+  return writeItemDone(currentItem, currentItem.status !== 'done', userId, completedDate)
+}
+
+/** Writes the done / not-done state of a freshly loaded one-off item and syncs its history. */
+async function writeItemDone(
+  currentItem: ExecutionItem,
+  done: boolean,
+  userId?: string,
+  completedDate?: string,
+): Promise<ExecutionItem> {
   const targetCount = Math.max(1, currentItem.target_count ?? 1)
-  const nextCount = nextStatus === 'done' ? Math.max(targetCount, currentItem.current_count ?? 0) : 0
+  const nextCount = done ? Math.max(targetCount, currentItem.current_count ?? 0) : 0
   const dateStr = completedDate || getTodayDateString()
 
-  const updated = await updateExecutionItem(itemId, {
-    status: nextStatus,
+  const updated = await updateExecutionItem(currentItem.id, {
+    status: done ? 'done' : 'todo',
     current_count: nextCount,
     ...countDayFields(currentItem, dateStr),
   })
 
   if (userId) {
-    await syncCompletionLog(userId, itemId, dateStr, nextStatus !== 'done', nextStatus === 'done', currentItem.type)
+    await syncCompletionLog(userId, currentItem.id, dateStr, !done, done, currentItem.type)
   }
 
   return updated
@@ -687,7 +682,7 @@ export async function setItemDone(
     return updateItemProgress(itemId, done ? target : 0, userId, completedDate)
   }
   if ((currentItem.status === 'done') === done) return currentItem
-  return toggleItemStatus(itemId, currentItem.status, userId, completedDate)
+  return writeItemDone(currentItem, done, userId, completedDate)
 }
 
 export const CHECKLIST_NEEDS_MIGRATION_MESSAGE =

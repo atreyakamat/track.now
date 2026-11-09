@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons'
-import { useEffect, useState } from 'react'
+import { memo, useEffect, useState } from 'react'
 import { Pressable, View } from 'react-native'
 import type { ExecutionItem } from '@tracknow/core/types/domain'
 import { getTodayDateString, isOverdue } from '@tracknow/core/domain/dates'
@@ -11,7 +11,7 @@ import type { HabitStreakSummary } from '@tracknow/core/domain/streaks'
 import { formatReminderLabel, getReminderForItem } from '@tracknow/core/services/reminderService'
 import { onAppEvent } from '@tracknow/core/platform/events'
 import { Badge, Card, Text } from '@/components/ui'
-import { Pop } from '@/components/ui/Motion'
+import { Pop, PressScale } from '@/components/ui/Motion'
 import { useTheme } from '@/theme/ThemeProvider'
 import { radius, spacing } from '@/theme/tokens'
 
@@ -74,7 +74,7 @@ function IconButton({ name, label, onPress, disabled, active, color }: { name: R
   )
 }
 
-export function ExecutionItemCard({
+function ExecutionItemCardImpl({
   item,
   onToggle,
   onStep,
@@ -147,13 +147,13 @@ export function ExecutionItemCard({
   return (
     <Card tone={isDone ? 'muted' : 'surface'} style={{ gap: spacing[2], padding: spacing[3], borderColor: focused && !isDone ? colors.accentPrimary : colors.border }}>
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing[3] }}>
-        <Pressable
+        <PressScale
           onPress={() => onToggle(item)}
           disabled={busy}
           accessibilityRole="checkbox"
           accessibilityState={{ checked: isDone }}
           accessibilityLabel={isDone ? `Mark ${item.name} incomplete` : `Mark ${item.name} done`}
-          hitSlop={6}
+          hitSlop={10}
           style={{
             width: 32,
             height: 32,
@@ -167,7 +167,7 @@ export function ExecutionItemCard({
           }}
         >
           <Pop active={isDone}>{isDone ? <Feather name="check" size={16} color={colors.controlText} /> : null}</Pop>
-        </Pressable>
+        </PressScale>
 
         <View style={{ flex: 1, gap: spacing[1] }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2], flexWrap: 'wrap' }}>
@@ -314,27 +314,29 @@ export function ExecutionItemCard({
               marginRight: 'auto',
             }}
           >
-            <Pressable
+            <PressScale
               onPress={() => onStep?.(item, -1)}
               disabled={busy || currentCount <= 0}
-              hitSlop={4}
+              hitSlop={6}
+              accessibilityRole="button"
               accessibilityLabel={`Decrease ${item.name} count`}
               style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center', opacity: currentCount <= 0 ? 0.4 : 1 }}
             >
               <Feather name="minus" size={16} color={colors.textPrimary} />
-            </Pressable>
+            </PressScale>
             <Text variant="caption" weight="semibold" style={{ minWidth: 56, textAlign: 'center' }}>
               {currentCount}/{targetCount} {item.unit ?? ''}
             </Text>
-            <Pressable
+            <PressScale
               onPress={() => onStep?.(item, 1)}
               disabled={busy}
-              hitSlop={4}
+              hitSlop={6}
+              accessibilityRole="button"
               accessibilityLabel={`Increase ${item.name} count`}
               style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}
             >
               <Feather name="plus" size={16} color={colors.textPrimary} />
-            </Pressable>
+            </PressScale>
           </View>
         ) : null}
 
@@ -358,3 +360,28 @@ export function ExecutionItemCard({
     </Card>
   )
 }
+
+const sameStreak = (a?: HabitStreakSummary | null, b?: HabitStreakSummary | null) =>
+  a === b ||
+  (!!a &&
+    !!b &&
+    a.currentStreak === b.currentStreak &&
+    a.isActiveStreak === b.isActiveStreak &&
+    a.streakUnit === b.streakUnit)
+
+/**
+ * Memoised: ticking one item redraws that card, not the whole list. Every prop is compared by
+ * identity (so a changed handler always gets through), except the streak summary, which is
+ * rebuilt for every habit on each change and is compared by the fields the card shows.
+ */
+export const ExecutionItemCard = memo(ExecutionItemCardImpl, (prev, next) => {
+  const keys = new Set([...Object.keys(prev), ...Object.keys(next)]) as Set<keyof ExecutionItemCardProps>
+  for (const key of keys) {
+    if (key === 'streakSummary') {
+      if (!sameStreak(prev.streakSummary, next.streakSummary)) return false
+    } else if (prev[key] !== next[key]) {
+      return false
+    }
+  }
+  return true
+})

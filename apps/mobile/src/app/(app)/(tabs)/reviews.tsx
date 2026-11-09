@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons'
 import { useFocusEffect, useRouter } from 'expo-router'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Pressable, RefreshControl, ScrollView, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { listTracks } from '@tracknow/core/services/tracksService'
@@ -8,6 +8,7 @@ import { listPlans } from '@tracknow/core/services/plansService'
 import { listExecutionItems } from '@tracknow/core/services/executionService'
 import { listCompletionHistory } from '@tracknow/core/services/historyService'
 import { loadReviewNote, saveReviewNote } from '@tracknow/core/services/reviewNotesStorage'
+import { pushReviewNote, syncReviewNotes, type SyncStatus } from '@tracknow/core/services/syncedState'
 import { getTodayDateString } from '@tracknow/core/domain/dates'
 import { addDays } from '@tracknow/core/domain/streaks'
 import { buildReviewSummary, getMonthRange, getWeekRange, makePeriodKey, type ReviewKind } from '@tracknow/core/domain/reviews'
@@ -36,6 +37,12 @@ const PROMPTS: Record<ReviewKind, { id: string; label: string }[]> = {
   ],
 }
 
+const SYNC_NOTICE: Record<SyncStatus, string> = {
+  synced: 'Saved to your account, so your notes are on your other devices too',
+  'device-only': 'Notes are stored on this device only for now',
+  failed: 'Saved on this device. They sync when your account can be reached',
+}
+
 export default function ReviewsScreen() {
   const { user } = useAuth()
   const { colors } = useTheme()
@@ -44,6 +51,11 @@ export default function ReviewsScreen() {
   const [offset, setOffset] = useState(0)
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [savedAt, setSavedAt] = useState<string | null>(null)
+  const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null)
+  /** Bumped when a sync brought in notes from another device, to re-read the open period. */
+  const [notesRev, setNotesRev] = useState(0)
+  /** True while there is typed text that has not been saved (a sync never replaces it). */
+  const dirtyRef = useRef(false)
 
   const now = useMemo(() => new Date(), [])
   const range = useMemo(() => (tab === 'weekly' ? getWeekRange(now, offset) : getMonthRange(now, offset)), [tab, offset, now])
@@ -62,6 +74,23 @@ export default function ReviewsScreen() {
     }, [reload]),
   )
 
+  // Bring this device and the account in line whenever the screen opens.
+  useFocusEffect(
+    useCallback(() => {
+      const userId = user?.id
+      if (!userId) return
+      let alive = true
+      void syncReviewNotes(userId).then((result) => {
+        if (!alive) return
+        setSyncStatus(result.status)
+        if (result.changed && !dirtyRef.current) setNotesRev((v) => v + 1)
+      })
+      return () => {
+        alive = false
+      }
+    }, [user?.id]),
+  )
+
   const summary = useMemo(() => (data ? buildReviewSummary({ tracks: data.tracks, plans: data.plans, items: data.items, completions: data.completions, range, now }) : null), [data, range, now])
   const dueForReview = useMemo(() => (data ? data.plans.filter((p) => isDueForReview(p, now)) : []), [data, now])
   const trackName = (id: string) => data?.tracks.find((t) => t.id === id)?.name
@@ -71,12 +100,18 @@ export default function ReviewsScreen() {
     const note = loadReviewNote(user.id, periodKey)
     setAnswers(note?.answers ?? {})
     setSavedAt(note?.updatedAt ?? null)
-  }, [user?.id, periodKey])
+    dirtyRef.current = false
+  }, [user?.id, periodKey, notesRev])
 
   const save = () => {
     if (!user) return
-    const ok = saveReviewNote(user.id, { periodKey, kind: tab, answers, priorities: [] })
-    if (ok) setSavedAt(new Date().toISOString())
+    // Priorities are edited on the web; keep the ones already stored for this period.
+    const priorities = loadReviewNote(user.id, periodKey)?.priorities ?? []
+    const ok = saveReviewNote(user.id, { periodKey, kind: tab, answers, priorities })
+    if (!ok) return
+    dirtyRef.current = false
+    setSavedAt(new Date().toISOString())
+    void pushReviewNote(user.id, periodKey).then(setSyncStatus)
   }
 
   const prompts = PROMPTS[tab]
@@ -245,7 +280,10 @@ export default function ReviewsScreen() {
                     key={prompt.id}
                     label={prompt.label}
                     value={answers[prompt.id] ?? ''}
-                    onChangeText={(v) => setAnswers((prev) => ({ ...prev, [prompt.id]: v }))}
+                    onChangeText={(v) => {
+                      dirtyRef.current = true
+                      setAnswers((prev) => ({ ...prev, [prompt.id]: v }))
+                    }}
                     placeholder="Your reflection…"
                     multiline
                     numberOfLines={3}
@@ -254,7 +292,7 @@ export default function ReviewsScreen() {
                 ))}
                 <Button title="Save notes" block onPress={save} />
                 <Text variant="meta" tone="tertiary">
-                  Notes are stored on this device only · {pluralize(prompts.length, 'prompt')}
+                  {syncStatus ? SYNC_NOTICE[syncStatus] : 'Notes are saved on this device first'} · {pluralize(prompts.length, 'prompt')}
                 </Text>
               </Card>
             </>

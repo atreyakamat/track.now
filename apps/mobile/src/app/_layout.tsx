@@ -1,17 +1,21 @@
 import { installSupabase } from '@/lib/supabase'
+import { installTelemetry } from '@/lib/telemetry'
 // Side effect: registers the Android home-screen widget task handler at startup.
 import '@/widgets/register'
 
 // Register the Supabase client, device storage and auth redirect with @tracknow/core
 // before anything renders or any core service runs.
 installSupabase()
+// Usage events and error reports: needs the client and storage registered above.
+installTelemetry()
 
-import { Stack, useRouter, useSegments } from 'expo-router'
+import { Stack, useRouter, useSegments, type ErrorBoundaryProps } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { useEffect } from 'react'
 import { View } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
+import { captureError } from '@tracknow/core/services/telemetry'
 import { Button, LoadingState, Text } from '@/components/ui'
 import { AuthProvider, useAuth } from '@/features/auth/AuthProvider'
 import { ToastProvider } from '@/features/notifications/ToastContext'
@@ -94,6 +98,30 @@ function RootNavigator() {
       </Stack>
       <AuthGate />
     </>
+  )
+}
+
+/**
+ * Shown by expo-router instead of the whole app when a screen throws while rendering.
+ * It replaces the root layout, so it brings its own theme. Reports the error once.
+ */
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  useEffect(() => {
+    captureError(error, { where: 'route' })
+  }, [error])
+
+  return (
+    <ThemeProvider>
+      <FullScreen>
+        <Text variant="h2" center>
+          Something went wrong
+        </Text>
+        <Text variant="caption" tone="secondary" center>
+          Track.now hit an unexpected error. Trying again usually fixes it.
+        </Text>
+        <Button title="Retry" onPress={() => void retry()} />
+      </FullScreen>
+    </ThemeProvider>
   )
 }
 

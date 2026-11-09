@@ -7,6 +7,7 @@ import { PLAN_LIBRARY, materializeLibraryEntry, type LibraryEntry } from '@track
 import { parsePlanFile } from '@tracknow/core/domain/planImport'
 import { importPlanFile } from '@tracknow/core/services/planImportService'
 import { getTodayDateString } from '@tracknow/core/domain/dates'
+import { track } from '@tracknow/core/services/telemetry'
 import { AppBar } from '@/components/AppBar'
 import { Badge, Button, Card, DateField, Text } from '@/components/ui'
 import { FadeIn } from '@/components/ui/Motion'
@@ -50,6 +51,7 @@ export default function LibraryScreen() {
       showToast({ title: 'Import stopped', message: report.error, type: 'warning', duration: 9000 })
       return
     }
+    track('template_used', { template: open.key })
     showToast({
       title: `${open.title} is ready`,
       message: `${report.tracksCreated} new tracks, ${report.plansCreated} plans, ${report.itemsCreated} items.${report.plansSkipped.length ? ` ${report.plansSkipped.length} existing plans skipped.` : ''}`,

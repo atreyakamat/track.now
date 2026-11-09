@@ -16,7 +16,7 @@ type Result = { data: unknown; error: { message: string; code?: string } | null 
 function chain(result: Result | ((calls: Array<{ method: string; args: unknown[] }>) => Result)) {
   const calls: Array<{ method: string; args: unknown[] }> = []
   const obj: Record<string, unknown> = { calls }
-  for (const m of ['select', 'insert', 'update', 'delete', 'eq', 'neq', 'in', 'order', 'gte', 'maybeSingle', 'single', 'limit', 'range']) {
+  for (const m of ['select', 'insert', 'upsert', 'update', 'delete', 'eq', 'neq', 'in', 'order', 'gte', 'maybeSingle', 'single', 'limit', 'range']) {
     obj[m] = vi.fn((...args: unknown[]) => {
       calls.push({ method: m, args })
       return obj
@@ -28,7 +28,7 @@ function chain(result: Result | ((calls: Array<{ method: string; args: unknown[]
 }
 
 const from = supabase.from as ReturnType<typeof vi.fn>
-const payloadOf = (c: { calls: Array<{ method: string; args: unknown[] }> }, method: 'insert' | 'update') =>
+const payloadOf = (c: { calls: Array<{ method: string; args: unknown[] }> }, method: 'insert' | 'update' | 'upsert') =>
   c.calls.find((x) => x.method === method)?.args[0] as Record<string, unknown>
 const missingColumn = { message: "Could not find the 'plan_kind' column of 'track_now_plans' in the schema cache", code: 'PGRST204' }
 
@@ -122,13 +122,14 @@ describe('setChecklistEntries', () => {
     }
     const get = chain({ data: current, error: null })
     const upd = chain({ data: { ...current, status: 'done' }, error: null })
-    const exists = chain({ data: { id: 'c1' }, error: null })
-    const dup = chain({ data: null, error: null })
     const ins = chain({ data: null, error: null })
-    from.mockReturnValueOnce(get).mockReturnValueOnce(upd).mockReturnValueOnce(exists).mockReturnValueOnce(dup).mockReturnValueOnce(ins)
+    from.mockReturnValueOnce(get).mockReturnValueOnce(upd).mockReturnValueOnce(ins)
     const updated = await setChecklistEntries('c1', current.checklist_entries.map((e) => ({ ...e, done: true })), 'u1', '2026-11-12')
     expect(updated.status).toBe('done')
     expect(payloadOf(upd, 'update')).toMatchObject({ status: 'done', current_count: 1 })
-    expect(payloadOf(ins, 'insert')).toMatchObject({ item_id: 'c1', user_id: 'u1', completed_date: '2026-11-12' })
+    // One duplicate-safe write, three round trips in total (read, update, completion).
+    expect(payloadOf(ins, 'upsert')).toMatchObject({ item_id: 'c1', user_id: 'u1', completed_date: '2026-11-12' })
+    expect(ins.upsert).toHaveBeenCalledTimes(1)
+    expect(from).toHaveBeenCalledTimes(3)
   })
 })

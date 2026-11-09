@@ -54,6 +54,20 @@ function withCount(item: ExecutionItem, count: number, today: string, now: Date)
 const countReached = (stored: ExecutionItem) => (stored.current_count ?? 0) >= targetOf(stored)
 
 /**
+ * True when two copies of an item look the same on screen as far as a tick can change them.
+ * Used to skip re-rendering when the server's answer equals the prediction already shown.
+ */
+export function sameShownState(a: ExecutionItem, b: ExecutionItem): boolean {
+  return (
+    a.status === b.status &&
+    (a.current_count ?? 0) === (b.current_count ?? 0) &&
+    (a.target_count ?? 1) === (b.target_count ?? 1) &&
+    (a.count_date ?? null) === (b.count_date ?? null) &&
+    JSON.stringify(a.checklist_entries ?? null) === JSON.stringify(b.checklist_entries ?? null)
+  )
+}
+
+/**
  * Plans one action on `item`. Returns null when the action changes nothing (for example a
  * step of 0, or a checklist entry that does not exist).
  */

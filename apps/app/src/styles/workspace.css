@@ -208,8 +208,17 @@ button.heat-cell:hover, button.heat-cell:focus-visible { transform: scale(1.3); 
 .today-section .stack > *:nth-child(4) { animation: fade-up 0.3s 120ms ease-out both; }
 .today-section .stack > *:nth-child(n + 5) { animation: fade-up 0.3s 160ms ease-out both; }
 /* Completing something: the tick pops and the ring pulses once. */
-.btn--icon[aria-pressed='true'] > svg { animation: check-pop 0.32s cubic-bezier(0.2, 1.3, 0.4, 1) both; }
-.btn--icon[aria-pressed='true'] { animation: ring-pulse 0.5s ease-out; }
+/* Only a tick made just now animates (.tick--pop is set by the card for that one change), so
+   nothing pops on page load or when a card moves to another section. */
+.tick { transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease, transform 0.08s ease; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.tick:hover:not(:disabled) { border-color: var(--text-primary) !important; }
+.tick:active:not(:disabled) { transform: scale(0.86); }
+.tick--pop > svg { animation: check-pop 0.32s cubic-bezier(0.2, 1.3, 0.4, 1) both; }
+.tick--pop { animation: ring-pulse 0.5s ease-out; }
+@keyframes count-bump { 0% { transform: translateY(3px); opacity: 0.4; } 100% { transform: none; opacity: 1; } }
+.count-bump { display: inline-block; animation: count-bump 0.16s ease-out; }
+.checklist__step { touch-action: manipulation; }
+.card .t-h3 { transition: color 0.2s ease; }
 .checklist__step input { transition: transform 0.15s ease; }
 .checklist__step input:checked { animation: check-pop 0.28s cubic-bezier(0.2, 1.3, 0.4, 1) both; }
 .checklist__label { transition: color 0.2s ease; }

@@ -20,6 +20,7 @@ const ROOT = path.resolve(__dirname, '..')
 const APP = path.join(ROOT, 'apps', 'app')
 const DEFAULT_SCRIPTS = [
   'verify_numeric_e2e.cjs',
+  'verify_instant_ticks_e2e.cjs',
   'verify_streaks_heatmap_e2e.cjs',
   'verify_sidebar_scroll_signup_e2e.cjs',
   'verify_reminders_notifications_e2e.cjs',

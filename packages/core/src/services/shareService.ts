@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase'
 import type { ExecutionItem, ItemType, Plan } from '../types/domain'
 import { unwrap } from './helpers'
+import { track } from './telemetry'
 
 /**
  * Read-only Plan sharing for an accountability partner or coach. The owner creates a link
@@ -51,6 +52,7 @@ export async function createPlanShare(userId: string, planId: string): Promise<P
     if (error.code === '42P01' || /relation .* does not exist|schema cache/i.test(error.message)) throw new Error(SHARING_NEEDS_MIGRATION_MESSAGE)
     throw new Error(error.message)
   }
+  track('plan_shared')
   return data as PlanShare
 }
 

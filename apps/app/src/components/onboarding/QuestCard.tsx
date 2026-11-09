@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { CheckCircle2, Circle, Compass, X } from 'lucide-react'
 import type { Quest } from '@tracknow/core/domain/quests'
 import { questXp } from '@tracknow/core/domain/quests'
+import { track } from '@tracknow/core/services/telemetry'
 import { Button, ProgressBar } from '@/components/ui'
 
 /**
@@ -47,13 +48,20 @@ export function QuestCard({ quests, onTour, onDismiss }: { quests: Quest[]; onTo
               </span>
               <span className="quests__text">
                 {q.id === 'tour' && !q.done ? (
-                  <button type="button" className="quests__link" onClick={onTour}>
+                  <button
+                    type="button"
+                    className="quests__link"
+                    onClick={() => {
+                      track('quest_clicked', { quest: q.id })
+                      onTour()
+                    }}
+                  >
                     {q.title}
                   </button>
                 ) : q.done ? (
                   <span>{q.title}</span>
                 ) : (
-                  <Link to={q.to} className="quests__link">
+                  <Link to={q.to} className="quests__link" onClick={() => track('quest_clicked', { quest: q.id })}>
                     {q.title}
                   </Link>
                 )}

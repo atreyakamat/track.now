@@ -29,6 +29,16 @@ import type { NotificationPreferences, ReminderPreset } from '@tracknow/core/typ
 
 type PermissionState = NotificationPermission | 'unsupported'
 
+/** Only a plain https link is ever rendered (the value comes from build configuration). */
+function safeStoreUrl(value: string | undefined): string | null {
+  try {
+    const url = new URL((value ?? '').trim())
+    return url.protocol === 'https:' ? url.toString() : null
+  } catch {
+    return null
+  }
+}
+
 const readPermission = (): PermissionState =>
   isNotificationSupported() ? Notification.permission : 'unsupported'
 
@@ -217,7 +227,11 @@ export function SettingsPage() {
   const browserNotificationSupport: Support =
     permissionState === 'granted' && prefs.masterEnabled ? 'yes' : permissionState === 'unsupported' ? 'no' : 'partial'
 
-  const capabilityRows: Array<{ mode: string; detail: string; support: Support }> = [
+  // The phone app schedules reminders with the operating system, so they fire when it is closed.
+  // Its store page is configuration (VITE_ANDROID_APP_URL): nothing is linked until it is live.
+  const androidAppUrl = safeStoreUrl(import.meta.env.VITE_ANDROID_APP_URL)
+
+  const capabilityRows: Array<{ mode: string; detail: string; support: Support; link?: { href: string; label: string } }> = [
     {
       mode: 'Track.now open (active tab)',
       detail: 'In-app reminder alert, plus a system notification if enabled below.',
@@ -237,11 +251,19 @@ export function SettingsPage() {
         'Nothing can fire: there is no push server. Reminders that came due are shown when you reopen Track.now (up to 3 individually; more than that, or anything over a day old, as one summary).',
       support: 'no',
     },
-    {
-      mode: 'Native Android / iOS app',
-      detail: 'Not available. Widget source files exist in the repository, but no native app is built or published.',
-      support: 'no',
-    },
+    androidAppUrl
+      ? {
+          mode: 'Track.now for Android',
+          detail:
+            'Reminders you set in the phone app fire even when it is closed. Reminders are kept per device, so set them on the phone.',
+          support: 'yes',
+          link: { href: androidAppUrl, label: 'Get the Android app' },
+        }
+      : {
+          mode: 'Track.now for Android / iOS',
+          detail: 'Not in the app stores yet. The Android app delivers reminders while closed and will be linked here once it is published.',
+          support: 'no',
+        },
   ]
 
   return (
@@ -472,7 +494,17 @@ export function SettingsPage() {
                         <th scope="row" style={{ padding: '8px 12px', fontWeight: 500, textAlign: 'left', verticalAlign: 'top' }}>
                           {row.mode}
                         </th>
-                        <td style={{ padding: '8px 12px', verticalAlign: 'top' }}>{row.detail}</td>
+                        <td style={{ padding: '8px 12px', verticalAlign: 'top' }}>
+                          {row.detail}
+                          {row.link && (
+                            <>
+                              {' '}
+                              <a href={row.link.href} target="_blank" rel="noopener noreferrer">
+                                {row.link.label}
+                              </a>
+                            </>
+                          )}
+                        </td>
                         <td style={{ padding: '8px 12px', verticalAlign: 'top', color: SUPPORT_COLOR[row.support], fontWeight: 600, whiteSpace: 'nowrap' }}>
                           {SUPPORT_LABEL[row.support]}
                         </td>

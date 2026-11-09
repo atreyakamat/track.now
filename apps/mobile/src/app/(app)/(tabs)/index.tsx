@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons'
 import { useFocusEffect, useRouter } from 'expo-router'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, Modal, Pressable, RefreshControl, ScrollView, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable'
@@ -16,6 +16,7 @@ import {
 } from '@tracknow/core/services/executionService'
 import { listCompletionHistory, type CompletionRecord } from '@tracknow/core/services/historyService'
 import { loadFocusIds, toggleFocusId } from '@tracknow/core/services/focusService'
+import { pushFocus, syncFocus } from '@tracknow/core/services/syncedState'
 import { addSkip, loadSkips, removeSkip, skippedDatesByItem, SKIP_REASONS, type SkipReason } from '@tracknow/core/services/skipService'
 import { addDaysTo } from '@tracknow/core/domain/schedule'
 import { FadeIn } from '@/components/ui/Motion'
@@ -198,6 +199,7 @@ export default function TodayScreen() {
     async (opts: { silent?: boolean } = {}) => {
       if (!userId) return
       const requestId = ++requestRef.current
+      const snapshot = actionsRef.current?.snapshotToken() ?? 0
       try {
         if (!opts.silent) setLoading(true)
         else setRefreshing(true)
@@ -211,11 +213,17 @@ export default function TodayScreen() {
         const habitIds = ws.items.filter((i) => i.type === 'habit').map((h) => h.id)
         const history = habitIds.length ? await listCompletionsForItems(habitIds, addDays(today, -400)) : {}
         if (requestId !== requestRef.current) return
+        // Taps saved while this was loading are newer than this snapshot: skip it (the hook re-syncs).
+        if (actionsRef.current && !actionsRef.current.acceptSnapshot(snapshot)) return
         setItems(ws.items)
         setWorkspace(ws)
         if (lifetime) setLedger(lifetime)
         actionsRef.current?.setCompletionState(todayIds, history)
         setFocusIds(loadFocusIds(userId))
+        // Focus picked on another device today: take it over (the newest change wins).
+        void syncFocus(userId).then((result) => {
+          if (result.ids && requestId === requestRef.current) setFocusIds(result.ids)
+        })
         reconcileRemindersWithActiveItems(userId, ws.items.map((i) => i.id))
         updateTodayWidget(ws.items, new Set(todayIds))
       } catch (err) {
@@ -258,20 +266,25 @@ export default function TodayScreen() {
 
   const context = useMemo(() => {
     const trackName = new Map(workspace.tracks.map((t) => [t.id, t.name]))
-    const map = new Map<string, { label: string; planId: string }>()
+    const map = new Map<string, { label: string; planId: string; onPress: () => void }>()
     for (const p of workspace.plans) {
       const t = trackName.get(p.track_id)
-      map.set(p.id, { label: t ? `${p.name} · ${t}` : p.name, planId: p.id })
+      map.set(p.id, { label: t ? `${p.name} · ${t}` : p.name, planId: p.id, onPress: () => router.push(`/plan/${p.id}`) })
     }
     return map
-  }, [workspace])
+  }, [workspace, router])
 
   // Momentum, level, streak, quests and this week's planned work, in step with today's toggles.
+  // This walks the whole completion history, so it reads deferred copies: a tap redraws the
+  // list first and the level / streak / quests follow a moment later, without blocking the tick.
+  const deferredItems = useDeferredValue(items)
+  const deferredDoneIds = useDeferredValue(actions.completedTodayIds)
   const progress = useMemo(() => {
     if (!ledger || loading) return null
+    const items = deferredItems
     const today = getTodayDateString()
     const rows = ledger.filter((r) => r.completed_date !== today).map((r) => ({ item_id: r.item_id, completed_date: r.completed_date }))
-    actions.completedTodayIds.forEach((id) => rows.push({ item_id: id, completed_date: today }))
+    deferredDoneIds.forEach((id) => rows.push({ item_id: id, completed_date: today }))
     const plans = workspace.plans as Plan[]
     const quests = calcQuests({
       tracks: workspace.tracks.length,
@@ -291,7 +304,7 @@ export default function TodayScreen() {
       quests,
       week: week ? { done: week.done, planned: week.planned } : null,
     }
-  }, [ledger, loading, actions.completedTodayIds, items, workspace, tourDone, focusUsed, skips])
+  }, [ledger, loading, deferredDoneIds, deferredItems, workspace, tourDone, focusUsed, skips])
 
   // Announce a level-up once (the last level seen is remembered per user on this device).
   useEffect(() => {
@@ -317,19 +330,26 @@ export default function TodayScreen() {
     if (q.id === 'first_plan' || q.id === 'arc') return router.push('/(app)/(tabs)/tracks')
   }
 
-  const toggleFocus = (item: ExecutionItem) => {
-    if (!userId) return
-    const next = toggleFocusId(userId, item.id)
-    if (next && !focusUsed) {
-      onboardingState.setFocusUsed(userId)
-      setFocusUsed(true)
-    }
-    if (!next) {
-      showToast({ id: 'focus-full', title: `Focus holds ${MAX_FOCUS} items`, message: 'Remove one from today’s focus first.', type: 'info' })
-      return
-    }
-    setFocusIds(next)
-  }
+  // Stable handlers: the item cards are memoised and only redraw when their own data changes.
+  const toggleFocus = useCallback(
+    (item: ExecutionItem) => {
+      if (!userId) return
+      const next = toggleFocusId(userId, item.id)
+      if (next && !focusUsed) {
+        onboardingState.setFocusUsed(userId)
+        setFocusUsed(true)
+      }
+      if (!next) {
+        showToast({ id: 'focus-full', title: `Focus holds ${MAX_FOCUS} items`, message: 'Remove one from today’s focus first.', type: 'info' })
+        return
+      }
+      setFocusIds(next)
+      void pushFocus(userId)
+    },
+    [userId, focusUsed, showToast],
+  )
+  const openEdit = useCallback((it: ExecutionItem) => router.push(`/item/${it.id}/edit`), [router])
+  const openDetail = useCallback((it: ExecutionItem) => router.push(`/item/${it.id}`), [router])
 
   const focusSet = new Set(focusIds)
   const todayStr = getTodayDateString()
@@ -351,7 +371,10 @@ export default function TodayScreen() {
       showToast({ title: 'Could not move the item', message: err instanceof Error ? err.message : 'Please try again.', type: 'warning' })
     }
   }
-  const renderCard = (item: ExecutionItem, swipe = false) => {
+  const liveById = new Map(items.map((i) => [i.id, i]))
+  const renderCard = (grouped: ExecutionItem, swipe = false) => {
+    // `grouped` decides the section; the card itself always shows the live item.
+    const item = liveById.get(grouped.id) ?? grouped
     const weekly = item.type === 'habit' ? weeklyTargetStatus(item.schedule, actions.completionDates[item.id] ?? [], getTodayDateString()) : null
     const ctx = context.get(item.plan_id)
     const card = (
@@ -361,15 +384,15 @@ export default function TodayScreen() {
         isCompletedOverride={item.type === 'habit' ? actions.completedTodayIds.has(item.id) : undefined}
         streakSummary={item.type === 'habit' ? actions.streakSummaries[item.id] : undefined}
         weekDone={weekly?.done}
-        context={ctx ? { label: ctx.label, onPress: () => router.push(`/plan/${ctx.planId}`) } : null}
+        context={ctx ?? null}
         focused={focusSet.has(item.id)}
         onToggleFocus={toggleFocus}
-        onToggleChecklistEntry={(it, entryId) => void actions.toggleChecklistEntry(it, entryId)}
+        onToggleChecklistEntry={actions.toggleChecklistEntry}
         onMore={setSheetItem}
         onToggle={actions.toggle}
         onStep={actions.step}
-        onEdit={(it) => router.push(`/item/${it.id}/edit`)}
-        onOpenDetail={(it) => router.push(`/item/${it.id}`)}
+        onEdit={openEdit}
+        onOpenDetail={openDetail}
         onSnooze={actions.snooze}
         onRemoveReminder={actions.removeReminder}
       />
@@ -406,9 +429,13 @@ export default function TodayScreen() {
       </View>
     ) : null
 
-  const groups = groupTodayItems(items, actions.completedTodayIds, new Date(), { focusIds, historyByItem: actions.completionDates, skippedIds: skippedToday.map((s) => s.item_id) })
-  const summary = todaySummary(groups)
-  const totalOpen = groups.focus.length + groups.overdue.length + groups.dueToday.length + groups.anytime.length
+  const groupOptions = { focusIds, historyByItem: actions.completionDates, skippedIds: skippedToday.map((s) => s.item_id) }
+  // Sections use the "held" view: a just-ticked item stays put for a moment so the tick is seen
+  // before the item moves to Completed. Counts use the live state, so they update at once.
+  const groups = groupTodayItems(actions.groupingItems, actions.groupingCompletedIds, new Date(), groupOptions)
+  const liveGroups = groupTodayItems(items, actions.completedTodayIds, new Date(), groupOptions)
+  const summary = todaySummary(liveGroups)
+  const totalOpen = liveGroups.focus.length + liveGroups.overdue.length + liveGroups.dueToday.length + liveGroups.anytime.length
   const nothingAtAll = items.filter((i) => i.status !== 'archived').length === 0
   const allDone = !loading && !nothingAtAll && totalOpen === 0 && groups.completedToday.length > 0
   const todayArcs = groupArcs(workspace.plans as Plan[], [], new Date()).filter((a) => a.timeline?.phase !== 'ended')

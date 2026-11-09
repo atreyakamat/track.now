@@ -8,6 +8,7 @@ import { createExecutionItem } from '@tracknow/core/services/executionService'
 import { setReminderForItem } from '@tracknow/core/services/reminderService'
 import { parseQuickAdd } from '@tracknow/core/domain/quickAdd'
 import { getTodayDateString } from '@tracknow/core/domain/dates'
+import { track as trackEvent } from '@tracknow/core/services/telemetry'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useToast } from '@/features/notifications/ToastContext'
 import { usePreferences } from '@/hooks/usePreferences'
@@ -45,6 +46,7 @@ export function StartPage() {
           }
         }
       }
+      trackEvent('template_used', { template: t.key })
       showToast({ title: `${t.track.name} is set up`, message: `${t.items.length} items are waiting on Today.`, type: 'success' })
       navigate('/today', { replace: true })
     } catch (err) {

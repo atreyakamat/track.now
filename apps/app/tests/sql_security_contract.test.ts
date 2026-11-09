@@ -84,8 +84,58 @@ describe('database boundary across all migrations', () => {
   it('enables row level security on every track_now_* table that is created', () => {
     const all = files.map((f) => stripComments(read(f))).join('\n')
     const created = [...all.matchAll(/CREATE TABLE IF NOT EXISTS public\.(\w+)/g)].map((m) => m[1])
-    expect(created.length).toBe(8)
+    expect(created.length).toBe(10)
     created.forEach((t) => expect(all).toContain(`ALTER TABLE public.${t} ENABLE ROW LEVEL SECURITY`))
+  })
+})
+
+describe('client events migration (usage and error reports)', () => {
+  const code = stripComments(read('20261110000000_client_events.sql'))
+  const table = 'public.track_now_client_events'
+
+  it('has exactly one policy: authenticated users insert their own rows', () => {
+    expect(code.match(/CREATE POLICY/g)).toHaveLength(1)
+    expect(code).toMatch(/FOR INSERT TO authenticated\s+WITH CHECK \(user_id = auth\.uid\(\)\)/)
+    expect(code).not.toMatch(/FOR (SELECT|UPDATE|DELETE|ALL)\b/)
+  })
+
+  it('revokes everything from anon and leaves authenticated with INSERT only', () => {
+    expect(code).toContain(`REVOKE ALL ON ${table} FROM anon`)
+    expect(code).toContain(`REVOKE ALL ON ${table} FROM authenticated`)
+    expect(code.match(/\bGRANT\b[^;]*;/g)).toEqual([`GRANT INSERT ON ${table} TO authenticated;`])
+  })
+
+  it('the client never asks for the inserted rows back (there is no read access)', () => {
+    const src = readFileSync(resolve(__dirname, '../../../packages/core/src/services/telemetry.ts'), 'utf-8')
+    expect(src).toContain('supabase.from(TELEMETRY_TABLE).insert(batch)).error')
+    expect(src).not.toContain('.select(')
+  })
+})
+
+describe('synced state migration (review notes and focus)', () => {
+  const code = stripComments(read('20261111000000_synced_state.sql'))
+  const table = 'public.track_now_synced_state'
+
+  it('every policy is limited to the signed-in user\'s own rows', () => {
+    const policies = code.match(/CREATE POLICY[^;]*;/g) ?? []
+    expect(policies).toHaveLength(4)
+    policies.forEach((p) => {
+      expect(p).toContain('TO authenticated')
+      expect(p).toContain('user_id = auth.uid()')
+    })
+    // An UPDATE must also keep the row with its owner.
+    expect(code).toMatch(/FOR UPDATE TO authenticated USING \(user_id = auth\.uid\(\)\) WITH CHECK \(user_id = auth\.uid\(\)\)/)
+  })
+
+  it('anon gets nothing; rows are removed with the account', () => {
+    expect(code).toContain(`REVOKE ALL ON ${table} FROM anon`)
+    expect(code.match(/\bGRANT\b[^;]*;/g)).toEqual([`GRANT SELECT, INSERT, UPDATE, DELETE ON ${table} TO authenticated;`])
+    expect(code).toContain('REFERENCES auth.users(id) ON DELETE CASCADE')
+  })
+
+  it('limits what can be stored (known scopes, short keys, bounded size)', () => {
+    expect(code).toContain("CHECK (scope IN ('review_note', 'focus'))")
+    expect(code).toContain('pg_column_size(value) <= 65536')
   })
 })
 

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { View } from 'react-native'
 import { authService } from '@tracknow/core/auth/authService'
 import { RESET_EMAIL_COOLDOWN_SECONDS } from '@tracknow/core/auth/password'
+import { track } from '@tracknow/core/services/telemetry'
 import { Button, Text, TextField } from '@/components/ui'
 import { useTheme } from '@/theme/ThemeProvider'
 import { radius, spacing } from '@/theme/tokens'
@@ -55,6 +56,7 @@ export function EmailCodeSignIn({ mode, email, onEmailChange, displayName }: { m
     try {
       // On success the root AuthGate sees the new session and moves into the app.
       await authService.verifyEmailCode(email.trim(), value)
+      track(mode === 'signup' ? 'sign_up_completed' : 'sign_in_completed', { method: 'code' })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not verify the code.')
     } finally {

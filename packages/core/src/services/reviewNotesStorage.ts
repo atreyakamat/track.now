@@ -1,7 +1,7 @@
 /**
- * Device-local, user-namespaced storage for review notes (weekly reviews and monthly
- * reflections). Notes live only in this device's storage (localStorage on the web) — they are NOT synced to
- * the user's account or other devices. Only the user's own notes are stored here.
+ * The device's copy of the user's review notes (weekly reviews and monthly reflections),
+ * namespaced by user. This copy is always written first, so notes work offline and before the
+ * database has the sync table. services/syncedState.ts copies it to and from the account.
  */
 import { getStorage } from '../platform/storage'
 
@@ -26,6 +26,8 @@ export interface ReviewNoteInput {
 }
 
 export const REVIEW_NOTES_PREFIX = 'tracknow_reviews_'
+/** Periods deleted on this device and not yet confirmed by the account: periodKey -> ISO time. */
+export const REVIEW_TOMBSTONES_PREFIX = 'tracknow_reviews_deleted_'
 export const MAX_ANSWER_LENGTH = 4000
 export const MAX_PRIORITY_LENGTH = 300
 export const MAX_PRIORITIES = 3
@@ -127,6 +129,63 @@ function writeAll(userId: string, notes: Record<string, ReviewNote>): boolean {
   }
 }
 
+/** Deletions waiting to reach the account. Malformed data yields `{}`. */
+export function loadReviewTombstones(userId: string): Record<string, string> {
+  const storage = getStorage()
+  if (!userId || !storage) return {}
+  try {
+    const parsed: unknown = JSON.parse(storage.getItem(`${REVIEW_TOMBSTONES_PREFIX}${userId}`) || '{}')
+    if (!isPlainObject(parsed)) return {}
+    const out: Record<string, string> = {}
+    for (const [key, at] of Object.entries(parsed)) {
+      if (isValidPeriodKey(key) && typeof at === 'string' && !Number.isNaN(new Date(at).getTime())) out[key] = at
+    }
+    return out
+  } catch {
+    return {}
+  }
+}
+
+function writeTombstones(userId: string, tombstones: Record<string, string>): void {
+  const storage = getStorage()
+  if (!storage) return
+  try {
+    if (Object.keys(tombstones).length === 0) storage.removeItem(`${REVIEW_TOMBSTONES_PREFIX}${userId}`)
+    else storage.setItem(`${REVIEW_TOMBSTONES_PREFIX}${userId}`, JSON.stringify(tombstones))
+  } catch {
+    /* storage unavailable: the deletion simply stays local */
+  }
+}
+
+/** Forget pending deletions (they reached the account, or the note was written again). */
+export function clearReviewTombstones(userId: string, periodKeys: string[]): void {
+  if (!userId || periodKeys.length === 0) return
+  const tombstones = loadReviewTombstones(userId)
+  let changed = false
+  for (const key of periodKeys) {
+    if (key in tombstones) {
+      delete tombstones[key]
+      changed = true
+    }
+  }
+  if (changed) writeTombstones(userId, tombstones)
+}
+
+/**
+ * Sync only: takes over newer copies from the account (`notes`) and removes periods deleted
+ * on another device (`deletedKeys`). Returns false when storage could not be updated.
+ */
+export function applyRemoteReviewNotes(userId: string, notes: ReviewNote[], deletedKeys: string[]): boolean {
+  if (!userId) return false
+  if (notes.length === 0 && deletedKeys.length === 0) return true
+  const all = loadReviewNotes(userId)
+  for (const note of notes) all[note.periodKey] = note
+  for (const key of deletedKeys) delete all[key]
+  const ok = writeAll(userId, all)
+  if (ok) clearReviewTombstones(userId, [...notes.map((n) => n.periodKey), ...deletedKeys])
+  return ok
+}
+
 /** Saves (or replaces) one period's note. Returns false when it could not be persisted. */
 export function saveReviewNote(userId: string, input: ReviewNoteInput, now: Date = new Date()): boolean {
   if (!userId || !isValidPeriodKey(input.periodKey, input.kind)) return false
@@ -146,16 +205,23 @@ export function saveReviewNote(userId: string, input: ReviewNoteInput, now: Date
       .slice(0, keys.length - MAX_SAVED_PERIODS)
       .forEach((k) => delete notes[k])
   }
-  return writeAll(userId, notes)
+  const ok = writeAll(userId, notes)
+  if (ok) clearReviewTombstones(userId, [note.periodKey])
+  return ok
 }
 
-/** Removes one period's note. Returns false when storage could not be updated. */
-export function deleteReviewNote(userId: string, periodKey: string): boolean {
+/**
+ * Removes one period's note and remembers the deletion until it has reached the account.
+ * Returns false when storage could not be updated.
+ */
+export function deleteReviewNote(userId: string, periodKey: string, now: Date = new Date()): boolean {
   if (!userId) return false
   const notes = loadReviewNotes(userId)
   if (!(periodKey in notes)) return true
   delete notes[periodKey]
-  return writeAll(userId, notes)
+  const ok = writeAll(userId, notes)
+  if (ok && isValidPeriodKey(periodKey)) writeTombstones(userId, { ...loadReviewTombstones(userId), [periodKey]: now.toISOString() })
+  return ok
 }
 
 /** Saved period keys, most recent period first (optionally filtered by kind). */

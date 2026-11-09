@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Mail } from 'lucide-react'
 import { authService } from '@/features/auth/authService'
 import { RESET_EMAIL_COOLDOWN_SECONDS } from '@tracknow/core/auth/password'
+import { track } from '@tracknow/core/services/telemetry'
 import { Button, Input } from '@/components/ui'
 
 /**
@@ -66,6 +67,7 @@ export function EmailCodeSignIn({
     setError(null)
     try {
       await authService.verifyEmailCode(email.trim(), value)
+      track(mode === 'signup' ? 'sign_up_completed' : 'sign_in_completed', { method: 'code' })
       onSignedIn()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not verify the code.')

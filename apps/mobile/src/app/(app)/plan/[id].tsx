@@ -52,6 +52,7 @@ export default function PlanDetailScreen() {
   const load = useCallback(
     async (opts: { silent?: boolean } = {}) => {
       const reqId = ++requestRef.current
+      const snapshot = actions.snapshotToken()
       if (!opts.silent) setLoading(true)
       else setRefreshing(true)
       setError(null)
@@ -79,6 +80,8 @@ export default function PlanDetailScreen() {
         if (reqId !== requestRef.current) return
         setNotFound(false)
         setPlan(fetchedPlan)
+        // Taps saved while this was loading are newer than this snapshot: keep them (the hook re-syncs).
+        if (!actions.acceptSnapshot(snapshot)) return
         setItems(planItems)
         setCompletedTodayIds(completedToday)
         actions.setCompletionState(completedToday, datesByItem)

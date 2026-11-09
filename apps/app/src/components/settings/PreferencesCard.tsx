@@ -2,7 +2,7 @@ import { SlidersHorizontal } from 'lucide-react'
 import { usePreferences } from '@/hooks/usePreferences'
 import { Select } from '@/components/ui'
 
-/** Vocabulary, gamification and clock preferences (device-local). */
+/** Vocabulary, gamification, clock and diagnostics preferences (device-local). */
 export function PreferencesCard() {
   const { prefs, update } = usePreferences()
   return (
@@ -25,6 +25,20 @@ export function PreferencesCard() {
           <option value="24h">24-hour (18:30)</option>
         </Select>
       </div>
+      <label className="row" style={{ gap: 'var(--space-3)', cursor: 'pointer', flexWrap: 'nowrap', alignItems: 'flex-start', marginTop: 'var(--space-3)' }}>
+        <input
+          type="checkbox"
+          checked={prefs.shareDiagnostics}
+          onChange={(e) => update({ shareDiagnostics: e.target.checked })}
+          style={{ width: '20px', height: '20px', flexShrink: 0, marginTop: '2px' }}
+        />
+        <span>
+          <span style={{ fontWeight: 600, display: 'block' }}>Share usage and error reports</span>
+          <span className="t-caption">
+            Helps fix bugs and improve Track.now. Sends which features you use and crash details, never your item names or notes.
+          </span>
+        </span>
+      </label>
       <p className="t-caption" style={{ marginTop: 'var(--space-2)' }}>
         Saved on this device. Weeks always run Monday to Sunday.
       </p>

@@ -36,8 +36,10 @@ const MIGRATIONS = {
   plansArcs: path.join(MIG, '20261108000000_plans_arcs_and_flexible_items.sql'),
   arcName: path.join(MIG, '20261108010000_plans_arc_name.sql'),
   sharing: path.join(MIG, '20261109000000_account_deletion_and_plan_sharing.sql'),
+  clientEvents: path.join(MIG, '20261110000000_client_events.sql'),
+  syncedState: path.join(MIG, '20261111000000_synced_state.sql'),
 }
-const ALL_IN_ORDER = [MIGRATIONS.init, MIGRATIONS.harden, MIGRATIONS.secure, MIGRATIONS.habit, MIGRATIONS.revokeTrigger, MIGRATIONS.plansArcs, MIGRATIONS.arcName, MIGRATIONS.sharing]
+const ALL_IN_ORDER = [MIGRATIONS.init, MIGRATIONS.harden, MIGRATIONS.secure, MIGRATIONS.habit, MIGRATIONS.revokeTrigger, MIGRATIONS.plansArcs, MIGRATIONS.arcName, MIGRATIONS.sharing, MIGRATIONS.clientEvents, MIGRATIONS.syncedState]
 
 const exe = (name) => (process.platform === 'win32' ? `${name}.exe` : name)
 
@@ -275,10 +277,103 @@ async function main() {
                          (SELECT count(*) FROM public.track_now_tracks WHERE user_id = '00000000-0000-4000-8000-0000000000a3')::text || ',' ||
                          (SELECT count(*) FROM public.track_now_plans WHERE id = '20000000-0000-4000-8000-0000000000d1')::text`) === '0,0,1')
 
+    // 6e. Client events (usage + error reports): insert-only for the signed-in user.
+    apply(DB, MIGRATIONS.clientEvents, 'client events migration')
+    const OWNER = '00000000-0000-4000-8000-0000000000d1'
+    const OTHER = '00000000-0000-4000-8000-0000000000a2'
+    const EVENTS = 'public.track_now_client_events'
+    const asUser = (id, sql) => `SET request.jwt.claims = '{"sub":"${id}","role":"authenticated"}'; SET ROLE authenticated; ${sql}`
+    const accepts = (sql) => psqlCmd(DB, sql).status === 0
+    record('client events: one INSERT-only policy; anon has no privileges, authenticated only INSERT',
+      scalar(DB, `SELECT count(*) || ':' || min(cmd) || ':' || min(roles::text) FROM pg_policies WHERE schemaname = 'public' AND tablename = 'track_now_client_events'`) === '1:INSERT:{authenticated}' &&
+      scalar(DB, `SELECT string_agg(r || '.' || p || '=' || has_table_privilege(r, '${EVENTS}', p)::text, ',' ORDER BY r, p)
+                  FROM unnest(ARRAY['anon', 'authenticated']) r, unnest(ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']) p`) ===
+        'anon.DELETE=false,anon.INSERT=false,anon.SELECT=false,anon.UPDATE=false,authenticated.DELETE=false,authenticated.INSERT=true,authenticated.SELECT=false,authenticated.UPDATE=false')
+    record('client events: a signed-in user can insert their own rows (user_id defaults to auth.uid(); batch; full-size error props)',
+      accepts(asUser(OWNER, `INSERT INTO ${EVENTS} (kind, name, app) VALUES ('event', 'session_start', 'web')`)) &&
+      accepts(asUser(OWNER, `INSERT INTO ${EVENTS} (user_id, kind, name, props, app, app_version, session_id) VALUES
+        ('${OWNER}', 'event', 'template_used', '{"template":"get-fit"}', 'mobile', '1.0.0', 'abcdef0123456789'),
+        ('${OWNER}', 'error', 'TypeError', jsonb_build_object('message', repeat('m', 300), 'stack', repeat('s', 1500), 'where', repeat('w', 200)), 'mobile', '1.0.0', 'abcdef0123456789'),
+        ('${OWNER}', 'event', 'big', jsonb_build_object('x', repeat('x', 3900)), 'web', NULL, NULL)`)) &&
+      scalar(DB, `SELECT count(*) || ':' || count(*) FILTER (WHERE user_id = '${OWNER}') FROM ${EVENTS}`) === '4:4')
+    record('client events: a user cannot insert a row for another user',
+      rejects(asUser(OTHER, `INSERT INTO ${EVENTS} (user_id, kind, name, app) VALUES ('${OWNER}', 'event', 'forged', 'web')`)))
+    record('client events: app users cannot select, update or delete any row (their own included)',
+      rejects(asUser(OWNER, `SELECT count(*) FROM ${EVENTS}`)) &&
+      rejects(asUser(OWNER, `INSERT INTO ${EVENTS} (kind, name, app) VALUES ('event', 'peek', 'web') RETURNING id`)) &&
+      rejects(asUser(OWNER, `UPDATE ${EVENTS} SET name = 'changed'`)) &&
+      rejects(asUser(OWNER, `DELETE FROM ${EVENTS}`)) &&
+      rejects(asUser(OTHER, `SELECT count(*) FROM ${EVENTS}`)))
+    record('client events: anon cannot insert (with or without a user id)',
+      rejects(`SET ROLE anon; INSERT INTO ${EVENTS} (kind, name, app) VALUES ('event', 'anon', 'web')`) &&
+      rejects(`SET ROLE anon; INSERT INTO ${EVENTS} (user_id, kind, name, app) VALUES ('${OWNER}', 'event', 'anon', 'web')`))
+    record('client events: oversized props and bad kind / name / app / version / session are rejected',
+      rejects(asUser(OWNER, `INSERT INTO ${EVENTS} (kind, name, props, app) VALUES ('event', 'big', jsonb_build_object('x', repeat('x', 5000)), 'web')`)) &&
+      rejects(asUser(OWNER, `INSERT INTO ${EVENTS} (kind, name, app) VALUES ('page_view', 'x', 'web')`)) &&
+      rejects(asUser(OWNER, `INSERT INTO ${EVENTS} (kind, name, app) VALUES ('event', '', 'web')`)) &&
+      rejects(asUser(OWNER, `INSERT INTO ${EVENTS} (kind, name, app) VALUES ('event', repeat('n', 81), 'web')`)) &&
+      rejects(asUser(OWNER, `INSERT INTO ${EVENTS} (kind, name, app) VALUES ('event', 'x', 'desktop')`)) &&
+      rejects(asUser(OWNER, `INSERT INTO ${EVENTS} (kind, name, app, app_version) VALUES ('event', 'x', 'web', repeat('v', 41))`)) &&
+      rejects(asUser(OWNER, `INSERT INTO ${EVENTS} (kind, name, app, session_id) VALUES ('event', 'x', 'web', repeat('s', 41))`)) &&
+      scalar(DB, `SELECT count(*) FROM ${EVENTS}`) === '4')
+    r = psqlFile(DB, path.join(ROOT, 'supabase', 'analytics', 'funnel.sql'))
+    record('analytics/funnel.sql runs and changes nothing (read-only)', r.status === 0 && scalar(DB, `SELECT count(*) FROM ${EVENTS}`) === '4')
+    if (r.status !== 0) console.log(out(r))
+
+    // 6f. Synced state (review notes, today's focus): each user reads and writes only their own rows.
+    apply(DB, MIGRATIONS.syncedState, 'synced state migration')
+    const STATE = 'public.track_now_synced_state'
+    const upsert = (userClause, scope, key, value, at) =>
+      `INSERT INTO ${STATE} (${userClause ? 'user_id, ' : ''}scope, key, value, updated_at) VALUES (${userClause ? `'${userClause}', ` : ''}'${scope}', '${key}', ${value}, '${at}')
+       ON CONFLICT (user_id, scope, key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at`
+    record('synced state: four own-row policies; anon has no privileges, authenticated has all four',
+      scalar(DB, `SELECT string_agg(cmd || ':' || roles::text, ',' ORDER BY cmd) FROM pg_policies WHERE schemaname = 'public' AND tablename = 'track_now_synced_state'`) ===
+        'DELETE:{authenticated},INSERT:{authenticated},SELECT:{authenticated},UPDATE:{authenticated}' &&
+      scalar(DB, `SELECT string_agg(r || '.' || p || '=' || has_table_privilege(r, '${STATE}', p)::text, ',' ORDER BY r, p)
+                  FROM unnest(ARRAY['anon', 'authenticated']) r, unnest(ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']) p`) ===
+        'anon.DELETE=false,anon.INSERT=false,anon.SELECT=false,anon.UPDATE=false,authenticated.DELETE=true,authenticated.INSERT=true,authenticated.SELECT=true,authenticated.UPDATE=true')
+    record('synced state: a user saves a note, overwrites it (the app\'s upsert), marks it deleted, and saves focus',
+      accepts(asUser(OWNER, upsert(OWNER, 'review_note', 'weekly:2026-11-09', `'{"periodKey":"weekly:2026-11-09","kind":"weekly","answers":{"friction":"v1"},"priorities":[],"updatedAt":"2026-11-10T08:00:00.000Z"}'::jsonb`, '2026-11-10T08:00:00Z'))) &&
+      accepts(asUser(OWNER, upsert(OWNER, 'review_note', 'weekly:2026-11-09', `'{"periodKey":"weekly:2026-11-09","kind":"weekly","answers":{"friction":"v2"},"priorities":["Ship"],"updatedAt":"2026-11-10T09:00:00.000Z"}'::jsonb`, '2026-11-10T09:00:00Z'))) &&
+      accepts(asUser(OWNER, upsert('', 'review_note', 'monthly:2026-10', 'NULL', '2026-11-10T09:30:00Z'))) &&
+      accepts(asUser(OWNER, upsert(OWNER, 'focus', 'today', `'{"date":"2026-11-10","ids":["a","b"],"updatedAt":"2026-11-10T07:00:00.000Z"}'::jsonb`, '2026-11-10T07:00:00Z'))) &&
+      scalar(DB, `SELECT count(*) || ':' || (SELECT value #>> '{answers,friction}' FROM ${STATE} WHERE key = 'weekly:2026-11-09') || ':' ||
+                         (SELECT (value IS NULL)::text FROM ${STATE} WHERE key = 'monthly:2026-10') FROM ${STATE} WHERE user_id = '${OWNER}'`) === '3:v2:true')
+    record('synced state: a user sees only their own rows',
+      scalar(DB, asUser(OWNER, `SELECT count(*) FROM ${STATE}`)) === '3' &&
+      scalar(DB, asUser(OTHER, `SELECT count(*) FROM ${STATE}`)) === '0')
+    record('synced state: a user cannot write, overwrite, update or delete another user\'s rows',
+      rejects(asUser(OTHER, `INSERT INTO ${STATE} (user_id, scope, key, value) VALUES ('${OWNER}', 'review_note', 'weekly:2026-11-02', '{}'::jsonb)`)) &&
+      rejects(asUser(OTHER, upsert(OWNER, 'focus', 'today', `'{"date":"2026-11-10","ids":["forged"]}'::jsonb`, '2026-11-10T23:00:00Z'))) &&
+      accepts(asUser(OTHER, `UPDATE ${STATE} SET value = '{"forged":true}'::jsonb`)) &&
+      accepts(asUser(OTHER, `DELETE FROM ${STATE}`)) &&
+      scalar(DB, `SELECT count(*) || ':' || count(*) FILTER (WHERE value::text LIKE '%forged%') FROM ${STATE} WHERE user_id = '${OWNER}'`) === '3:0')
+    record('synced state: a user cannot hand one of their rows to another user',
+      rejects(asUser(OWNER, `UPDATE ${STATE} SET user_id = '${OTHER}' WHERE scope = 'focus'`)))
+    record('synced state: anon cannot read or write',
+      rejects(`SET ROLE anon; SELECT count(*) FROM ${STATE}`) &&
+      rejects(`SET ROLE anon; INSERT INTO ${STATE} (user_id, scope, key, value) VALUES ('${OWNER}', 'focus', 'today', '{}'::jsonb)`))
+    record('synced state: unknown scope, bad key and oversized value are rejected',
+      rejects(asUser(OWNER, `INSERT INTO ${STATE} (scope, key, value) VALUES ('settings', 'x', '{}'::jsonb)`)) &&
+      rejects(asUser(OWNER, `INSERT INTO ${STATE} (scope, key, value) VALUES ('focus', '', '{}'::jsonb)`)) &&
+      rejects(asUser(OWNER, `INSERT INTO ${STATE} (scope, key, value) VALUES ('focus', 'has space', '{}'::jsonb)`)) &&
+      rejects(asUser(OWNER, `INSERT INTO ${STATE} (scope, key, value) VALUES ('focus', repeat('k', 65), '{}'::jsonb)`)) &&
+      rejects(asUser(OWNER, `INSERT INTO ${STATE} (scope, key, value) VALUES ('review_note', 'weekly:2026-01-05', jsonb_build_object('x', (SELECT string_agg(md5(i::text), '') FROM generate_series(1, 4000) i)))`)) &&
+      scalar(DB, `SELECT count(*) FROM ${STATE}`) === '3')
+    apply(DB, writeTemp(tmp, 'synced_state_account.sql', `
+      INSERT INTO auth.users (id, email) VALUES ('00000000-0000-4000-8000-0000000000b7', 'sync-delete@example.test');
+      INSERT INTO public.track_now_synced_state (user_id, scope, key, value) VALUES ('00000000-0000-4000-8000-0000000000b7', 'focus', 'today', '{"date":"2026-11-10","ids":[]}'::jsonb);
+      SET request.jwt.claims = '{"sub":"00000000-0000-4000-8000-0000000000b7","role":"authenticated"}';
+      SET ROLE authenticated;
+      SELECT public.track_now_delete_my_account();
+      RESET ROLE;`), 'delete an account that has synced state')
+    record('synced state: deleting the account removes its rows, and only its rows',
+      scalar(DB, `SELECT count(*) FILTER (WHERE user_id = '00000000-0000-4000-8000-0000000000b7') || ':' || count(*) FROM ${STATE}`) === '0:3')
+
     // 7. Re-applying migrations is safe and always ends in the secure state.
     let reapplyOk = true
     let reapplyErr = ''
-    for (const file of [...ALL_IN_ORDER, MIGRATIONS.secure, MIGRATIONS.habit, MIGRATIONS.revokeTrigger, MIGRATIONS.plansArcs, MIGRATIONS.arcName, MIGRATIONS.sharing]) {
+    for (const file of [...ALL_IN_ORDER, MIGRATIONS.secure, MIGRATIONS.habit, MIGRATIONS.revokeTrigger, MIGRATIONS.plansArcs, MIGRATIONS.arcName, MIGRATIONS.sharing, MIGRATIONS.clientEvents, MIGRATIONS.syncedState]) {
       const a = psqlFile(DB, file)
       if (a.status !== 0) {
         reapplyOk = false

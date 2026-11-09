@@ -11,9 +11,11 @@ export interface AppPreferences {
   gamification: 'full' | 'gentle'
   /** Hour clock for times shown by the app ('auto' follows the device). */
   timeFormat: 'auto' | '12h' | '24h'
+  /** Send usage events and error reports (see services/telemetry). On unless switched off. */
+  shareDiagnostics: boolean
 }
 
-export const DEFAULT_PREFERENCES: AppPreferences = { naming: 'standard', gamification: 'full', timeFormat: 'auto' }
+export const DEFAULT_PREFERENCES: AppPreferences = { naming: 'standard', gamification: 'full', timeFormat: 'auto', shareDiagnostics: true }
 
 const key = (userId: string) => `tracknow_prefs_${userId}`
 const listeners = new Set<(p: AppPreferences) => void>()
@@ -27,6 +29,7 @@ export function loadPreferences(userId: string): AppPreferences {
       naming: parsed.naming === 'simple' ? 'simple' : 'standard',
       gamification: parsed.gamification === 'gentle' ? 'gentle' : 'full',
       timeFormat: parsed.timeFormat === '12h' || parsed.timeFormat === '24h' ? parsed.timeFormat : 'auto',
+      shareDiagnostics: parsed.shareDiagnostics !== false,
     }
   } catch {
     return DEFAULT_PREFERENCES

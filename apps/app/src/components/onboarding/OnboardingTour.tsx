@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ArrowLeft, ArrowRight, Sparkles } from 'lucide-react'
 import { Button, Modal } from '@/components/ui'
 import { QUEST_XP } from '@tracknow/core/domain/quests'
+import { track } from '@tracknow/core/services/telemetry'
 
 /**
  * A short, gamified tour: six screens, each with a small illustration, a progress trail and
@@ -112,7 +113,9 @@ const STEPS: Step[] = [
 export function OnboardingTour({ open, onClose, onFinish }: { open: boolean; onClose: () => void; onFinish: () => void }) {
   const [step, setStep] = useState(0)
   useEffect(() => {
-    if (open) setStep(0)
+    if (!open) return
+    setStep(0)
+    track('tour_started')
   }, [open])
   const last = step === STEPS.length - 1
   const current = STEPS[step]
@@ -135,8 +138,10 @@ export function OnboardingTour({ open, onClose, onFinish }: { open: boolean; onC
           <Button
             variant="primary"
             onClick={() => {
-              if (last) onFinish()
-              else setStep((s) => s + 1)
+              if (last) {
+                track('tour_finished')
+                onFinish()
+              } else setStep((s) => s + 1)
             }}
           >
             {last ? (

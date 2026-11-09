@@ -5,6 +5,7 @@ import {
   listCompletionsForDate,
   toggleHabitTodayCompletion,
   deleteCompletionForDate,
+  recordCompletion,
 } from '@tracknow/core/services/executionService'
 import { supabase } from '@tracknow/core/lib/supabase'
 
@@ -163,50 +164,48 @@ describe('Completion Service Operations & Habit Daily Sync', () => {
   })
 
   it('toggleHabitTodayCompletion records completion when habit was not completed today', async () => {
-    // 1. Mock item existence check
-    const mockItemMaybeSingle = vi.fn().mockResolvedValue({
-      data: { id: 'item-101' },
-      error: null,
-    })
-    const mockItemEq = vi.fn().mockReturnValue({ maybeSingle: mockItemMaybeSingle })
-    const mockItemSelect = vi.fn().mockReturnValue({ eq: mockItemEq })
-
-    // 2. Mock existing completion check (returns null so insert proceeds)
-    const mockCompMaybeSingle = vi.fn().mockResolvedValue({
-      data: null,
-      error: null,
-    })
-    const mockCompEqDate = vi.fn().mockReturnValue({ maybeSingle: mockCompMaybeSingle })
-    const mockCompEqItem = vi.fn().mockReturnValue({ eq: mockCompEqDate })
-    const mockCompSelect = vi.fn().mockReturnValue({ eq: mockCompEqItem })
-
-    // 3. Mock insert completion
-    const mockInsert = vi.fn().mockResolvedValue({ error: null })
-
+    // One duplicate-safe upsert: no existence read, no "already completed?" read.
+    const mockUpsert = vi.fn().mockResolvedValue({ error: null })
     ;(supabase.from as any).mockImplementation((table: string) => {
-      if (table === 'track_now_execution_items') {
-        return { select: mockItemSelect }
-      }
-      if (table === 'track_now_item_completions') {
-        return {
-          select: mockCompSelect,
-          insert: mockInsert,
-        }
-      }
-      return {}
+      if (table === 'track_now_item_completions') return { upsert: mockUpsert }
+      throw new Error(`unexpected table ${table}`)
     })
 
     const result = await toggleHabitTodayCompletion('user-1', 'item-101', false, '2026-10-08')
 
     expect(result).toBe(true)
-    expect(supabase.from).toHaveBeenCalledWith('track_now_execution_items')
+    expect(supabase.from).toHaveBeenCalledTimes(1)
     expect(supabase.from).toHaveBeenCalledWith('track_now_item_completions')
-    expect(mockInsert).toHaveBeenCalledWith({
-      user_id: 'user-1',
-      item_id: 'item-101',
-      completed_date: '2026-10-08',
-      notes: null,
-    })
+    expect(mockUpsert).toHaveBeenCalledWith(
+      {
+        user_id: 'user-1',
+        item_id: 'item-101',
+        completed_date: '2026-10-08',
+        notes: null,
+      },
+      { onConflict: 'item_id,completed_date', ignoreDuplicates: true },
+    )
+  })
+
+  it('recordCompletion treats a duplicate as success and reports a refused row clearly', async () => {
+    const mockUpsert = vi.fn()
+    ;(supabase.from as any).mockReturnValue({ upsert: mockUpsert })
+
+    mockUpsert.mockResolvedValueOnce({ error: { code: '23505', message: 'duplicate key value' } })
+    await expect(recordCompletion('user-1', 'item-101', undefined, '2026-10-08')).resolves.toBeUndefined()
+
+    mockUpsert.mockResolvedValueOnce({ error: { code: '42501', message: 'new row violates row-level security policy' } })
+    await expect(recordCompletion('user-1', 'item-101', undefined, '2026-10-08')).rejects.toThrow(
+      'Unauthorized or target execution item does not exist',
+    )
+
+    mockUpsert.mockResolvedValueOnce({ error: { code: '23503', message: 'violates foreign key constraint' } })
+    await expect(recordCompletion('user-1', 'item-101', undefined, '2026-10-08')).rejects.toThrow(
+      'Unauthorized or target execution item does not exist',
+    )
+
+    mockUpsert.mockResolvedValueOnce({ error: { code: '08006', message: 'connection failure' } })
+    await expect(recordCompletion('user-1', 'item-101', undefined, '2026-10-08')).rejects.toThrow('connection failure')
   })
 
   it('deleteCompletionForDate deletes by item_id and calendar date', async () => {

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { AccessibilityInfo, Animated, Easing, type ViewStyle } from 'react-native'
+import { AccessibilityInfo, Animated, Easing, Pressable, type PressableProps, type StyleProp, type ViewStyle } from 'react-native'
 
 /** True when the user asked the OS to reduce motion; animations then render their end state. */
 function useReducedMotion(): React.MutableRefObject<boolean> {
@@ -59,6 +59,42 @@ export function Pop({ active, children, style }: { active: boolean; children: Re
     was.current = active
   }, [active, scale, reduced])
   return <Animated.View style={[{ transform: [{ scale }] }, style]}>{children}</Animated.View>
+}
+
+/**
+ * A Pressable that dips the moment it is touched and springs back on release, so a tap is felt
+ * before anything else happens. The scale runs on the native thread: it stays smooth even while
+ * the screen is busy re-rendering.
+ */
+export function PressScale({
+  children,
+  style,
+  to = 0.86,
+  onPressIn,
+  onPressOut,
+  ...rest
+}: Omit<PressableProps, 'style' | 'children'> & { children?: React.ReactNode; style?: StyleProp<ViewStyle>; to?: number }) {
+  const scale = useRef(new Animated.Value(1)).current
+  const reduced = useReducedMotion()
+  const animate = (toValue: number) => {
+    if (reduced.current) return
+    Animated.spring(scale, { toValue, speed: 50, bounciness: toValue === 1 ? 10 : 0, useNativeDriver: true }).start()
+  }
+  return (
+    <Pressable
+      {...rest}
+      onPressIn={(e) => {
+        animate(to)
+        onPressIn?.(e)
+      }}
+      onPressOut={(e) => {
+        animate(1)
+        onPressOut?.(e)
+      }}
+    >
+      <Animated.View style={[style, { transform: [{ scale }] }]}>{children}</Animated.View>
+    </Pressable>
+  )
 }
 
 /** A bar whose fill eases to its new width. */

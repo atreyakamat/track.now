@@ -27,6 +27,7 @@ import {
   MAX_PRIORITY_LENGTH,
   type ReviewNoteKind,
 } from '@tracknow/core/services/reviewNotesStorage'
+import { pushReviewNote, syncReviewNotes, type SyncStatus } from '@tracknow/core/services/syncedState'
 import { getTodayDateString } from '@tracknow/core/domain/dates'
 import { formatDateRangeLabel, formatLocalDate, itemDisplayName, type DateRange, type OverdueItem } from '@tracknow/core/domain/analytics'
 import {
@@ -81,7 +82,12 @@ const TABS = [
 const TYPE_LABELS: Record<ItemType, string> = {
   habit: 'Habit', task: 'Task', checklist: 'Checklist', milestone: 'Milestone', project: 'Project',
 }
-const LOCAL_ONLY_NOTICE = 'Saved on this device only — review notes are not synced to your account or other devices.'
+const SYNC_NOTICE: Record<SyncStatus, string> = {
+  synced: 'Saved to your account. Your review notes are also on your other devices.',
+  'device-only': 'Saved on this device only. Review notes are not synced to your account or other devices yet.',
+  failed: 'Saved on this device. Your account could not be reached just now; notes sync the next time you open Reviews.',
+}
+const SYNC_CHECKING_NOTICE = 'Notes are saved on this device first, then copied to your account.'
 
 const dotStyle = (color: string | null | undefined): CSSProperties | undefined =>
   color ? ({ '--dot-color': color } as CSSProperties) : undefined
@@ -208,7 +214,10 @@ export function ReviewsPage() {
     [data, range, rangeKey],
   )
 
-  // ---------------- Notes (device-local) ----------------
+  // ---------------- Notes (this device first, then the account) ----------------
+  const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null)
+  /** Bumped when a sync brought in notes from another device, to re-read the open period. */
+  const [notesRev, setNotesRev] = useState(0)
   const [form, setForm] = useState<FormState>({ answers: {}, priorities: emptyPriorities() })
   const [savedSnapshot, setSavedSnapshot] = useState(() => normalizeForm({ answers: {}, priorities: [] }))
   const [savedAt, setSavedAt] = useState<string | null>(null)
@@ -226,7 +235,7 @@ export function ReviewsPage() {
     setSavedSnapshot(normalizeForm(next))
     setSavedAt(note?.updatedAt ?? null)
     setSaveStatus(null)
-  }, [userId, periodKey])
+  }, [userId, periodKey, notesRev])
 
   const dirty = normalizeForm(form) !== savedSnapshot
 
@@ -237,14 +246,31 @@ export function ReviewsPage() {
   const persistDraft = useCallback(() => {
     const cur = latestNoteRef.current
     if (!cur.userId || !cur.dirty) return false
-    return saveReviewNote(cur.userId, {
+    const ok = saveReviewNote(cur.userId, {
       periodKey: cur.periodKey,
       kind: cur.tab,
       answers: Object.fromEntries(Object.entries(cur.form.answers).filter(([, v]) => v.trim() !== '')),
       priorities: cur.form.priorities.map((p) => p.trim()).filter(Boolean),
     })
+    if (ok) void pushReviewNote(cur.userId, cur.periodKey)
+    return ok
   }, [])
   useEffect(() => () => void persistDraft(), [persistDraft])
+
+  // Bring this device and the account in line when the page opens. Notes written on another
+  // device appear here, unless the user is already typing (their text is never replaced).
+  useEffect(() => {
+    if (!userId) return
+    let alive = true
+    void syncReviewNotes(userId).then((result) => {
+      if (!alive) return
+      setSyncStatus(result.status)
+      if (result.changed && !latestNoteRef.current.dirty) setNotesRev((v) => v + 1)
+    })
+    return () => {
+      alive = false
+    }
+  }, [userId])
 
   useEffect(() => {
     if (!dirty) return
@@ -274,7 +300,8 @@ export function ReviewsPage() {
     const stored = loadReviewNote(userId, periodKey)
     setSavedSnapshot(normalizeForm(form))
     setSavedAt(stored?.updatedAt ?? new Date().toISOString())
-    setSaveStatus({ type: 'ok', message: 'Review saved on this device.' })
+    setSaveStatus({ type: 'ok', message: 'Review saved.' })
+    void pushReviewNote(userId, periodKey).then(setSyncStatus)
     return true
   }
 
@@ -282,12 +309,13 @@ export function ReviewsPage() {
   const removeSavedNote = () => {
     if (!userId) return
     deleteReviewNote(userId, periodKey)
+    void pushReviewNote(userId, periodKey).then(setSyncStatus)
     const cleared: FormState = { answers: {}, priorities: emptyPriorities() }
     setForm(cleared)
     setSavedSnapshot(normalizeForm(cleared))
     setSavedAt(null)
     setConfirmDelete(false)
-    setSaveStatus({ type: 'ok', message: 'Saved notes for this period were deleted from this device.' })
+    setSaveStatus({ type: 'ok', message: 'Saved notes for this period were deleted.' })
   }
 
   const applyNav = (nav: PendingNav) => {
@@ -510,7 +538,7 @@ export function ReviewsPage() {
 
           {userId && (
             <div className="insights-savebar">
-              <p className="insights-notice">{LOCAL_ONLY_NOTICE}</p>
+              <p className="insights-notice">{syncStatus ? SYNC_NOTICE[syncStatus] : SYNC_CHECKING_NOTICE}</p>
               <div className="insights-savebar__row">
                 <Button variant="primary" onClick={() => save()} disabled={!dirty}>
                   Save {tab === 'weekly' ? 'weekly review' : 'monthly reflection'}
@@ -522,7 +550,7 @@ export function ReviewsPage() {
                 )}
                 {confirmDelete && (
                   <span className="row" style={{ gap: 'var(--space-2)' }}>
-                    <span className="t-caption">Delete this period's notes from this device?</span>
+                    <span className="t-caption">Delete this period's notes{syncStatus === 'synced' ? ' from your account and this device' : ' from this device'}?</span>
                     <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(false)}>
                       Keep
                     </Button>

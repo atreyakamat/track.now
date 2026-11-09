@@ -7,6 +7,7 @@ import { listCompletionHistory } from '@tracknow/core/services/historyService'
 import { buildExportBundle, completionsCsv, itemsCsv } from '@tracknow/core/domain/exportData'
 import { importItemsFromCsv, type CsvImportResult } from '@tracknow/core/domain/csvImport'
 import type { Plan } from '@tracknow/core/types/domain'
+import { track } from '@tracknow/core/services/telemetry'
 import { useToast } from '@/features/notifications/ToastContext'
 import { usePreferences } from '@/hooks/usePreferences'
 import { Button, Select } from '@/components/ui'
@@ -43,6 +44,7 @@ export function DataCard({ userId }: { userId: string }) {
         download(`tracknow-items-${stamp}.csv`, itemsCsv(bundle), 'text/csv')
         download(`tracknow-completions-${stamp}.csv`, completionsCsv(bundle), 'text/csv')
       }
+      track('data_exported', { format })
       showToast({ title: 'Export ready', message: `${tracks.length} ${terms.tracks.toLowerCase()}, ${planList.length} ${terms.plans.toLowerCase()}, ${items.length} items, ${completions.length} completions.`, type: 'success' })
     } catch (err) {
       showToast({ title: 'Export failed', message: err instanceof Error ? err.message : 'Please try again.', type: 'warning' })

@@ -7,6 +7,7 @@ import {
   isCheckViolation,
   writeWithOptionalColumns,
 } from './schemaCompat'
+import { track } from './telemetry'
 
 const clean = (v: string | null | undefined) => {
   const t = typeof v === 'string' ? v.trim() : v
@@ -53,6 +54,7 @@ export async function createPlan(userId: string, input: NewPlanInput): Promise<P
   const { data } = await writeWithOptionalColumns<Plan>(payload, PLAN_OPTIONAL_COLUMNS, (p) =>
     supabase.from('track_now_plans').insert(p).select().single(),
   )
+  track('plan_created', { kind: input.plan_kind ?? 'ongoing' })
   return data
 }
 

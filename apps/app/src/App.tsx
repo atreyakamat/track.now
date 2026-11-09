@@ -4,6 +4,7 @@ import { AuthProvider } from '@/features/auth/AuthProvider'
 import { ToastProvider } from '@/features/notifications/ToastContext'
 import { AppRoutes } from '@/routes'
 import { UnconfiguredNotice } from '@/components/UnconfiguredNotice'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 export function App() {
   if (!isSupabaseConfigured) {
@@ -14,7 +15,9 @@ export function App() {
     <AuthProvider>
       <ToastProvider>
         <BrowserRouter>
-          <AppRoutes />
+          <ErrorBoundary>
+            <AppRoutes />
+          </ErrorBoundary>
         </BrowserRouter>
       </ToastProvider>
     </AuthProvider>

@@ -7,6 +7,7 @@ import { createPlan } from '@tracknow/core/services/plansService'
 import { createTrack } from '@tracknow/core/services/tracksService'
 import { setReminderForItem } from '@tracknow/core/services/reminderService'
 import { getTodayDateString } from '@tracknow/core/domain/dates'
+import { track as trackEvent } from '@tracknow/core/services/telemetry'
 import {
   GOAL_TEMPLATES,
   buildGoalItemInput,
@@ -109,6 +110,7 @@ export default function GuidedPlannerScreen() {
         start_date: getTodayDateString(),
         end_date: null,
       })
+      trackEvent('template_used', { template: goal.key })
       let failed = 0
       for (const item of chosen) {
         try {

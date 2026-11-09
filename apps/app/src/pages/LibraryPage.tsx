@@ -5,6 +5,7 @@ import { PLAN_LIBRARY, materializeLibraryEntry, type LibraryEntry } from '@track
 import { parsePlanFile } from '@tracknow/core/domain/planImport'
 import { importPlanFile } from '@tracknow/core/services/planImportService'
 import { getTodayDateString } from '@tracknow/core/domain/dates'
+import { track } from '@tracknow/core/services/telemetry'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useToast } from '@/features/notifications/ToastContext'
 import { usePreferences } from '@/hooks/usePreferences'
@@ -44,6 +45,7 @@ export function LibraryPage() {
       showToast({ title: 'Import stopped', message: report.error, type: 'warning', duration: 9000 })
       return
     }
+    track('template_used', { template: open.key })
     showToast({
       title: `${open.title} is ready`,
       message: `${report.tracksCreated} new ${terms.tracks.toLowerCase()}, ${report.plansCreated} ${terms.plans.toLowerCase()}, ${report.itemsCreated} items.${report.plansSkipped.length ? ` ${report.plansSkipped.length} existing ${terms.plans.toLowerCase()} skipped.` : ''}`,

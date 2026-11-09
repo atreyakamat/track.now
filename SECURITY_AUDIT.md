@@ -265,11 +265,28 @@ An adversarial read-only review of this change set found, and this pass fixed:
 - **Device-local data**: Today focus (`tracknow_focus_<userId>`) is cleared on sign-out/account switch with the
   other per-user device data.
 
+## S-27 — Instant ticks, synced state and client events (2026-11-10)
+
+- **Completion write:** `recordCompletion` is now one `upsert … ON CONFLICT (item_id, completed_date) DO NOTHING`
+  instead of read, read, insert. Ownership is still enforced by RLS on the insert (another user's item is refused with
+  42501; verified on the local database). The UI changes before the save returns; a save that fails is reported and the
+  list is re-read from the server, so the screen never keeps a state that was not stored.
+- **`track_now_synced_state`** (`20261111000000`, not applied): review notes and Today's focus. Four policies, all
+  `user_id = auth.uid()`; anon has no privileges; scope, key and size are constrained; rows cascade with the account.
+  Local verification: a second user cannot read, insert, overwrite, update or delete the first user's rows, and a user
+  cannot hand a row to someone else.
+- **`track_now_client_events`** (`20261110000000`, not applied): insert-only for the signed-in user; no app user can
+  read, change or delete any row. Props are primitives, capped in size, and never carry typed text. An error's message
+  and stack trace are sent as the runtime produced them; a message that quotes user input would be stored, which is
+  why the switch in Settings exists and the privacy page says so.
+- **Merge rule for synced notes** is "newest edit wins" by device clock. A device with a wrong clock can win or lose
+  an edit it should not. Accepted for single-user notes; no server code involved.
+
 ## Residual risks
 
 1. The vulnerable RPC stays live until `20261012000000` is applied (owner action).
 2. Hosted RLS isolation, PKCE email links, and the recovery redirect are verified locally/statically only.
-3. Device-local review notes and preferences remain in the browser profile after sign-out (namespaced, documented).
+3. The device copy of review notes and preferences remains in the browser profile after sign-out (namespaced, documented).
 4. Users can edit the cosmetic `email` column of their own profile row (RLS-limited to themselves).
 5. Dev-only advisories listed in S-12.
 6. Without `navigator.locks`, the localStorage fallback lock for cross-tab reminder delivery is best-effort (a rare
