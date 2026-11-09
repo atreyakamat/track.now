@@ -1,7 +1,8 @@
 import { Link } from 'expo-router'
 import { useRef, useState } from 'react'
 import { KeyboardAvoidingView, Platform, View } from 'react-native'
-import { BrandMark, Button, Card, PasswordField, Screen, Text, TextField } from '@/components/ui'
+import { BrandMark, Button, Card, PasswordField, Screen, Segmented, Text, TextField } from '@/components/ui'
+import { EmailCodeSignIn } from '@/components/auth/EmailCodeSignIn'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useTheme } from '@/theme/ThemeProvider'
 import { radius, spacing } from '@/theme/tokens'
@@ -17,6 +18,7 @@ export default function SignupScreen() {
   const [successNotice, setSuccessNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const submitting = useRef(false)
+  const [method, setMethod] = useState<'code' | 'password'>('code')
 
   const handleSubmit = async () => {
     if (submitting.current || busy) return
@@ -94,6 +96,17 @@ export default function SignupScreen() {
             </View>
           ) : null}
 
+          <Segmented
+            value={method}
+            onChange={(m) => {
+              setMethod(m)
+              setError(null)
+            }}
+            options={[
+              { key: 'code', label: 'Email code' },
+              { key: 'password', label: 'Password' },
+            ]}
+          />
           <TextField
             label="Display name"
             placeholder="Your name"
@@ -101,41 +114,47 @@ export default function SignupScreen() {
             onChangeText={setDisplayName}
             autoCapitalize="words"
           />
-          <TextField
-            label="Email"
-            placeholder="you@domain.com"
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            autoComplete="email"
-            keyboardType="email-address"
-            inputMode="email"
-          />
-          <PasswordField
-            label="Password"
-            placeholder="At least 6 characters"
-            value={password}
-            onChangeText={setPassword}
-            autoCapitalize="none"
-            autoComplete="new-password"
-            showStrength
-          />
-          <PasswordField
-            label="Confirm password"
-            placeholder="Re-enter password"
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            autoCapitalize="none"
-            autoComplete="new-password"
-            error={confirmPassword && confirmPassword !== password ? 'Does not match the password above.' : null}
-          />
+          {method === 'code' ? (
+            <EmailCodeSignIn mode="signup" email={email} onEmailChange={setEmail} displayName={displayName} />
+          ) : (
+            <>
+            <TextField
+              label="Email"
+              placeholder="you@domain.com"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              autoComplete="email"
+              keyboardType="email-address"
+              inputMode="email"
+            />
+            <PasswordField
+              label="Password"
+              placeholder="At least 6 characters"
+              value={password}
+              onChangeText={setPassword}
+              autoCapitalize="none"
+              autoComplete="new-password"
+              showStrength
+            />
+            <PasswordField
+              label="Confirm password"
+              placeholder="Re-enter password"
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              autoCapitalize="none"
+              autoComplete="new-password"
+              error={confirmPassword && confirmPassword !== password ? 'Does not match the password above.' : null}
+            />
 
-          <Button
-            title={busy ? 'Creating account…' : 'Create account'}
-            block
-            loading={busy}
-            onPress={handleSubmit}
-          />
+            <Button
+              title={busy ? 'Creating account…' : 'Create account'}
+              block
+              loading={busy}
+              onPress={handleSubmit}
+            />
+            </>
+          )}
 
           <View style={{ flexDirection: 'row', justifyContent: 'center', gap: spacing[1] }}>
             <Text variant="caption" tone="secondary">

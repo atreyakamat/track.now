@@ -90,6 +90,10 @@ export function friendlyAuthError(err: string | AuthErrorLike | unknown): string
   if (code === 'same_password' || m.includes('should be different from the old password'))
     return 'Choose a new password that is different from your current one.'
   if (code === 'weak_password') return message
+  if (code === 'otp_expired' || m.includes('token has expired') || m.includes('otp has expired') || m.includes('invalid token') || m.includes('token is invalid'))
+    return 'That code is wrong or has expired. Check the latest email, or request a new code.'
+  if (code === 'otp_disabled' || m.includes('signups not allowed for otp'))
+    return 'No account uses that email yet. Create one first.'
   if (
     m.includes('failed to fetch') ||
     m.includes('networkerror') ||
@@ -190,6 +194,31 @@ export const authService = {
       }
       throw new Error(friendlyAuthError(error))
     }
+  },
+
+  /**
+   * Passwordless sign-in: emails a one-time 6-digit code (and a magic link). With
+   * `createUser` false an unknown email is refused, so the sign-in screen never creates
+   * accounts by accident. The email template must include {{ .Token }} for the code to show.
+   */
+  async sendEmailCode(email: string, options: { createUser: boolean; displayName?: string; redirectTo?: string }): Promise<void> {
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        shouldCreateUser: options.createUser,
+        emailRedirectTo: options.redirectTo,
+        data: options.createUser && options.displayName ? { display_name: options.displayName, full_name: options.displayName } : undefined,
+      },
+    })
+    if (error) throw new Error(friendlyAuthError(error))
+  },
+
+  /** Verifies the emailed code; on success the session is set and auth listeners fire. */
+  async verifyEmailCode(email: string, code: string): Promise<void> {
+    const token = code.replace(/\D/g, '')
+    if (token.length < 6) throw new Error('Enter the 6-digit code from the email.')
+    const { error } = await supabase.auth.verifyOtp({ email, token, type: 'email' })
+    if (error) throw new Error(friendlyAuthError(error))
   },
 
   async resetPasswordForEmail(email: string): Promise<void> {

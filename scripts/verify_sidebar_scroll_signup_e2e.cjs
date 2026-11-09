@@ -543,7 +543,7 @@ async function runSidebarAndSignupE2E() {
     await cdpClient.setViewport(1280, 900);
     // Clear localStorage to view signup page
     await cdpClient.eval(`localStorage.clear();`);
-    await cdpClient.send('Page.navigate', { url: `http://127.0.0.1:${port}/signup` });
+    await cdpClient.send('Page.navigate', { url: `http://127.0.0.1:${port}/signup?method=password` });
     await new Promise((r) => setTimeout(r, 500));
 
     const signupHeader = await cdpClient.eval(`document.querySelector('h1')?.textContent`);

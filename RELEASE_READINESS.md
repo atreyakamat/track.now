@@ -80,7 +80,8 @@ Everything from the "make it friendlier for more people" list that can be built 
 | Gentle mode | Settings → Preferences → Motivation: hides XP, levels, quests, achievements; Momentum stays (web + mobile) | `services/preferences.ts` |
 | Shareable weekly card | 1080×1080 PNG "Week N of my Arc: X/Y done" via the share sheet or download, on Analytics and each Arc | `domain/shareCard.ts`, `components/insights/ShareWeekCard.tsx` |
 | Accountability partner | Read-only share link per Plan (`/share/:token`), revocable; public RPC returns only that Plan | `services/shareService.ts`, `pages/SharedPlanPage.tsx`, migration `20261109000000` |
-| Google / Apple sign-in | Buttons on sign-in and sign-up (Supabase OAuth); **works once the owner enables the providers** in Supabase → Authentication → Providers | `components/auth/OAuthButtons.tsx`, `authService.signInWithProvider` |
+| Email code sign-in (default) | Sign-in and sign-up default to a 6-digit code sent by email (no password, no third party); a Password tab stays beside it. Web and mobile. Sign-in never creates accounts; sign-up does. 60-second resend cooldown | `authService.sendEmailCode` / `verifyEmailCode`, `components/auth/EmailCodeSignIn.tsx` (web and mobile) |
+| Google / Apple sign-in | Built but **not shown** (owner's choice, 2026-11-09). `OAuthButtons.tsx` and `authService.signInWithProvider` are kept for later | `components/auth/OAuthButtons.tsx` |
 | Import from elsewhere | CSV import (Todoist / Habitica exports or any sheet with a name column) into a chosen Plan | `domain/csvImport.ts`, `components/settings/DataCard.tsx` |
 | Export and delete | Export everything as JSON or CSV; delete account (typed confirmation, server-side RPC) | `domain/exportData.ts`, `services/accountService.ts`, `DeleteAccountCard.tsx` |
 | Privacy page | `tracknow.atreyakamat.dev/privacy.html`: exactly what is stored and where; linked from the landing footer and Settings | `apps/landing/public/privacy.html` |
@@ -89,7 +90,7 @@ Everything from the "make it friendlier for more people" list that can be built 
 
 **Needs the owner (2026-11-09):**
 1. **Apply** `supabase/migrations/20261109000000_account_deletion_and_plan_sharing.sql` in the SQL editor (delete-account RPC, plan_shares table + RLS, public shared-plan RPC; local harness 25/25). Until then sharing and account deletion show a clear "needs the latest database update" message; everything else works.
-2. **Enable Google and Apple** in Supabase → Authentication → Providers (needs a Google Cloud OAuth client and an Apple Services ID). The buttons already explain when a provider is off.
+2. **Email code template:** in Supabase → Authentication → Email Templates, add `{{ .Token }}` to the **Magic Link** and **Confirm signup** templates (for example: "Your Track.now code is {{ .Token }}"). Without it the email contains only the link (which still signs in on the web). Custom SMTP (item 2 at the top) matters more now: the built-in sender allows only a few emails per hour.
 3. Social accounts and the newsletter from `docs/GTM_PLAYBOOK.md` section 4.
 
 **Deliberately not built (and why):** iOS home-screen widget (needs a Mac and expo-apple-targets), full localisation into Hindi/Spanish/Portuguese (hundreds of strings; the preferences scaffold is in place), offline-first write queue on mobile (reads are cached already; a sync engine is a multi-week project), paid tier (needs a payment provider account), Google Calendar / Apple Reminders import (OAuth / native APIs; CSV covers Todoist/Habitica), Monday/Sunday week start (every calculation is Monday-based on purpose).
@@ -117,7 +118,7 @@ they show on a device; until then the old icon stays and everything else works.
 Verification (2026-11-08): mobile `tsc --noEmit` PASS (typed routes regenerated) · `expo export -p android -p web` PASS ·
 web suite still 41 files / 491 tests PASS · web typecheck PASS.
 
-Verification (2026-11-08, final): typecheck PASS (web, core, mobile `tsc --noEmit`) · `npm test` **PASS, 42 files, 505 tests** ·
+Verification (2026-11-08, final): typecheck PASS (web, core, mobile `tsc --noEmit`) · `npm test` **PASS, 42 files, 508 tests** ·
 both production builds PASS · `node scripts/verify_sql_local.cjs` **21/21** · `node scripts/run_mocked_e2e.cjs` **7/7 PASS** (responsive audit: no overflow 320–1920 px, light + dark) · `npm audit --omit=dev` 0.
 
 ## Verification evidence (2026-10-13, Windows 11, Node 24.14.0, npm 10.9.0)

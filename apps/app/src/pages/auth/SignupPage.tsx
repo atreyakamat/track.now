@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { Button, Input, PasswordInput } from '@/components/ui'
 import { BrandMark } from '@/components/ui/BrandMark'
-import { OAuthButtons } from '@/components/auth/OAuthButtons'
+import { EmailCodeSignIn } from '@/components/auth/EmailCodeSignIn'
 
 export function SignupPage() {
   const { signUp } = useAuth()
@@ -17,6 +17,8 @@ export function SignupPage() {
   const [successNotice, setSuccessNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const isSubmittingRef = useRef(false)
+  // Email code is the default; ?method=password opens the password form directly.
+  const [method, setMethod] = useState<'code' | 'password'>(() => (new URLSearchParams(window.location.search).get('method') === 'password' ? 'password' : 'code'))
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) {
@@ -84,6 +86,29 @@ export function SignupPage() {
           </p>
         </div>
 
+        {method === 'code' && (
+          <div className="auth__form">
+            <div className="auth-method" role="group" aria-label="How to sign up">
+              <button type="button" className="auth-method__btn" aria-pressed={(method as string) === 'code'} onClick={() => { setMethod('code'); setError(null) }}>
+                Email code
+              </button>
+              <button type="button" className="auth-method__btn" aria-pressed={(method as string) === 'password'} onClick={() => { setMethod('password'); setError(null) }}>
+                Password
+              </button>
+            </div>
+            <Input
+              name="displayName"
+              label="Your Name or Alias"
+              placeholder="Alex, Builder, Athlete"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              autoComplete="name"
+            />
+            <EmailCodeSignIn mode="signup" email={email} onEmailChange={setEmail} displayName={displayName} onSignedIn={() => navigate('/start', { replace: true })} />
+          </div>
+        )}
+
+        {method === 'password' && (
         <form
           onSubmit={handleSubmit}
           onKeyDown={(e) => {
@@ -94,7 +119,14 @@ export function SignupPage() {
           className="auth__form"
           noValidate
         >
-          <OAuthButtons onError={setError} />
+            <div className="auth-method" role="group" aria-label="How to sign in">
+              <button type="button" className="auth-method__btn" aria-pressed={(method as string) === 'code'} onClick={() => { setMethod('code'); setError(null) }}>
+                Email code
+              </button>
+              <button type="button" className="auth-method__btn" aria-pressed={(method as string) === 'password'} onClick={() => { setMethod('password'); setError(null) }}>
+                Password
+              </button>
+            </div>
           {successNotice ? (
             <div className="alert alert--info" role="status" style={{ textAlign: 'center' }}>
               <p>{successNotice}</p>
@@ -171,6 +203,7 @@ export function SignupPage() {
             </>
           )}
         </form>
+        )}
 
         <p className="auth__alt">
           Already have an account? <Link to="/login">Sign in</Link>

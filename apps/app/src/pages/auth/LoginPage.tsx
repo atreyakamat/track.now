@@ -4,7 +4,7 @@ import { useAuth } from '@/features/auth/AuthProvider'
 import { authService } from '@/features/auth/authService'
 import { Button, Input, PasswordInput } from '@/components/ui'
 import { BrandMark } from '@/components/ui/BrandMark'
-import { OAuthButtons } from '@/components/auth/OAuthButtons'
+import { EmailCodeSignIn } from '@/components/auth/EmailCodeSignIn'
 import { RESET_EMAIL_COOLDOWN_SECONDS } from '@tracknow/core/auth/password'
 import { returnPathFromState } from '@/routes/returnPath'
 
@@ -18,6 +18,8 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [isResetMode, setIsResetMode] = useState(false)
+  // Email code is the default; ?method=password opens the password form directly.
+  const [method, setMethod] = useState<'code' | 'password'>(() => (new URLSearchParams(location.search).get('method') === 'password' ? 'password' : 'code'))
   const [resetSuccess, setResetSuccess] = useState<string | null>(null)
   const isSubmittingRef = useRef(false)
   // Seconds until another reset email may be requested (the server rate-limits them).
@@ -142,9 +144,33 @@ export function LoginPage() {
               Back to Sign In
             </button>
           </form>
+        ) : method === 'code' ? (
+          <div className="auth__form">
+            <div className="auth-method" role="group" aria-label="How to sign in">
+              <button type="button" className="auth-method__btn" aria-pressed={(method as string) === 'code'} onClick={() => { setMethod('code'); setError(null) }}>
+                Email code
+              </button>
+              <button type="button" className="auth-method__btn" aria-pressed={(method as string) === 'password'} onClick={() => { setMethod('password'); setError(null) }}>
+                Password
+              </button>
+            </div>
+            {notice && (
+              <div className="alert alert--info" role="status">
+                {notice}
+              </div>
+            )}
+            <EmailCodeSignIn mode="signin" email={email} onEmailChange={setEmail} onSignedIn={() => navigate(returnPathFromState(location.state), { replace: true })} />
+          </div>
         ) : (
           <form onSubmit={handleSubmit} className="auth__form" noValidate>
-            <OAuthButtons onError={setError} />
+            <div className="auth-method" role="group" aria-label="How to sign in">
+              <button type="button" className="auth-method__btn" aria-pressed={(method as string) === 'code'} onClick={() => { setMethod('code'); setError(null) }}>
+                Email code
+              </button>
+              <button type="button" className="auth-method__btn" aria-pressed={(method as string) === 'password'} onClick={() => { setMethod('password'); setError(null) }}>
+                Password
+              </button>
+            </div>
             {notice && (
               <div className="alert alert--info" role="status">
                 {notice}

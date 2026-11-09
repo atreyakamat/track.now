@@ -46,3 +46,29 @@ describe('changePassword (signed in)', () => {
     expect(signIn).not.toHaveBeenCalled()
   })
 })
+
+describe('email code sign-in (passwordless)', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it('requests a code; sign-in never creates accounts, sign-up does', async () => {
+    const spy = vi.spyOn(supabase.auth, 'signInWithOtp').mockResolvedValue({ data: {}, error: null } as never)
+    await authService.sendEmailCode('me@example.com', { createUser: false })
+    expect(spy.mock.calls[0][0]).toMatchObject({ email: 'me@example.com', options: { shouldCreateUser: false } })
+    await authService.sendEmailCode('new@example.com', { createUser: true, displayName: 'New Person' })
+    expect(spy.mock.calls[1][0]).toMatchObject({ options: { shouldCreateUser: true, data: { display_name: 'New Person' } } })
+  })
+
+  it('verifies a 6-digit code and explains a wrong or expired one', async () => {
+    const spy = vi.spyOn(supabase.auth, 'verifyOtp').mockResolvedValueOnce({ data: {}, error: null } as never)
+    await authService.verifyEmailCode('me@example.com', '123 456')
+    expect(spy).toHaveBeenCalledWith({ email: 'me@example.com', token: '123456', type: 'email' })
+    await expect(authService.verifyEmailCode('me@example.com', '12')).rejects.toThrow('6-digit code')
+    spy.mockResolvedValueOnce({ data: {}, error: { message: 'Token has expired or is invalid', code: 'otp_expired', status: 403 } } as never)
+    await expect(authService.verifyEmailCode('me@example.com', '000000')).rejects.toThrow('wrong or has expired')
+  })
+
+  it('an unknown email on the sign-in screen gets a clear message', async () => {
+    vi.spyOn(supabase.auth, 'signInWithOtp').mockResolvedValue({ data: {}, error: { message: 'Signups not allowed for otp', code: 'otp_disabled', status: 422 } } as never)
+    await expect(authService.sendEmailCode('nobody@example.com', { createUser: false })).rejects.toThrow('Create one first')
+  })
+})

@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from 'react'
 import { KeyboardAvoidingView, Platform, View } from 'react-native'
 import { authService } from '@tracknow/core/auth/authService'
 import { RESET_EMAIL_COOLDOWN_SECONDS } from '@tracknow/core/auth/password'
-import { BrandMark, Button, Card, PasswordField, Screen, Text, TextField } from '@/components/ui'
+import { BrandMark, Button, Card, PasswordField, Screen, Segmented, Text, TextField } from '@/components/ui'
+import { EmailCodeSignIn } from '@/components/auth/EmailCodeSignIn'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useTheme } from '@/theme/ThemeProvider'
 import { radius, spacing } from '@/theme/tokens'
@@ -37,6 +38,7 @@ export default function LoginScreen() {
   const [isResetMode, setIsResetMode] = useState(false)
   const [resetSuccess, setResetSuccess] = useState<string | null>(null)
   const [cooldown, setCooldown] = useState(0)
+  const [method, setMethod] = useState<'code' | 'password'>('code')
   const submitting = useRef(false)
 
   // Seconds until another reset email may be requested (the server rate-limits them).
@@ -106,32 +108,52 @@ export default function LoginScreen() {
           {resetSuccess ? <Alert kind="success">{resetSuccess}</Alert> : null}
           {error ? <Alert kind="error">{error}</Alert> : null}
 
-          <TextField label="Email" placeholder="you@domain.com" value={email} onChangeText={setEmail} autoCapitalize="none" autoComplete="email" keyboardType="email-address" inputMode="email" />
-
           {!isResetMode ? (
-            <>
-              <PasswordField label="Password" placeholder="••••••••" value={password} onChangeText={setPassword} autoComplete="current-password" onSubmitEditing={handleSignIn} />
-              <View style={{ alignItems: 'flex-end', marginTop: -spacing[2] }}>
-                <Button
-                  title="Forgot password?"
-                  variant="ghost"
-                  size="sm"
-                  onPress={() => {
-                    setIsResetMode(true)
-                    setError(null)
-                  }}
-                />
-              </View>
-            </>
+            <Segmented
+              value={method}
+              onChange={(m) => {
+                setMethod(m)
+                setError(null)
+              }}
+              options={[
+                { key: 'code', label: 'Email code' },
+                { key: 'password', label: 'Password' },
+              ]}
+            />
           ) : null}
 
-          <Button
-            title={isResetMode ? (busy ? 'Sending link…' : cooldown > 0 ? `Resend in ${cooldown}s` : resetSuccess ? 'Resend link' : 'Send reset link') : busy ? 'Signing in…' : 'Sign in'}
-            block
-            loading={busy}
-            disabled={isResetMode && cooldown > 0}
-            onPress={isResetMode ? handleReset : handleSignIn}
-          />
+          {method === 'code' && !isResetMode ? (
+            <EmailCodeSignIn mode="signin" email={email} onEmailChange={setEmail} />
+          ) : (
+            <>
+            <TextField label="Email" placeholder="you@domain.com" value={email} onChangeText={setEmail} autoCapitalize="none" autoComplete="email" keyboardType="email-address" inputMode="email" />
+
+            {!isResetMode ? (
+              <>
+                <PasswordField label="Password" placeholder="••••••••" value={password} onChangeText={setPassword} autoComplete="current-password" onSubmitEditing={handleSignIn} />
+                <View style={{ alignItems: 'flex-end', marginTop: -spacing[2] }}>
+                  <Button
+                    title="Forgot password?"
+                    variant="ghost"
+                    size="sm"
+                    onPress={() => {
+                      setIsResetMode(true)
+                      setError(null)
+                    }}
+                  />
+                </View>
+              </>
+            ) : null}
+
+            <Button
+              title={isResetMode ? (busy ? 'Sending link…' : cooldown > 0 ? `Resend in ${cooldown}s` : resetSuccess ? 'Resend link' : 'Send reset link') : busy ? 'Signing in…' : 'Sign in'}
+              block
+              loading={busy}
+              disabled={isResetMode && cooldown > 0}
+              onPress={isResetMode ? handleReset : handleSignIn}
+            />
+            </>
+          )}
 
           {isResetMode ? (
             <Button
