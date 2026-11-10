@@ -25,7 +25,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "dev.atreyakamat.tracknow"
+      "package": "dev.atreyakamat.tracknow",
+      "allowBackup": false
     },
     "web": {
       "output": "single",

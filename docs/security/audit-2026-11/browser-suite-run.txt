@@ -1,0 +1,859 @@
+
+=== Building apps/app (E2E mock Supabase project) ===
+[36mvite v6.4.6 [32mbuilding for production...[36m[39m
+transforming...
+[32m✓[39m 1764 modules transformed.
+rendering chunks...
+computing gzip size...
+[2mdist/[22m[32mindex.html                                            [39m[1m[2m  1.61 kB[22m[1m[22m[2m │ gzip:   0.71 kB[22m
+[2mdist/[22m[32massets/inter-vietnamese-wght-normal-CBcvBZtf.woff2    [39m[1m[2m 10.25 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-greek-ext-wght-normal-DlzME5K_.woff2     [39m[1m[2m 11.23 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-cyrillic-wght-normal-DqGufNeO.woff2      [39m[1m[2m 18.75 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-greek-wght-normal-CkhJZR-_.woff2         [39m[1m[2m 19.00 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-cyrillic-ext-wght-normal-BOeWTOD4.woff2  [39m[1m[2m 25.96 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-latin-wght-normal-Dx4kXJAl.woff2         [39m[1m[2m 48.26 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-latin-ext-wght-normal-DO1Apj_S.woff2     [39m[1m[2m 85.07 kB[22m[1m[22m
+[2mdist/[22m[35massets/index-D_X_072c.css                             [39m[1m[2m 53.12 kB[22m[1m[22m[2m │ gzip:  10.00 kB[22m
+[2mdist/[22m[36massets/icons-BtYUmjco.js                              [39m[1m[2m 32.38 kB[22m[1m[22m[2m │ gzip:   6.49 kB[22m
+[2mdist/[22m[36massets/vendor-Br-dA-aB.js                             [39m[1m[2m181.94 kB[22m[1m[22m[2m │ gzip:  59.96 kB[22m
+[2mdist/[22m[36massets/supabase-B4WnJLNZ.js                           [39m[1m[2m226.69 kB[22m[1m[22m[2m │ gzip:  58.83 kB[22m
+[2mdist/[22m[36massets/index-Bl0b-izI.js                              [39m[1m[2m430.64 kB[22m[1m[22m[2m │ gzip: 129.01 kB[22m
+[32m✓ built in 8.14s[39m
+
+=== verify_numeric_e2e.cjs ===
+================================================================
+🚀 TRACK.NOW — DEDICATED NUMERIC TARGETS BROWSER E2E TEST (CDP)
+================================================================
+✓ Real SPA server listening at http://127.0.0.1:5175
+✓ Connected to headless Chrome via CDP.
+
+[1/8] Injecting authentication session into real browser localStorage...
+
+[2/8] Navigating to Plan Detail Page (/plans/plan-1)...
+  [Fetch] OPTIONS /rest/v1/track_now_plans??select=*&id=eq.plan-1
+  [Fetch] OPTIONS /rest/v1/track_now_tracks??select=id%2Cname%2Ccolor&status=eq.active
+  [Fetch] OPTIONS /rest/v1/track_now_item_completions??select=item_id&user_id=eq.usr-athlete-1&completed_date=eq.2026-11-10
+  [Fetch] OPTIONS /rest/v1/track_now_profiles??select=*&id=eq.usr-athlete-1
+  [Fetch] GET /rest/v1/track_now_plans??select=*&id=eq.plan-1
+  [Fetch] GET /rest/v1/track_now_tracks??select=id%2Cname%2Ccolor&status=eq.active
+  [Fetch] GET /rest/v1/track_now_item_completions??select=item_id&user_id=eq.usr-athlete-1&completed_date=eq.2026-11-10
+  [Fetch] GET /rest/v1/track_now_profiles??select=*&id=eq.usr-athlete-1
+  [Fetch] OPTIONS /rest/v1/track_now_tracks??select=*&id=eq.track-1
+  [Fetch] OPTIONS /rest/v1/track_now_execution_items??select=*%2Ctrack_now_item_schedules%28*%29&order=created_at.asc&plan_id=eq.plan-1
+  [Fetch] OPTIONS /rest/v1/track_now_item_completions??select=item_id&user_id=eq.usr-athlete-1&completed_date=eq.2026-11-10
+  [Fetch] OPTIONS /rest/v1/track_now_plans??select=*&track_id=in.%28track-1%29&status=eq.active
+  [Fetch] GET /rest/v1/track_now_tracks??select=*&id=eq.track-1
+  [Fetch] GET /rest/v1/track_now_execution_items??select=*%2Ctrack_now_item_schedules%28*%29&order=created_at.asc&plan_id=eq.plan-1
+  [Fetch] GET /rest/v1/track_now_item_completions??select=item_id&user_id=eq.usr-athlete-1&completed_date=eq.2026-11-10
+  [Fetch] GET /rest/v1/track_now_plans??select=*&track_id=in.%28track-1%29&status=eq.active
+  [Fetch] OPTIONS /rest/v1/track_now_plan_shares??select=*&plan_id=eq.plan-1&revoked_at=is.null
+  [Fetch] OPTIONS /rest/v1/track_now_execution_items??select=*%2Ctrack_now_item_schedules%28*%29&plan_id=in.%28plan-1%29&status=neq.archived&order=created_at.asc%2Cid.asc&offset=0&limit=1000
+  [Fetch] GET /rest/v1/track_now_plan_shares??select=*&plan_id=eq.plan-1&revoked_at=is.null
+  [Fetch] GET /rest/v1/track_now_execution_items??select=*%2Ctrack_now_item_schedules%28*%29&plan_id=in.%28plan-1%29&status=neq.archived&order=created_at.asc%2Cid.asc&offset=0&limit=1000
+✓ Current URL after navigation: http://127.0.0.1:5175/plans/plan-1
+✓ Body preview: Skip to content Track.now Today Calendar Tracks Reviews Analytics Library New Track MA Marathon Athlete Athletic Excellence ATHLETIC EXCELLENCE · ARC Half Marathon Arc 12-week progression program Ad
+✓ Rendered Plan Heading: Half Marathon Arc
+
+[3/8] Opening CreateItemModal and configuring Numeric Target (5 km)...
+  [Fetch] OPTIONS /rest/v1/track_now_plans??select=id&id=eq.plan-1
+  [Fetch] GET /rest/v1/track_now_plans??select=id&id=eq.plan-1
+  [Fetch] OPTIONS /rest/v1/track_now_execution_items??select=*%2Ctrack_now_item_schedules%28*%29
+  [Fetch] POST /rest/v1/track_now_execution_items??select=*%2Ctrack_now_item_schedules%28*%29
+✓ Created Item Card visible text:
+ 5km Morning Run
+TASK
+Remind
+–
+0 / 5 km
++
+
+[4/8] Testing Stepper Increment (+) to 3 / 5 km...
+  [Fetch] OPTIONS /rest/v1/rpc/track_now_increment_item_count?
+  [Fetch] POST /rest/v1/rpc/track_now_increment_item_count?
+  [Fetch] OPTIONS /rest/v1/rpc/track_now_increment_item_count?
+  [Fetch] POST /rest/v1/rpc/track_now_increment_item_count?
+  [Fetch] OPTIONS /rest/v1/rpc/track_now_increment_item_count?
+  [Fetch] POST /rest/v1/rpc/track_now_increment_item_count?
+✓ DOM State at count 3: { pillText: '3 / 5 km', isDone: false }
+
+[5/8] Incrementing to reach target (5 / 5 km) and verifying automatic completion...
+  [Fetch] OPTIONS /rest/v1/rpc/track_now_increment_item_count?
+  [Fetch] POST /rest/v1/rpc/track_now_increment_item_count?
+  [Fetch] OPTIONS /rest/v1/rpc/track_now_increment_item_count?
+  [Fetch] POST /rest/v1/rpc/track_now_increment_item_count?
+✓ DOM State at target count 5: { pillText: '5 / 5 km', isDone: true }
+
+[6/8] Decrementing below target (4 / 5 km) and verifying uncompletion...
+  [Fetch] OPTIONS /rest/v1/rpc/track_now_increment_item_count?
+  [Fetch] POST /rest/v1/rpc/track_now_increment_item_count?
+✓ DOM State at count 4: { pillText: '4 / 5 km', isDone: false }
+
+[7/8] Reloading page (F5) and verifying persisted numeric state...
+  [Fetch] OPTIONS /rest/v1/track_now_plans??select=*&id=eq.plan-1
+  [Fetch] OPTIONS /rest/v1/track_now_tracks??select=id%2Cname%2Ccolor&status=eq.active
+  [Fetch] OPTIONS /rest/v1/track_now_item_completions??select=item_id&user_id=eq.usr-athlete-1&completed_date=eq.2026-11-10
+  [Fetch] OPTIONS /rest/v1/track_now_profiles??select=*&id=eq.usr-athlete-1
+  [Fetch] GET /rest/v1/track_now_plans??select=*&id=eq.plan-1
+  [Fetch] GET /rest/v1/track_now_tracks??select=id%2Cname%2Ccolor&status=eq.active
+  [Fetch] GET /rest/v1/track_now_item_completions??select=item_id&user_id=eq.usr-athlete-1&completed_date=eq.2026-11-10
+  [Fetch] GET /rest/v1/track_now_profiles??select=*&id=eq.usr-athlete-1
+  [Fetch] OPTIONS /rest/v1/track_now_tracks??select=*&id=eq.track-1
+  [Fetch] OPTIONS /rest/v1/track_now_execution_items??select=*%2Ctrack_now_item_schedules%28*%29&order=created_at.asc&plan_id=eq.plan-1
+  [Fetch] OPTIONS /rest/v1/track_now_item_completions??select=item_id&user_id=eq.usr-athlete-1&completed_date=eq.2026-11-10
+  [Fetch] GET /rest/v1/track_now_tracks??select=*&id=eq.track-1
+  [Fetch] GET /rest/v1/track_now_execution_items??select=*%2Ctrack_now_item_schedules%28*%29&order=created_at.asc&plan_id=eq.plan-1
+  [Fetch] GET /rest/v1/track_now_item_completions??select=item_id&user_id=eq.usr-athlete-1&completed_date=eq.2026-11-10
+  [Fetch] OPTIONS /rest/v1/track_now_plans??select=*&track_id=in.%28track-1%29&status=eq.active
+  [Fetch] GET /rest/v1/track_now_plans??select=*&track_id=in.%28track-1%29&status=eq.active
+  [Fetch] OPTIONS /rest/v1/track_now_item_completions??select=item_id%2Ccompleted_date&item_id=in.%28item-1794300391611%29&completed_date=gte.2026-10-01&order=completed_date.asc%2Citem_id.asc&offset=0&limit=1000
+  [Fetch] OPTIONS /rest/v1/track_now_execution_items??select=*%2Ctrack_now_item_schedules%28*%29&plan_id=in.%28plan-1%29&status=neq.archived&order=created_at.asc%2Cid.asc&offset=0&limit=1000
+  [Fetch] GET /rest/v1/track_now_item_completions??select=item_id%2Ccompleted_date&item_id=in.%28item-1794300391611%29&completed_date=gte.2026-10-01&order=completed_date.asc%2Citem_id.asc&offset=0&limit=1000
+  [Fetch] GET /rest/v1/track_now_execution_items??select=*%2Ctrack_now_item_schedules%28*%29&plan_id=in.%28plan-1%29&status=neq.archived&order=created_at.asc%2Cid.asc&offset=0&limit=1000
+  [Fetch] OPTIONS /rest/v1/track_now_plan_shares??select=*&plan_id=eq.plan-1&revoked_at=is.null
+  [Fetch] GET /rest/v1/track_now_plan_shares??select=*&plan_id=eq.plan-1&revoked_at=is.null
+✓ DOM State after reload: { hasCard: true, pillText: '4 / 5 km', isDone: false }
+
+[8/8] Editing item: updating target count (5 -> 10) and unit (km -> miles)...
+  [Fetch] OPTIONS /rest/v1/track_now_execution_items??select=*%2Ctrack_now_item_schedules%28*%29&id=eq.item-1794300391611
+  [Fetch] GET /rest/v1/track_now_execution_items??select=*%2Ctrack_now_item_schedules%28*%29&id=eq.item-1794300391611
+  [Fetch] OPTIONS /rest/v1/track_now_execution_items??id=eq.item-1794300391611&select=*%2Ctrack_now_item_schedules%28*%29
+  [Fetch] PATCH /rest/v1/track_now_execution_items??id=eq.item-1794300391611&select=*%2Ctrack_now_item_schedules%28*%29
+✓ DOM State after editing target and unit: { pillText: '4 / 10 miles', isDone: false }
+
+================================================================
+🎉 ALL DEDICATED NUMERIC TARGET BROWSER E2E TESTS PASSED 100%
+================================================================
+
+=== verify_instant_ticks_e2e.cjs ===
+================================================================
+TRACK.NOW: INSTANT TICKS ON A SLOW NETWORK (mocked browser check)
+================================================================
+
+[1/6] Signing in (injected session) and opening Today...
+  ✓ Today shows the habit "Morning Stretch"
+  ✓ it starts un-ticked and enabled
+    section before: Due Today (4)
+
+[2/6] One tap, while every write takes 900 ms...
+    after 19 ms: pressed=true, writes finished since tap=0
+  ✓ the tick is on screen two frames after the tap
+  ✓ that took 19 ms (limit 250 ms)
+  ✓ no write had finished yet: the screen did not wait for the server
+  ✓ the item is still in the section where it was tapped
+  ✓ the tick stays enabled while saving (a second tap is never dropped)
+    section after the hold: Completed Today (1)
+  ✓ a moment later it has moved to Completed
+  ✓ the backend recorded today's completion
+  ✓ exactly one completion row
+
+[3/6] Tick, un-tick, tick in one burst...
+  ✓ three taps end ticked (shown after 27 ms)
+  ✓ still ticked after all three saves finished (no flicker back)
+  ✓ the backend ends completed, with one row
+  ✓ the stored item is done
+
+[4/6] Three quick +1 taps on a counter...
+    after 33 ms: "– 3 / 5 glasses +"
+  ✓ the counter shows 3 / 5 at once
+  ✓ the backend counted exactly 3
+  ✓ and the screen still shows 3 / 5 after the saves
+
+[5/6] A save that fails...
+  ✓ the tick shows at once, as always
+    toast: "Could not update “Flaky habit” simulated outage"
+  ✓ the user is told the save failed
+  ✓ the tick is rolled back to what the server has
+  ✓ the backend has no completion for it
+
+[6/6] Reload: what was saved is what comes back...
+  ✓ ticked items are ticked, the failed one is not
+
+ALL INSTANT TICK CHECKS PASSED
+
+=== verify_streaks_heatmap_e2e.cjs ===
+================================================================
+🚀 TRACK.NOW — HABIT STREAKS & CALENDAR HEATMAP BROWSER E2E (CDP)
+================================================================
+✓ Real SPA server listening at http://127.0.0.1:5176
+✓ Connected to headless Chrome via CDP.
+
+[1/7] Injecting auth session into browser localStorage...
+[2/7] Navigating to Plan Detail Page (/plans/plan-1)...
+  [Fetch] OPTIONS /rest/v1/track_now_plans ?select=*&id=eq.plan-1
+  [Fetch] OPTIONS /rest/v1/track_now_tracks ?select=id%2Cname%2Ccolor&status=eq.active
+  [Fetch] OPTIONS /rest/v1/track_now_item_completions ?select=item_id&user_id=eq.usr-athlete-1&completed_date=eq.2026-11-10
+  [Fetch] OPTIONS /rest/v1/track_now_profiles ?select=*&id=eq.usr-athlete-1
+  [Fetch] GET /rest/v1/track_now_plans ?select=*&id=eq.plan-1
+  [Fetch] GET /rest/v1/track_now_tracks ?select=id%2Cname%2Ccolor&status=eq.active
+  [Fetch] GET /rest/v1/track_now_item_completions ?select=item_id&user_id=eq.usr-athlete-1&completed_date=eq.2026-11-10
+  [Fetch] GET /rest/v1/track_now_profiles ?select=*&id=eq.usr-athlete-1
+  [Fetch] OPTIONS /rest/v1/track_now_tracks ?select=*&id=eq.track-1
+  [Fetch] OPTIONS /rest/v1/track_now_execution_items ?select=*%2Ctrack_now_item_schedules%28*%29&order=created_at.asc&plan_id=eq.plan-1
+  [Fetch] OPTIONS /rest/v1/track_now_item_completions ?select=item_id&user_id=eq.usr-athlete-1&completed_date=eq.2026-11-10
+  [Fetch] OPTIONS /rest/v1/track_now_plans ?select=*&track_id=in.%28track-1%29&status=eq.active
+  [Fetch] GET /rest/v1/track_now_tracks ?select=*&id=eq.track-1
+  [Fetch] GET /rest/v1/track_now_execution_items ?select=*%2Ctrack_now_item_schedules%28*%29&order=created_at.asc&plan_id=eq.plan-1
+  [Fetch] GET /rest/v1/track_now_item_completions ?select=item_id&user_id=eq.usr-athlete-1&completed_date=eq.2026-11-10
+  [Fetch] GET /rest/v1/track_now_plans ?select=*&track_id=in.%28track-1%29&status=eq.active
+  [Fetch] OPTIONS /rest/v1/track_now_item_completions ?select=item_id%2Ccompleted_date&item_id=in.%28item-habit-1%29&completed_date=gte.2025-10-06&order=completed_date.asc%2Citem_id.asc&offset=0&limit=1000
+  [Fetch] OPTIONS /rest/v1/track_now_execution_items ?select=*%2Ctrack_now_item_schedules%28*%29&plan_id=in.%28plan-1%29&status=neq.archived&order=created_at.asc%2Cid.asc&offset=0&limit=1000
+  [Fetch] GET /rest/v1/track_now_item_completions ?select=item_id%2Ccompleted_date&item_id=in.%28item-habit-1%29&completed_date=gte.2025-10-06&order=completed_date.asc%2Citem_id.asc&offset=0&limit=1000
+  [Fetch] GET /rest/v1/track_now_execution_items ?select=*%2Ctrack_now_item_schedules%28*%29&plan_id=in.%28plan-1%29&status=neq.archived&order=created_at.asc%2Cid.asc&offset=0&limit=1000
+  [Fetch] OPTIONS /rest/v1/track_now_plan_shares ?select=*&plan_id=eq.plan-1&revoked_at=is.null
+  [Fetch] GET /rest/v1/track_now_plan_shares ?select=*&plan_id=eq.plan-1&revoked_at=is.null
+✓ Current URL: http://127.0.0.1:5176/plans/plan-1
+✓ Body snippet: "Skip to content Track.now Today Calendar Tracks Reviews Analytics Library New Track MA Marathon Athlete Athletic Excellence ATHLETIC EXCELLENCE · ONGO"
+✓ Plan Heading: Half Marathon Arc
+[3/7] Clicking "Habits" tab...
+[4/7] Verifying CalendarHeatmap presence...
+✓ CalendarHeatmap rendered: true (Title: "Habit consistency")
+[5/7] Verifying habit streak badge (expected: 3d streak)...
+✓ Rendered streak badge: "Morning Hydration & Stretchhabit3d streak, best 3 days, 43% consistencyhigh"
+[6/7] Completing habit for today...
+  [Fetch] OPTIONS /rest/v1/track_now_execution_items ?select=*%2Ctrack_now_item_schedules%28*%29&id=eq.item-habit-1
+  [Fetch] GET /rest/v1/track_now_execution_items ?select=*%2Ctrack_now_item_schedules%28*%29&id=eq.item-habit-1
+  [Fetch] OPTIONS /rest/v1/track_now_execution_items ?id=eq.item-habit-1&select=*%2Ctrack_now_item_schedules%28*%29
+  [Fetch] PATCH /rest/v1/track_now_execution_items ?id=eq.item-habit-1&select=*%2Ctrack_now_item_schedules%28*%29
+  [Fetch] OPTIONS /rest/v1/track_now_item_completions ?on_conflict=item_id%2Ccompleted_date
+  [Fetch] POST /rest/v1/track_now_item_completions ?on_conflict=item_id%2Ccompleted_date
+✓ Updated streak badge: "Morning Hydration & Stretchhabit4d streak, best 4 days, 50% consistencyhigh"
+[7/7] Verifying responsive layout across viewports (320px, 375px, 768px, 1280px)...
+  320px: scrollWidth=320, innerWidth=320, overflow=false
+  375px: scrollWidth=375, innerWidth=375, overflow=false
+  768px: scrollWidth=768, innerWidth=768, overflow=false
+  1280px: scrollWidth=1280, innerWidth=1280, overflow=false
+
+================================================================
+🎉 HABIT STREAKS & CALENDAR HEATMAP BROWSER E2E PASSED 100%
+================================================================
+
+=== verify_sidebar_scroll_signup_e2e.cjs ===
+================================================================
+🚀 TRACK.NOW — SIDEBAR SCROLLING & SIGNUP RATE-LIMIT E2E (CDP)
+================================================================
+✓ Real SPA server listening at http://127.0.0.1:5177
+✓ Connected to headless Chrome via CDP.
+
+[1/4] Testing Desktop Sidebar & Independent Page Scrolling...
+  Normal Desktop (1280x900) Metrics: {
+  shellHeight: 900,
+  sidebarHeight: 900,
+  sidebarMaxHeight: '900px',
+  brandTop: 24,
+  profileBottom: 876,
+  navWrapperOverflow: 'auto',
+  mainOverflowY: 'auto',
+  windowHeight: 900
+}
+  Testing Short Desktop Viewport Height (1280x480)...
+  Short Desktop (1280x480) Metrics: {
+  sidebarHeight: 480,
+  brandTop: 24,
+  profileBottom: 456,
+  windowHeight: 480
+}
+  Testing Independent Scrolling (Sidebar vs Main Content)...
+    After scrolling sidebar nav: { navScrollTop: 45, mainScrollTop: 0 }
+    After scrolling main content: { navScrollTop: 45, mainScrollTop: 70 }
+✓ Desktop independent scrolling verified with captured screenshots.
+
+[2/4] Testing Viewport Matrix & Mobile Drawer Navigation...
+    320px: Clean layout (scrollW=320px, innerW=320px)
+    360px: Clean layout (scrollW=360px, innerW=360px)
+    375px: Clean layout (scrollW=375px, innerW=375px)
+    390px: Clean layout (scrollW=390px, innerW=390px)
+    414px: Clean layout (scrollW=414px, innerW=414px)
+    768px: Clean layout (scrollW=768px, innerW=768px)
+    1024px: Clean layout (scrollW=1024px, innerW=1024px)
+    1280px: Clean layout (scrollW=1280px, innerW=1280px)
+    1440px: Clean layout (scrollW=1440px, innerW=1440px)
+    1920px: Clean layout (scrollW=1920px, innerW=1920px)
+  Opening mobile drawer via menu button...
+  Drawer DOM State: {
+  hasDrawer: true,
+  drawerRole: 'dialog',
+  drawerLabel: 'Navigation Menu',
+  bodyOverflow: 'hidden',
+  drawerHeight: 667,
+  hasCloseBtn: true,
+  windowHeight: 667
+}
+✓ Mobile drawer scrolling, safe-area insets, and body lock verified.
+
+[3/4] Testing Signup Duplicate Prevention & Rate Limit (429) Error Handling...
+  Signup Page Heading: Create your Track.now account
+  Testing validation error (password mismatch)...
+  Mismatch Alert Message: Passwords do not match.
+  Testing duplicate click submission and HTTP 429 rate limit...
+  In-flight Form State: {
+  btnDisabled: true,
+  btnText: 'Creating Account…',
+  inputsDisabled: [ true, true, true, true ]
+}
+  Supabase Signup Network Requests Received: 1
+  Rate Limit Alert Message: Too many attempts. For security, please wait 60 seconds before trying again.
+  Restored Button State: { btnDisabled: false, btnText: 'Sign Up' }
+✓ Duplicate submission prevention and HTTP 429 handling verified 100%.
+
+[4/4] Finalizing verification and cleaning up...
+================================================================
+🎉 ALL SIDEBAR SCROLL & SIGNUP RATE-LIMIT E2E TESTS PASSED 100%
+================================================================
+
+=== verify_reminders_notifications_e2e.cjs ===
+--- TRACK.NOW SMART REMINDERS & NOTIFICATIONS CDP VERIFICATION ---
+SPA server active at http://localhost:4182
+Connected to Chrome via CDP.
+Verifying SettingsPage notifications and widgets sections...
+Settings Sections Result: {
+  url: 'http://localhost:4182/settings',
+  hasNotificationSection: true,
+  hasPlatformTable: true,
+  hasWidgetSection: true,
+  statesClosedBrowserLimit: true,
+  noFalseNativeClaim: true
+}
+Testing in-app celebratory toast notification...
+Toast Card Verification: {
+  text: 'Test reminder\n' +
+    'In-app alert shown. System notifications are off or not permitted, so none was sent.',
+  hasTitle: true,
+  statesOutcome: true
+}
+Saved screenshot to C:\Users\atkam\AppData\Local\Temp\tracknow-e2e-shots-xSiIZD\screenshot_settings_notifications.png
+Testing widget snapshot refresh button...
+Widget Storage Payload: { version: 1, hasProgress: true, total: 3, itemCount: 3 }
+Navigating to /today to verify queue and completion feedback...
+Today Page Verification: { hasHeader: true, hasItem: true, itemCount: 4 }
+Completing item on /today to verify celebratory feedback...
+Completed item clicked: true
+Completion Toast Verification: {
+  text: 'Completed: Review Security Architecture\n' +
+    'Nice work · +15 XP\n' +
+    'Next up:\n' +
+    'Morning Hydration & Run',
+  hasTitle: true,
+  hasNextUp: true
+}
+Reminder Status for completed item: cancelled
+Saved screenshot to C:\Users\atkam\AppData\Local\Temp\tracknow-e2e-shots-xSiIZD\screenshot_today_queue.png
+=====================================================================
+ALL SMART REMINDERS, NOTIFICATIONS & WIDGET CDP VERIFICATIONS PASSED!
+=====================================================================
+
+=== verify_every_task_reminders_e2e.cjs ===
+--- TRACK.NOW EVERY TASK REMINDERS CDP VERIFICATION ---
+SPA server active at http://localhost:4183
+Connected to Chrome via CDP.
+Navigating to PlanDetailPage (http://localhost:4183/plans/plan-beta)...
+Plan Detail Page Check: {
+  url: 'http://localhost:4183/plans/plan-beta',
+  hasTitle: true,
+  hasDeckItem: true,
+  hasHabitItem: true,
+  cardCount: 5
+}
+Verifying reminder badge on task card...
+Task Card Reminder Badge: {
+  hasBell: true,
+  cardText: 'Review Investor Deck\n' +
+    'TASK\n' +
+    'URGENT\n' +
+    '\n' +
+    'Prepare final updates before presentation\n' +
+    '\n' +
+    '2026-10-10 (Overdue)\n' +
+    'Today 03:17 PM\n' +
+    '+10m\n' +
+    '×',
+  hasQuickSnooze: true,
+  hasRemoveBtn: true
+}
+Testing Quick Snooze (+10m) action on task card...
+Snooze button clicked: true
+Storage check after snooze: { status: 'snoozed', hasSnoozeDate: true }
+Testing Quick Remove (×) action on task card...
+Remove reminder button clicked: true
+Storage check after removal: cancelled
+Testing Create Item Modal reminder configuration...
+Create Item Modal Reminder Options: {
+  optionCount: 11,
+  has10mIn: true,
+  has1hBefore: true,
+  hasScheduled: true,
+  hasExact: true
+}
+Navigating to TodayPage (http://localhost:4183/today)...
+Today View Task Reminder Controls: { hasBell: true, hasQuickSnooze: true, hasRemoveBtn: true }
+Saved screenshot to C:\Users\atkam\AppData\Local\Temp\tracknow-e2e-shots-xSiIZD\screenshot_reminders_task_card.png
+=====================================================================
+ALL EVERY-TASK REMINDERS CDP VERIFICATIONS PASSED SUCCESSFULLY!
+=====================================================================
+
+=== audit_ux_responsive.cjs ===
+=== TRACK.NOW FULL FRONTEND RESPONSIVENESS & UX AUDIT ===
+
+✓ Landing site static server: http://127.0.0.1:5183
+✓ App site SPA server: http://127.0.0.1:5184
+
+✓ Connected to headless Chrome via CDP.
+
+
+========================================
+AUDITING ROUTE: Landing (http://127.0.0.1:5183/)
+========================================
+  ✓ 320px: Clean layout, no overflow, good touch targets
+  ✓ 360px: Clean layout, no overflow, good touch targets
+  ✓ 375px: Clean layout, no overflow, good touch targets
+  ✓ 390px: Clean layout, no overflow, good touch targets
+  ✓ 414px: Clean layout, no overflow, good touch targets
+  ✓ 768px: Clean layout, no overflow, good touch targets
+  ✓ 1024px: Clean layout, no overflow, good touch targets
+  ✓ 1280px: Clean layout, no overflow, good touch targets
+  ✓ 1440px: Clean layout, no overflow, good touch targets
+  ✓ 1920px: Clean layout, no overflow, good touch targets
+
+========================================
+AUDITING ROUTE: Login (http://127.0.0.1:5184/login)
+========================================
+  ✓ 320px: Clean layout, no overflow, good touch targets
+  ✓ 360px: Clean layout, no overflow, good touch targets
+  ✓ 375px: Clean layout, no overflow, good touch targets
+  ✓ 390px: Clean layout, no overflow, good touch targets
+  ✓ 414px: Clean layout, no overflow, good touch targets
+  ✓ 768px: Clean layout, no overflow, good touch targets
+  ✓ 1024px: Clean layout, no overflow, good touch targets
+  ✓ 1280px: Clean layout, no overflow, good touch targets
+  ✓ 1440px: Clean layout, no overflow, good touch targets
+  ✓ 1920px: Clean layout, no overflow, good touch targets
+
+========================================
+AUDITING ROUTE: Signup (http://127.0.0.1:5184/signup)
+========================================
+  ✓ 320px: Clean layout, no overflow, good touch targets
+  ✓ 360px: Clean layout, no overflow, good touch targets
+  ✓ 375px: Clean layout, no overflow, good touch targets
+  ✓ 390px: Clean layout, no overflow, good touch targets
+  ✓ 414px: Clean layout, no overflow, good touch targets
+  ✓ 768px: Clean layout, no overflow, good touch targets
+  ✓ 1024px: Clean layout, no overflow, good touch targets
+  ✓ 1280px: Clean layout, no overflow, good touch targets
+  ✓ 1440px: Clean layout, no overflow, good touch targets
+  ✓ 1920px: Clean layout, no overflow, good touch targets
+
+========================================
+AUDITING ROUTE: Dashboard (http://127.0.0.1:5184/dashboard)
+========================================
+  [!] 320px issues: docOverflow=false, elOverflows=2, smallTouch=2
+      First elOverflow: Element DIV.execution-card__actions right edge (330px) overflows viewport (320px)
+      First smallTouch: Touch target too small: BUTTON.quests__link is 82x20px
+  [!] 360px issues: docOverflow=false, elOverflows=0, smallTouch=2
+      First smallTouch: Touch target too small: BUTTON.quests__link is 82x20px
+  [!] 375px issues: docOverflow=false, elOverflows=0, smallTouch=2
+      First smallTouch: Touch target too small: BUTTON.quests__link is 82x20px
+  [!] 390px issues: docOverflow=false, elOverflows=0, smallTouch=2
+      First smallTouch: Touch target too small: BUTTON.quests__link is 82x20px
+  [!] 414px issues: docOverflow=false, elOverflows=0, smallTouch=2
+      First smallTouch: Touch target too small: BUTTON.quests__link is 82x20px
+  [!] 768px issues: docOverflow=false, elOverflows=0, smallTouch=7
+      First smallTouch: Touch target too small: BUTTON.quests__link is 82x20px
+  [!] 1024px issues: docOverflow=false, elOverflows=0, smallTouch=7
+      First smallTouch: Touch target too small: BUTTON.quests__link is 82x20px
+  [!] 1280px issues: docOverflow=false, elOverflows=0, smallTouch=8
+      First smallTouch: Touch target too small: BUTTON.quests__link is 82x20px
+  [!] 1440px issues: docOverflow=false, elOverflows=0, smallTouch=8
+      First smallTouch: Touch target too small: BUTTON.quests__link is 82x20px
+  [!] 1920px issues: docOverflow=false, elOverflows=0, smallTouch=8
+      First smallTouch: Touch target too small: BUTTON.quests__link is 82x20px
+
+========================================
+AUDITING ROUTE: Tracks (http://127.0.0.1:5184/tracks)
+========================================
+  [!] 320px issues: docOverflow=false, elOverflows=0, smallTouch=1
+      First smallTouch: Touch target too small: A.t-h3 is 91x24px
+  [!] 360px issues: docOverflow=false, elOverflows=0, smallTouch=1
+      First smallTouch: Touch target too small: A.t-h3 is 91x24px
+  [!] 375px issues: docOverflow=false, elOverflows=0, smallTouch=1
+      First smallTouch: Touch target too small: A.t-h3 is 91x24px
+  [!] 390px issues: docOverflow=false, elOverflows=0, smallTouch=1
+      First smallTouch: Touch target too small: A.t-h3 is 91x24px
+  [!] 414px issues: docOverflow=false, elOverflows=0, smallTouch=1
+      First smallTouch: Touch target too small: A.t-h3 is 91x24px
+  [!] 768px issues: docOverflow=false, elOverflows=0, smallTouch=1
+      First smallTouch: Touch target too small: A.t-h3 is 91x24px
+  [!] 1024px issues: docOverflow=false, elOverflows=0, smallTouch=1
+      First smallTouch: Touch target too small: A.t-h3 is 91x24px
+  [!] 1280px issues: docOverflow=false, elOverflows=0, smallTouch=1
+      First smallTouch: Touch target too small: A.t-h3 is 91x24px
+  [!] 1440px issues: docOverflow=false, elOverflows=0, smallTouch=1
+      First smallTouch: Touch target too small: A.t-h3 is 91x24px
+  [!] 1920px issues: docOverflow=false, elOverflows=0, smallTouch=1
+      First smallTouch: Touch target too small: A.t-h3 is 91x24px
+
+========================================
+AUDITING ROUTE: NewTrack (http://127.0.0.1:5184/tracks/new)
+========================================
+  ✓ 320px: Clean layout, no overflow, good touch targets
+  ✓ 360px: Clean layout, no overflow, good touch targets
+  ✓ 375px: Clean layout, no overflow, good touch targets
+  ✓ 390px: Clean layout, no overflow, good touch targets
+  ✓ 414px: Clean layout, no overflow, good touch targets
+  ✓ 768px: Clean layout, no overflow, good touch targets
+  ✓ 1024px: Clean layout, no overflow, good touch targets
+  ✓ 1280px: Clean layout, no overflow, good touch targets
+  ✓ 1440px: Clean layout, no overflow, good touch targets
+  ✓ 1920px: Clean layout, no overflow, good touch targets
+
+========================================
+AUDITING ROUTE: TrackDetail (http://127.0.0.1:5184/tracks/11111111-1111-4111-8111-111111111111)
+========================================
+  ✓ 320px: Clean layout, no overflow, good touch targets
+  ✓ 360px: Clean layout, no overflow, good touch targets
+  ✓ 375px: Clean layout, no overflow, good touch targets
+  ✓ 390px: Clean layout, no overflow, good touch targets
+  ✓ 414px: Clean layout, no overflow, good touch targets
+  ✓ 768px: Clean layout, no overflow, good touch targets
+  ✓ 1024px: Clean layout, no overflow, good touch targets
+  ✓ 1280px: Clean layout, no overflow, good touch targets
+  ✓ 1440px: Clean layout, no overflow, good touch targets
+  ✓ 1920px: Clean layout, no overflow, good touch targets
+
+========================================
+AUDITING ROUTE: NewPlan (http://127.0.0.1:5184/tracks/11111111-1111-4111-8111-111111111111/plans/new)
+========================================
+  ✓ 320px: Clean layout, no overflow, good touch targets
+  ✓ 360px: Clean layout, no overflow, good touch targets
+  ✓ 375px: Clean layout, no overflow, good touch targets
+  ✓ 390px: Clean layout, no overflow, good touch targets
+  ✓ 414px: Clean layout, no overflow, good touch targets
+  ✓ 768px: Clean layout, no overflow, good touch targets
+  ✓ 1024px: Clean layout, no overflow, good touch targets
+  ✓ 1280px: Clean layout, no overflow, good touch targets
+  ✓ 1440px: Clean layout, no overflow, good touch targets
+  ✓ 1920px: Clean layout, no overflow, good touch targets
+
+========================================
+AUDITING ROUTE: PlanDetail_Overview (http://127.0.0.1:5184/plans/plan-1)
+========================================
+  [!] 320px issues: docOverflow=false, elOverflows=0, smallTouch=1
+      First smallTouch: Touch target too small: A. is 84x14px
+  [!] 360px issues: docOverflow=false, elOverflows=0, smallTouch=1
+      First smallTouch: Touch target too small: A. is 84x14px
+  [!] 375px issues: docOverflow=false, elOverflows=0, smallTouch=1
+      First smallTouch: Touch target too small: A. is 84x14px
+  [!] 390px issues: docOverflow=false, elOverflows=0, smallTouch=1
+      First smallTouch: Touch target too small: A. is 84x14px
+  [!] 414px issues: docOverflow=false, elOverflows=0, smallTouch=1
+      First smallTouch: Touch target too small: A. is 84x14px
+  [!] 768px issues: docOverflow=false, elOverflows=0, smallTouch=1
+      First smallTouch: Touch target too small: A. is 84x14px
+  [!] 1024px issues: docOverflow=false, elOverflows=0, smallTouch=1
+      First smallTouch: Touch target too small: A. is 84x14px
+  [!] 1280px issues: docOverflow=false, elOverflows=0, smallTouch=1
+      First smallTouch: Touch target too small: A. is 84x14px
+  [!] 1440px issues: docOverflow=false, elOverflows=0, smallTouch=1
+      First smallTouch: Touch target too small: A. is 84x14px
+  [!] 1920px issues: docOverflow=false, elOverflows=0, smallTouch=1
+      First smallTouch: Touch target too small: A. is 84x14px
+
+========================================
+AUDITING ROUTE: Today (http://127.0.0.1:5184/today)
+========================================
+  [!] 320px issues: docOverflow=false, elOverflows=2, smallTouch=2
+      First elOverflow: Element DIV.execution-card__actions right edge (330px) overflows viewport (320px)
+      First smallTouch: Touch target too small: BUTTON.quests__link is 82x20px
+  [!] 360px issues: docOverflow=false, elOverflows=0, smallTouch=2
+      First smallTouch: Touch target too small: BUTTON.quests__link is 82x20px
+  [!] 375px issues: docOverflow=false, elOverflows=0, smallTouch=2
+      First smallTouch: Touch target too small: BUTTON.quests__link is 82x20px
+  [!] 390px issues: docOverflow=false, elOverflows=0, smallTouch=2
+      First smallTouch: Touch target too small: BUTTON.quests__link is 82x20px
+  [!] 414px issues: docOverflow=false, elOverflows=0, smallTouch=2
+      First smallTouch: Touch target too small: BUTTON.quests__link is 82x20px
+  [!] 768px issues: docOverflow=false, elOverflows=0, smallTouch=7
+      First smallTouch: Touch target too small: BUTTON.quests__link is 82x20px
+  [!] 1024px issues: docOverflow=false, elOverflows=0, smallTouch=7
+      First smallTouch: Touch target too small: BUTTON.quests__link is 82x20px
+  [!] 1280px issues: docOverflow=false, elOverflows=0, smallTouch=8
+      First smallTouch: Touch target too small: BUTTON.quests__link is 82x20px
+  [!] 1440px issues: docOverflow=false, elOverflows=0, smallTouch=8
+      First smallTouch: Touch target too small: BUTTON.quests__link is 82x20px
+  [!] 1920px issues: docOverflow=false, elOverflows=0, smallTouch=8
+      First smallTouch: Touch target too small: BUTTON.quests__link is 82x20px
+
+========================================
+AUDITING ROUTE: Arc (http://127.0.0.1:5184/arcs/autumn%20arc)
+========================================
+  ✓ 320px: Clean layout, no overflow, good touch targets
+  ✓ 360px: Clean layout, no overflow, good touch targets
+  ✓ 375px: Clean layout, no overflow, good touch targets
+  ✓ 390px: Clean layout, no overflow, good touch targets
+  ✓ 414px: Clean layout, no overflow, good touch targets
+  ✓ 768px: Clean layout, no overflow, good touch targets
+  ✓ 1024px: Clean layout, no overflow, good touch targets
+  ✓ 1280px: Clean layout, no overflow, good touch targets
+  ✓ 1440px: Clean layout, no overflow, good touch targets
+  ✓ 1920px: Clean layout, no overflow, good touch targets
+
+========================================
+AUDITING ROUTE: Tour (http://127.0.0.1:5184/today?tour=1)
+========================================
+  [!] 320px issues: docOverflow=false, elOverflows=2, smallTouch=2
+      First elOverflow: Element DIV.execution-card__actions right edge (330px) overflows viewport (320px)
+      First smallTouch: Touch target too small: BUTTON.quests__link is 82x20px
+  [!] 360px issues: docOverflow=false, elOverflows=0, smallTouch=2
+      First smallTouch: Touch target too small: BUTTON.quests__link is 82x20px
+  [!] 375px issues: docOverflow=false, elOverflows=0, smallTouch=2
+      First smallTouch: Touch target too small: BUTTON.quests__link is 82x20px
+  [!] 390px issues: docOverflow=false, elOverflows=0, smallTouch=2
+      First smallTouch: Touch target too small: BUTTON.quests__link is 82x20px
+  [!] 414px issues: docOverflow=false, elOverflows=0, smallTouch=2
+      First smallTouch: Touch target too small: BUTTON.quests__link is 82x20px
+  [!] 768px issues: docOverflow=false, elOverflows=0, smallTouch=7
+      First smallTouch: Touch target too small: BUTTON.quests__link is 82x20px
+  [!] 1024px issues: docOverflow=false, elOverflows=0, smallTouch=7
+      First smallTouch: Touch target too small: BUTTON.quests__link is 82x20px
+  [!] 1280px issues: docOverflow=false, elOverflows=0, smallTouch=8
+      First smallTouch: Touch target too small: BUTTON.quests__link is 82x20px
+  [!] 1440px issues: docOverflow=false, elOverflows=0, smallTouch=8
+      First smallTouch: Touch target too small: BUTTON.quests__link is 82x20px
+  [!] 1920px issues: docOverflow=false, elOverflows=0, smallTouch=8
+      First smallTouch: Touch target too small: BUTTON.quests__link is 82x20px
+
+========================================
+AUDITING ROUTE: Start (http://127.0.0.1:5184/start)
+========================================
+  ✓ 320px: Clean layout, no overflow, good touch targets
+  ✓ 360px: Clean layout, no overflow, good touch targets
+  ✓ 375px: Clean layout, no overflow, good touch targets
+  ✓ 390px: Clean layout, no overflow, good touch targets
+  ✓ 414px: Clean layout, no overflow, good touch targets
+  ✓ 768px: Clean layout, no overflow, good touch targets
+  ✓ 1024px: Clean layout, no overflow, good touch targets
+  ✓ 1280px: Clean layout, no overflow, good touch targets
+  ✓ 1440px: Clean layout, no overflow, good touch targets
+  ✓ 1920px: Clean layout, no overflow, good touch targets
+
+========================================
+AUDITING ROUTE: Library (http://127.0.0.1:5184/library)
+========================================
+  ✓ 320px: Clean layout, no overflow, good touch targets
+  ✓ 360px: Clean layout, no overflow, good touch targets
+  ✓ 375px: Clean layout, no overflow, good touch targets
+  ✓ 390px: Clean layout, no overflow, good touch targets
+  ✓ 414px: Clean layout, no overflow, good touch targets
+  ✓ 768px: Clean layout, no overflow, good touch targets
+  ✓ 1024px: Clean layout, no overflow, good touch targets
+  ✓ 1280px: Clean layout, no overflow, good touch targets
+  ✓ 1440px: Clean layout, no overflow, good touch targets
+  ✓ 1920px: Clean layout, no overflow, good touch targets
+
+========================================
+AUDITING ROUTE: Calendar (http://127.0.0.1:5184/calendar)
+========================================
+  [!] 320px issues: docOverflow=false, elOverflows=0, smallTouch=3
+      First smallTouch: Touch target too small: A.cal-item__name is 181x23px
+  [!] 360px issues: docOverflow=false, elOverflows=0, smallTouch=4
+      First smallTouch: Touch target too small: A.cal-item__name is 181x23px
+  [!] 375px issues: docOverflow=false, elOverflows=0, smallTouch=4
+      First smallTouch: Touch target too small: A.cal-item__name is 181x23px
+  [!] 390px issues: docOverflow=false, elOverflows=0, smallTouch=4
+      First smallTouch: Touch target too small: A.cal-item__name is 181x23px
+  [!] 414px issues: docOverflow=false, elOverflows=0, smallTouch=11
+      First smallTouch: Touch target too small: A.cal-item__name is 328x23px
+  [!] 768px issues: docOverflow=false, elOverflows=0, smallTouch=11
+      First smallTouch: Touch target too small: A.cal-item__name is 328x23px
+  [!] 1024px issues: docOverflow=false, elOverflows=0, smallTouch=11
+      First smallTouch: Touch target too small: A.cal-item__name is 328x23px
+  [!] 1280px issues: docOverflow=false, elOverflows=0, smallTouch=11
+      First smallTouch: Touch target too small: A.cal-item__name is 328x23px
+  [!] 1440px issues: docOverflow=false, elOverflows=0, smallTouch=11
+      First smallTouch: Touch target too small: A.cal-item__name is 328x23px
+  [!] 1920px issues: docOverflow=false, elOverflows=0, smallTouch=11
+      First smallTouch: Touch target too small: A.cal-item__name is 328x23px
+
+========================================
+AUDITING ROUTE: Reviews (http://127.0.0.1:5184/reviews)
+========================================
+  [!] 320px issues: docOverflow=false, elOverflows=0, smallTouch=177
+      First smallTouch: Touch target too small: BUTTON.heat-cell is 11x11px
+  [!] 360px issues: docOverflow=false, elOverflows=0, smallTouch=177
+      First smallTouch: Touch target too small: BUTTON.heat-cell is 11x11px
+  [!] 375px issues: docOverflow=false, elOverflows=0, smallTouch=177
+      First smallTouch: Touch target too small: BUTTON.heat-cell is 11x11px
+  [!] 390px issues: docOverflow=false, elOverflows=0, smallTouch=177
+      First smallTouch: Touch target too small: BUTTON.heat-cell is 11x11px
+  [!] 414px issues: docOverflow=false, elOverflows=0, smallTouch=177
+      First smallTouch: Touch target too small: BUTTON.heat-cell is 11x11px
+  [!] 768px issues: docOverflow=false, elOverflows=0, smallTouch=177
+      First smallTouch: Touch target too small: BUTTON.heat-cell is 21x21px
+  [!] 1024px issues: docOverflow=false, elOverflows=0, smallTouch=177
+      First smallTouch: Touch target too small: BUTTON.heat-cell is 20x20px
+  [!] 1280px issues: docOverflow=false, elOverflows=0, smallTouch=177
+      First smallTouch: Touch target too small: BUTTON.heat-cell is 24x24px
+  [!] 1440px issues: docOverflow=false, elOverflows=0, smallTouch=177
+      First smallTouch: Touch target too small: BUTTON.heat-cell is 24x24px
+  [!] 1920px issues: docOverflow=false, elOverflows=0, smallTouch=177
+      First smallTouch: Touch target too small: BUTTON.heat-cell is 24x24px
+
+========================================
+AUDITING ROUTE: Analytics (http://127.0.0.1:5184/analytics)
+========================================
+  [!] 320px issues: docOverflow=false, elOverflows=0, smallTouch=177
+      First smallTouch: Touch target too small: BUTTON.heat-cell is 11x11px
+  [!] 360px issues: docOverflow=false, elOverflows=0, smallTouch=177
+      First smallTouch: Touch target too small: BUTTON.heat-cell is 11x11px
+  [!] 375px issues: docOverflow=false, elOverflows=0, smallTouch=177
+      First smallTouch: Touch target too small: BUTTON.heat-cell is 11x11px
+  [!] 390px issues: docOverflow=false, elOverflows=0, smallTouch=177
+      First smallTouch: Touch target too small: BUTTON.heat-cell is 11x11px
+  [!] 414px issues: docOverflow=false, elOverflows=0, smallTouch=177
+      First smallTouch: Touch target too small: BUTTON.heat-cell is 11x11px
+  [!] 768px issues: docOverflow=false, elOverflows=0, smallTouch=177
+      First smallTouch: Touch target too small: BUTTON.heat-cell is 21x21px
+  [!] 1024px issues: docOverflow=false, elOverflows=0, smallTouch=177
+      First smallTouch: Touch target too small: BUTTON.heat-cell is 19x19px
+  [!] 1280px issues: docOverflow=false, elOverflows=0, smallTouch=177
+      First smallTouch: Touch target too small: BUTTON.heat-cell is 24x24px
+  [!] 1440px issues: docOverflow=false, elOverflows=0, smallTouch=177
+      First smallTouch: Touch target too small: BUTTON.heat-cell is 24x24px
+  [!] 1920px issues: docOverflow=false, elOverflows=0, smallTouch=177
+      First smallTouch: Touch target too small: BUTTON.heat-cell is 24x24px
+
+========================================
+AUDITING ROUTE: Settings (http://127.0.0.1:5184/settings)
+========================================
+  [!] 320px issues: docOverflow=false, elOverflows=1, smallTouch=1
+      First elOverflow: Element INPUT. right edge (355px) overflows viewport (320px)
+      First smallTouch: Touch target too small: A. is 44x16px
+  [!] 360px issues: docOverflow=false, elOverflows=0, smallTouch=1
+      First smallTouch: Touch target too small: A. is 44x16px
+  [!] 375px issues: docOverflow=false, elOverflows=0, smallTouch=1
+      First smallTouch: Touch target too small: A. is 44x16px
+  [!] 390px issues: docOverflow=false, elOverflows=0, smallTouch=1
+      First smallTouch: Touch target too small: A. is 44x16px
+  [!] 414px issues: docOverflow=false, elOverflows=0, smallTouch=1
+      First smallTouch: Touch target too small: A. is 44x16px
+  [!] 768px issues: docOverflow=false, elOverflows=0, smallTouch=1
+      First smallTouch: Touch target too small: A. is 44x16px
+  [!] 1024px issues: docOverflow=false, elOverflows=0, smallTouch=1
+      First smallTouch: Touch target too small: A. is 44x16px
+  [!] 1280px issues: docOverflow=false, elOverflows=0, smallTouch=1
+      First smallTouch: Touch target too small: A. is 44x16px
+  [!] 1440px issues: docOverflow=false, elOverflows=0, smallTouch=1
+      First smallTouch: Touch target too small: A. is 44x16px
+  [!] 1920px issues: docOverflow=false, elOverflows=0, smallTouch=1
+      First smallTouch: Touch target too small: A. is 44x16px
+
+========================================
+AUDITING ROUTE: NotFound (http://127.0.0.1:5184/some-invalid-route-404)
+========================================
+  ✓ 320px: Clean layout, no overflow, good touch targets
+  ✓ 360px: Clean layout, no overflow, good touch targets
+  ✓ 375px: Clean layout, no overflow, good touch targets
+  ✓ 390px: Clean layout, no overflow, good touch targets
+  ✓ 414px: Clean layout, no overflow, good touch targets
+  ✓ 768px: Clean layout, no overflow, good touch targets
+  ✓ 1024px: Clean layout, no overflow, good touch targets
+  ✓ 1280px: Clean layout, no overflow, good touch targets
+  ✓ 1440px: Clean layout, no overflow, good touch targets
+  ✓ 1920px: Clean layout, no overflow, good touch targets
+
+--- Auditing PlanDetail: Habits Tab ---
+
+--- Auditing CreateItemModal ---
+
+========================================
+AUDIT RUN COMPLETE. Total findings recorded: 90
+========================================
+
+=== verify_responsive_cdp.cjs ===
+=== TRACK.NOW CHROME CDP MULTI-SITE VERIFICATION ===
+
+✓ Landing site static server listening at http://127.0.0.1:5173
+✓ Application SPA server listening at http://127.0.0.1:5174
+
+✓ Chrome CDP connected successfully.
+
+--- 1. VERIFYING LANDING SITE (apps/landing) ---
+  Page Title: Track.now — Your life, organized to execute.
+  Hero Heading: Your life, organized to execute.
+  Primary CTA Link: https://trackapp.atreyakamat.dev/signup
+  Sign In CTA Link: https://trackapp.atreyakamat.dev/login
+  Initial Theme: dark
+  Toggled Theme: light
+  Initial Demo Progress Badge: 25% Complete
+  Updated Demo Progress Badge after check: 50% Complete
+
+  Landing Responsive Checks (Horizontal Overflow):
+    320px: scrollWidth=320, innerWidth=320, overflow=false
+    360px: scrollWidth=360, innerWidth=360, overflow=false
+    375px: scrollWidth=375, innerWidth=375, overflow=false
+    390px: scrollWidth=390, innerWidth=390, overflow=false
+    414px: scrollWidth=414, innerWidth=414, overflow=false
+    768px: scrollWidth=753, innerWidth=768, overflow=false
+    1024px: scrollWidth=1009, innerWidth=1024, overflow=false
+    1280px: scrollWidth=1265, innerWidth=1280, overflow=false
+    1440px: scrollWidth=1425, innerWidth=1440, overflow=false
+    1920px: scrollWidth=1905, innerWidth=1920, overflow=false
+✓ Landing site responsive checks passed with ZERO overflow.
+
+--- 2. VERIFYING APPLICATION SITE (apps/app) ---
+  Access / redirects unauthenticated visitor to: /login
+  Login Page Heading: Sign in to Track.now
+  Back to Marketing Site link on Login: https://tracknow.atreyakamat.dev/
+
+  Direct SPA Route Navigation & Reload Tests:
+    /login: SPA render success (hasRoot=true, snippet="Sign in to Track.now  A personal operati")
+    /signup: SPA render success (hasRoot=true, snippet="Create your Track.now account  Build you")
+    /today: SPA render success (hasRoot=true, snippet="Sign in to Track.now  A personal operati")
+    /tracks: SPA render success (hasRoot=true, snippet="Sign in to Track.now  A personal operati")
+    /settings: SPA render success (hasRoot=true, snippet="Sign in to Track.now  A personal operati")
+
+  Application Responsive Checks (Horizontal Overflow):
+    320px: scrollWidth=320, innerWidth=320, overflow=false
+    360px: scrollWidth=360, innerWidth=360, overflow=false
+    375px: scrollWidth=375, innerWidth=375, overflow=false
+    390px: scrollWidth=390, innerWidth=390, overflow=false
+    414px: scrollWidth=414, innerWidth=414, overflow=false
+    768px: scrollWidth=768, innerWidth=768, overflow=false
+    1024px: scrollWidth=1024, innerWidth=1024, overflow=false
+    1280px: scrollWidth=1280, innerWidth=1280, overflow=false
+    1440px: scrollWidth=1440, innerWidth=1440, overflow=false
+    1920px: scrollWidth=1920, innerWidth=1920, overflow=false
+✓ Application responsive checks passed with ZERO overflow.
+
+=== ALL CHROME CDP & RESPONSIVE VERIFICATIONS PASSED 100% ===
+
+=== Building apps/app (normal) ===
+[36mvite v6.4.6 [32mbuilding for production...[36m[39m
+transforming...
+[32m✓[39m 1764 modules transformed.
+rendering chunks...
+computing gzip size...
+[2mdist/[22m[32mindex.html                                            [39m[1m[2m  1.61 kB[22m[1m[22m[2m │ gzip:   0.71 kB[22m
+[2mdist/[22m[32massets/inter-vietnamese-wght-normal-CBcvBZtf.woff2    [39m[1m[2m 10.25 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-greek-ext-wght-normal-DlzME5K_.woff2     [39m[1m[2m 11.23 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-cyrillic-wght-normal-DqGufNeO.woff2      [39m[1m[2m 18.75 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-greek-wght-normal-CkhJZR-_.woff2         [39m[1m[2m 19.00 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-cyrillic-ext-wght-normal-BOeWTOD4.woff2  [39m[1m[2m 25.96 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-latin-wght-normal-Dx4kXJAl.woff2         [39m[1m[2m 48.26 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-latin-ext-wght-normal-DO1Apj_S.woff2     [39m[1m[2m 85.07 kB[22m[1m[22m
+[2mdist/[22m[35massets/index-D_X_072c.css                             [39m[1m[2m 53.12 kB[22m[1m[22m[2m │ gzip:  10.00 kB[22m
+[2mdist/[22m[36massets/icons-BtYUmjco.js                              [39m[1m[2m 32.38 kB[22m[1m[22m[2m │ gzip:   6.49 kB[22m
+[2mdist/[22m[36massets/vendor-Br-dA-aB.js                             [39m[1m[2m181.94 kB[22m[1m[22m[2m │ gzip:  59.96 kB[22m
+[2mdist/[22m[36massets/supabase-B4WnJLNZ.js                           [39m[1m[2m226.69 kB[22m[1m[22m[2m │ gzip:  58.83 kB[22m
+[2mdist/[22m[36massets/index-CqGqmDNe.js                              [39m[1m[2m430.81 kB[22m[1m[22m[2m │ gzip: 129.20 kB[22m
+[32m✓ built in 8.30s[39m
+
+=== Mocked E2E summary ===
+PASS  exit=0  13s  verify_numeric_e2e.cjs
+PASS  exit=0  18s  verify_instant_ticks_e2e.cjs
+PASS  exit=0  5s  verify_streaks_heatmap_e2e.cjs
+PASS  exit=0  4s  verify_sidebar_scroll_signup_e2e.cjs
+PASS  exit=0  11s  verify_reminders_notifications_e2e.cjs
+PASS  exit=0  9s  verify_every_task_reminders_e2e.cjs
+PASS  exit=0  57s  audit_ux_responsive.cjs
+PASS  exit=0  9s  verify_responsive_cdp.cjs
+Screenshots: C:\Users\atkam\AppData\Local\Temp\tracknow-e2e-shots-xSiIZD
+exit 0

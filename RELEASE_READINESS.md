@@ -52,6 +52,28 @@ and allows only a handful of emails per hour for the whole project.
    listed below as the email-code template step).
 5. Send yourself one sign-in code from the live site and check it arrives, lands in the inbox, and shows the code.
 
+## 2026-11-10: security audit (findings S-28 to S-36)
+
+Evidence: `docs/security/audit-2026-11/`. Re-run: `npm run audit:security`. Details: `SECURITY_AUDIT.md`.
+
+| Gate | Result |
+| :--- | :--- |
+| Database access matrix + all SQL checks (local PostgreSQL) | PASS, 83/83 |
+| Secret scan (files, bundles, 96 commits) | PASS; one known finding in history (S-29) |
+| `npm audit` web workspaces | PASS, 0 advisories (was 4) |
+| `npm audit` phone app | 6 moderate, build tooling only, accepted |
+| `npm test` | PASS, 47 files, 613 tests |
+| Typecheck web, core, phone | PASS |
+| Mocked browser suite on the upgraded tools | PASS, 8/8 |
+
+**Owner actions from the audit**
+
+1. Apply `supabase/migrations/20261112000000_security_hardening.sql` (additive; nothing changes for signed-in users).
+2. Retire the old Firebase project and its API key (S-29).
+3. Revoke and re-create any share links that were created from the phone app (S-28).
+4. Before the store release: turn on two-factor authentication for Expo and consider EAS Update code signing (S-34).
+5. In the Supabase dashboard: run the security advisor, and check leaked-password protection, code expiry and rate limits.
+
 ## Verdict
 
 **LAUNCHED — READY.** Both web sites are live and the hosted database has all three security/habit migrations

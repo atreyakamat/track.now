@@ -28,11 +28,19 @@ export interface SharedPlanView {
 
 export const SHARING_NEEDS_MIGRATION_MESSAGE = 'Sharing needs the latest database update (migration 20261109000000).'
 
-function randomToken(): string {
-  const bytes = new Uint8Array(24)
+export const SHARING_NEEDS_SECURE_TOKEN_MESSAGE =
+  'This device cannot create a secure link yet. Create the link from the web app, or try again after the next database update (migration 20261112000000).'
+
+/**
+ * A share token is the only thing protecting a shared Plan, so it must come from a
+ * cryptographic random source. Returns null when this runtime has none: the caller then lets
+ * the database generate the token (migration 20261112000000) and never falls back to
+ * Math.random, whose output can be predicted.
+ */
+export function secureShareToken(): string | null {
   const c = (globalThis as { crypto?: { getRandomValues?: (a: Uint8Array) => Uint8Array } }).crypto
-  if (c?.getRandomValues) c.getRandomValues(bytes)
-  else for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256)
+  if (typeof c?.getRandomValues !== 'function') return null
+  const bytes = c.getRandomValues(new Uint8Array(24))
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
 }
 
@@ -46,9 +54,13 @@ export async function listPlanShares(planId: string): Promise<PlanShare[]> {
 }
 
 export async function createPlanShare(userId: string, planId: string): Promise<PlanShare> {
-  const payload = { user_id: userId, plan_id: planId, token: randomToken() }
+  const token = secureShareToken()
+  // No secure random source here: leave the token out so the database generates it.
+  const payload = { user_id: userId, plan_id: planId, ...(token ? { token } : {}) }
   const { data, error } = await supabase.from('track_now_plan_shares').insert(payload).select().single()
   if (error) {
+    // 23502 = the token column has no default yet (migration 20261112000000 not applied).
+    if (!token && error.code === '23502') throw new Error(SHARING_NEEDS_SECURE_TOKEN_MESSAGE)
     if (error.code === '42P01' || /relation .* does not exist|schema cache/i.test(error.message)) throw new Error(SHARING_NEEDS_MIGRATION_MESSAGE)
     throw new Error(error.message)
   }

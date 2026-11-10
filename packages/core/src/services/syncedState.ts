@@ -1,8 +1,9 @@
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import { getTodayDateString } from '../domain/dates'
-import { loadFocusState, sanitizeFocusState, saveFocusState, type FocusState } from './focusService'
+import { clearFocusForUser, loadFocusState, sanitizeFocusState, saveFocusState, type FocusState } from './focusService'
 import {
   applyRemoteReviewNotes,
+  clearReviewNotesForUser,
   clearReviewTombstones,
   isValidPeriodKey,
   loadReviewNotes,
@@ -262,5 +263,29 @@ export async function pushFocus(userId: string, now = new Date()): Promise<SyncS
     return (await push(userId, 'focus', [{ key: FOCUS_SYNC_KEY, value: local, updatedAt: local.updatedAt }])) ? 'synced' : 'device-only'
   } catch {
     return 'failed'
+  }
+}
+
+// ---------------------------------------------------------------------------- sign-out
+
+/**
+ * Call just BEFORE signing out (it needs the session). Sends anything not yet on the account
+ * and, only when the account confirms it has everything, removes this device's copy of the
+ * review notes and focus, so the next person to use this browser or phone cannot read them.
+ * When the account cannot store them (or cannot be reached) the device copy is the only copy
+ * and is kept. Never throws and never waits longer than `timeoutMs`.
+ * Returns true when the device copy was removed.
+ */
+export async function releaseSyncedCopies(userId: string, timeoutMs = 4000): Promise<boolean> {
+  if (!userId) return false
+  try {
+    const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs))
+    const result = await Promise.race([syncReviewNotes(userId), timeout])
+    if (!result || result.status !== 'synced') return false
+    clearReviewNotesForUser(userId)
+    clearFocusForUser(userId)
+    return true
+  } catch {
+    return false
   }
 }

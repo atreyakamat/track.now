@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+# The workflow only reads the repository (finding S-36: least privilege for the CI token).
+permissions:
+  contents: read
+
 jobs:
   web:
     name: Web (typecheck + tests)
@@ -39,3 +43,28 @@ jobs:
       - name: Typecheck
         working-directory: apps/mobile
         run: npx tsc --noEmit
+
+  security:
+    name: Security (secrets, dependencies, database access matrix)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the secret scan reads every commit
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install root workspaces
+        run: npm ci
+      - name: Secret scan (tracked files and full history; prints locations, never values)
+        run: node scripts/audit_secrets.cjs --history
+      - name: Dependency audit, web workspaces (fails on high or critical)
+        run: npm audit --audit-level=high
+      - name: Dependency audit, phone app (fails on high or critical)
+        working-directory: apps/mobile
+        run: npm audit --audit-level=high
+      - name: Database access matrix on a throw-away local PostgreSQL
+        run: |
+          export PG_BIN="$(ls -d /usr/lib/postgresql/*/bin | sort -V | tail -1)"
+          node scripts/verify_sql_local.cjs

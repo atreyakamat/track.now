@@ -157,6 +157,18 @@ function writeTombstones(userId: string, tombstones: Record<string, string>): vo
   }
 }
 
+/** Removes this device's copy of the user's notes and pending deletions (after they are safely on the account). */
+export function clearReviewNotesForUser(userId: string): void {
+  const storage = getStorage()
+  if (!userId || !storage) return
+  try {
+    storage.removeItem(getReviewNotesKey(userId))
+    storage.removeItem(`${REVIEW_TOMBSTONES_PREFIX}${userId}`)
+  } catch {
+    /* storage unavailable */
+  }
+}
+
 /** Forget pending deletions (they reached the account, or the note was written again). */
 export function clearReviewTombstones(userId: string, periodKeys: string[]): void {
   if (!userId || periodKeys.length === 0) return

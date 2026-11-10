@@ -19,7 +19,11 @@ export function buildExportBundle(input: Omit<ExportBundle, 'format' | 'exported
 
 const cell = (v: unknown): string => {
   if (v === null || v === undefined) return ''
-  const s = Array.isArray(v) ? v.join('|') : typeof v === 'object' ? JSON.stringify(v) : String(v)
+  let s = Array.isArray(v) ? v.join('|') : typeof v === 'object' ? JSON.stringify(v) : String(v)
+  // Text that starts with = + - @ (or a tab / carriage return) is run as a formula by Excel
+  // and Google Sheets. A leading apostrophe makes spreadsheets show it as text. Numbers are
+  // left alone so they stay numbers.
+  if (typeof v !== 'number' && /^[=+\-@\t\r]/.test(s)) s = `'${s}`
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
 }
 const row = (cells: unknown[]) => cells.map(cell).join(',')

@@ -18,6 +18,7 @@
     "typecheck": "npm --workspace=@tracknow/core run typecheck && npm --workspace=landing run typecheck && npm --workspace=app run typecheck",
     "test": "npm --workspace=app run test",
     "test:app": "npm --workspace=app run test",
+    "audit:security": "node scripts/audit_secrets.cjs --history && npm audit --audit-level=high && node scripts/verify_sql_local.cjs",
     "preview:landing": "npm --workspace=landing run preview",
     "preview:app": "npm --workspace=app run preview"
   },

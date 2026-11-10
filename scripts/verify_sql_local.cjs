@@ -38,8 +38,9 @@ const MIGRATIONS = {
   sharing: path.join(MIG, '20261109000000_account_deletion_and_plan_sharing.sql'),
   clientEvents: path.join(MIG, '20261110000000_client_events.sql'),
   syncedState: path.join(MIG, '20261111000000_synced_state.sql'),
+  hardening: path.join(MIG, '20261112000000_security_hardening.sql'),
 }
-const ALL_IN_ORDER = [MIGRATIONS.init, MIGRATIONS.harden, MIGRATIONS.secure, MIGRATIONS.habit, MIGRATIONS.revokeTrigger, MIGRATIONS.plansArcs, MIGRATIONS.arcName, MIGRATIONS.sharing, MIGRATIONS.clientEvents, MIGRATIONS.syncedState]
+const ALL_IN_ORDER = [MIGRATIONS.init, MIGRATIONS.harden, MIGRATIONS.secure, MIGRATIONS.habit, MIGRATIONS.revokeTrigger, MIGRATIONS.plansArcs, MIGRATIONS.arcName, MIGRATIONS.sharing, MIGRATIONS.clientEvents, MIGRATIONS.syncedState, MIGRATIONS.hardening]
 
 const exe = (name) => (process.platform === 'win32' ? `${name}.exe` : name)
 
@@ -108,7 +109,7 @@ async function main() {
     if (r.status !== 0) throw new Error(`initdb failed:\n${out(r)}`)
     // stdio 'ignore': the postmaster inherits pg_ctl's handles, so piped output would
     // never close and spawnSync would wait forever (observed on Windows).
-    r = run('pg_ctl', ['-D', data, '-l', log, '-w', '-o', `-p ${port} -c listen_addresses=127.0.0.1`, 'start'], { stdio: 'ignore' })
+    r = run('pg_ctl', ['-D', data, '-l', log, '-w', '-o', `-p ${port} -c listen_addresses=127.0.0.1${process.platform === 'win32' ? '' : ` -c unix_socket_directories=${tmp}`}`, 'start'], { stdio: 'ignore' })
     if (r.status !== 0) throw new Error(`pg_ctl start failed:\n${out(r)}\n${fs.existsSync(log) ? fs.readFileSync(log, 'utf8') : ''}`)
     started = true
 
@@ -370,10 +371,26 @@ async function main() {
     record('synced state: deleting the account removes its rows, and only its rows',
       scalar(DB, `SELECT count(*) FILTER (WHERE user_id = '00000000-0000-4000-8000-0000000000b7') || ':' || count(*) FROM ${STATE}`) === '0:3')
 
+    // 6g. Audit hardening: server-generated share tokens; anon loses table privileges it never needed.
+    const anonPrivs = () => scalar(DB, `SELECT coalesce(string_agg(table_name || '.' || privilege_type, ',' ORDER BY table_name, privilege_type), '')
+      FROM information_schema.role_table_grants WHERE grantee = 'anon' AND table_schema = 'public' AND table_name LIKE 'track\\_now\\_%'`)
+    record('before hardening: anon still holds table privileges on the core tables (finding S-35 reproduced)', /track_now_tracks\.SELECT/.test(anonPrivs()))
+    apply(DB, MIGRATIONS.hardening, 'security hardening migration')
+    record('hardening: the only table privilege anon keeps is reading the template catalogue', anonPrivs() === 'track_now_track_templates.SELECT', anonPrivs())
+    record('hardening: signed-in users can read but not write the template catalogue',
+      scalar(DB, `SELECT string_agg(p || '=' || has_table_privilege('authenticated', 'public.track_now_track_templates', p)::text, ',' ORDER BY p) FROM unnest(ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']) p`) ===
+        'DELETE=false,INSERT=false,SELECT=true,UPDATE=false')
+    record('hardening: a share created without a token gets a 64-character random one, different every time',
+      accepts(asUser(OWNER, `INSERT INTO public.track_now_plan_shares (user_id, plan_id) VALUES ('${OWNER}', '20000000-0000-4000-8000-0000000000d1'), ('${OWNER}', '20000000-0000-4000-8000-0000000000d1')`)) &&
+      scalar(DB, `SELECT count(DISTINCT token) || ':' || bool_and(token ~ '^[0-9a-f]{64}$')::text FROM public.track_now_plan_shares WHERE user_id = '${OWNER}' AND length(token) = 64`) === '2:true')
+    const serverToken = scalar(DB, `SELECT token FROM public.track_now_plan_shares WHERE user_id = '${OWNER}' AND length(token) = 64 LIMIT 1`)
+    record('hardening: the public shared-plan page still works for anon through the function',
+      scalar(DB, `SET ROLE anon; SELECT (public.track_now_get_shared_plan('${serverToken}') IS NOT NULL)::text`).split(/\r?\n/).pop() === 'true')
+
     // 7. Re-applying migrations is safe and always ends in the secure state.
     let reapplyOk = true
     let reapplyErr = ''
-    for (const file of [...ALL_IN_ORDER, MIGRATIONS.secure, MIGRATIONS.habit, MIGRATIONS.revokeTrigger, MIGRATIONS.plansArcs, MIGRATIONS.arcName, MIGRATIONS.sharing, MIGRATIONS.clientEvents, MIGRATIONS.syncedState]) {
+    for (const file of [...ALL_IN_ORDER, MIGRATIONS.secure, MIGRATIONS.habit, MIGRATIONS.revokeTrigger, MIGRATIONS.plansArcs, MIGRATIONS.arcName, MIGRATIONS.sharing, MIGRATIONS.clientEvents, MIGRATIONS.syncedState, MIGRATIONS.hardening]) {
       const a = psqlFile(DB, file)
       if (a.status !== 0) {
         reapplyOk = false
@@ -411,6 +428,175 @@ async function main() {
       FROM public.track_now_execution_items WHERE id = '30000000-0000-4000-8000-0000000000e1'`)
     record('8 parallel sessions x 25 increments = 200, done, exactly one completion',
       workers.every((w) => w.code === 0) && finalState === '200/done/1', finalState + (workers.find((w) => w.code !== 0)?.err || ''))
+
+    // 8b. ACCESS MATRIX, generated from the catalog: every track_now_* table x {another signed-in
+    //     user, anon} x {read, forge-insert, update, delete}. A table nobody listed here fails
+    //     the run, so a table added later cannot be forgotten. Evidence is written to
+    //     AUDIT_EVIDENCE_DIR when set.
+    {
+      const V = '00000000-0000-4000-8000-0000000000c1' // victim: owns one row in every table
+      const X = '00000000-0000-4000-8000-0000000000c2' // attacker: signed in, owns nothing
+      const vid = (n) => `c${n}000000-0000-4000-8000-0000000000c1`
+      apply(DB, writeTemp(tmp, 'matrix_fixture.sql', `
+        INSERT INTO auth.users (id, email) VALUES ('${V}', 'matrix-victim@example.invalid'), ('${X}', 'matrix-attacker@example.invalid');
+        INSERT INTO public.track_now_tracks (id, user_id, name) VALUES ('${vid(1)}', '${V}', 'Victim track');
+        INSERT INTO public.track_now_plans (id, user_id, track_id, name) VALUES ('${vid(2)}', '${V}', '${vid(1)}', 'Victim plan');
+        INSERT INTO public.track_now_execution_items (id, user_id, plan_id, track_id, type, name) VALUES ('${vid(3)}', '${V}', '${vid(2)}', '${vid(1)}', 'habit', 'Victim habit');
+        INSERT INTO public.track_now_item_schedules (id, item_id, frequency) VALUES ('${vid(4)}', '${vid(3)}', 'daily');
+        INSERT INTO public.track_now_item_completions (id, item_id, user_id, completed_date) VALUES ('${vid(5)}', '${vid(3)}', '${V}', CURRENT_DATE);
+        INSERT INTO public.track_now_plan_shares (id, user_id, plan_id, token) VALUES ('${vid(6)}', '${V}', '${vid(2)}', repeat('v', 40));
+        INSERT INTO public.track_now_synced_state (user_id, scope, key, value) VALUES ('${V}', 'focus', 'today', '{"date":"2026-11-10","ids":[]}'::jsonb);
+        INSERT INTO public.track_now_client_events (user_id, kind, name, app) VALUES ('${V}', 'event', 'matrix', 'web');
+        DELETE FROM public.track_now_profiles WHERE id = '${X}';`), 'access matrix fixture')
+
+      // How to recognise the victim's rows in each table (superuser only). Unknown table = failure.
+      const VICTIM_ROWS = {
+        track_now_profiles: `id = '${V}'`,
+        track_now_tracks: `user_id = '${V}'`,
+        track_now_plans: `user_id = '${V}'`,
+        track_now_execution_items: `user_id = '${V}'`,
+        track_now_item_schedules: `item_id = '${vid(3)}'`,
+        track_now_item_completions: `user_id = '${V}'`,
+        track_now_plan_shares: `user_id = '${V}'`,
+        track_now_synced_state: `user_id = '${V}'`,
+        track_now_client_events: `user_id = '${V}'`,
+      }
+      // Reference data everyone may read; nobody may write it through the API.
+      const PUBLIC_READ = new Set(['track_now_track_templates'])
+
+      const tables = scalar(DB, `SELECT string_agg(tablename, ',' ORDER BY tablename) FROM pg_tables WHERE schemaname = 'public' AND tablename LIKE 'track\\_now\\_%'`).split(',')
+      const unknown = tables.filter((t) => !(t in VICTIM_ROWS) && !PUBLIC_READ.has(t))
+      record('access matrix: every track_now_* table in the catalog is covered', unknown.length === 0, unknown.join(','))
+
+      const actors = {
+        'other user': `SET request.jwt.claims = '{"sub":"${X}","role":"authenticated"}'; SET ROLE authenticated; `,
+        anon: `SET ROLE anon; `,
+      }
+      // Runs one statement as an actor; returns 'denied:<sqlstate>' or 'rows:<n>'.
+      const attempt = (prefix, sql) => {
+        const res = run('psql', [...psqlArgs(DB), '-v', 'VERBOSITY=sqlstate', '-At', '-c', `${prefix}${sql}`])
+        if (res.status !== 0) return `denied:${(out(res).match(/ERROR:\s+(\w{5})/) || [, 'unknown'])[1]}`
+        return `rows:${res.stdout.trim().split(/\r?\n/).pop()}`
+      }
+      const fingerprint = (t) => scalar(DB, `SELECT count(*) || ':' || coalesce(md5(string_agg(x::text, '|' ORDER BY x::text)), '-') FROM public.${t} x`)
+
+      psqlCmd(DB, `DROP SCHEMA IF EXISTS audit_stage CASCADE; CREATE SCHEMA audit_stage; GRANT USAGE ON SCHEMA audit_stage TO anon, authenticated`)
+      const lines = ['| Table | Actor | Read | Forged insert | Update | Delete | Rows unchanged | Verdict |', '| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |']
+      for (const t of tables.filter((x) => x in VICTIM_ROWS || PUBLIC_READ.has(x))) {
+        const isPublic = PUBLIC_READ.has(t)
+        // A copy of real rows for the attacker to try to re-insert under the victim's identity.
+        // Identity columns and defaulted "id" keys are left out so a refusal can only come from access rules.
+        const cols = scalar(DB, `SELECT string_agg(quote_ident(column_name), ', ' ORDER BY ordinal_position) FROM information_schema.columns
+          WHERE table_schema = 'public' AND table_name = '${t}' AND is_identity = 'NO' AND is_generated = 'NEVER' AND NOT (column_name = 'id' AND column_default IS NOT NULL)`)
+        const firstCol = cols.split(', ')[0]
+        psqlCmd(DB, `CREATE TABLE audit_stage.${t} AS SELECT ${cols} FROM public.${t} WHERE ${isPublic ? 'true' : VICTIM_ROWS[t]} LIMIT 1; GRANT SELECT ON audit_stage.${t} TO anon, authenticated`)
+        const staged = scalar(DB, `SELECT count(*) FROM audit_stage.${t}`)
+        if (staged !== '1') {
+          record(`access matrix: ${t}`, false, 'no victim row to attack (fixture missing)')
+          continue
+        }
+        for (const [actor, prefix] of Object.entries(actors)) {
+          const before = fingerprint(t)
+          const read = attempt(prefix, `SELECT count(*) FROM public.${t}`)
+          const insert = attempt(prefix, `WITH i AS (INSERT INTO public.${t} (${cols}) SELECT ${cols} FROM audit_stage.${t} RETURNING 1) SELECT count(*) FROM i`)
+          const insertBlind = attempt(prefix, `INSERT INTO public.${t} (${cols}) SELECT ${cols} FROM audit_stage.${t}`)
+          const update = attempt(prefix, `WITH u AS (UPDATE public.${t} SET ${firstCol} = ${firstCol} RETURNING 1) SELECT count(*) FROM u`)
+          const updateBlind = attempt(prefix, `UPDATE public.${t} SET ${firstCol} = ${firstCol}`)
+          const del = attempt(prefix, `WITH d AS (DELETE FROM public.${t} RETURNING 1) SELECT count(*) FROM d`)
+          const delBlind = attempt(prefix, `DELETE FROM public.${t}`)
+          const unchanged = fingerprint(t) === before
+          const readOk = isPublic ? true : read === 'rows:0' || read.startsWith('denied:')
+          const insertOk = insert.startsWith('denied:') && insertBlind.startsWith('denied:')
+          const writeOk = (v) => v === 'rows:0' || v.startsWith('denied:')
+          const ok = readOk && insertOk && writeOk(update) && writeOk(del) && unchanged
+          lines.push(`| ${t} | ${actor} | ${read}${isPublic ? ' (public catalog)' : ''} | ${insert} / blind ${insertBlind} | ${update} / blind ${updateBlind.replace(/^rows:.*/, 'no error')} | ${del} / blind ${delBlind.replace(/^rows:.*/, 'no error')} | ${unchanged ? 'yes' : 'NO'} | ${ok ? 'PASS' : 'FAIL'} |`)
+          record(`access matrix: ${t} is closed to ${actor === 'anon' ? 'anon' : 'another signed-in user'} (read ${read}, insert ${insert}, update ${update}, delete ${del})`, ok)
+        }
+      }
+      psqlCmd(DB, `DROP SCHEMA audit_stage CASCADE`)
+
+      // Functions: every SECURITY DEFINER function pins search_path; anon can call only the allowlist.
+      const fnRows = scalar(DB, `SELECT coalesce(string_agg(p.oid::regprocedure::text || '|' || p.prosecdef::text || '|' || coalesce(array_to_string(p.proconfig, ';'), '') || '|' ||
+          has_function_privilege('anon', p.oid, 'EXECUTE')::text || '|' || has_function_privilege('authenticated', p.oid, 'EXECUTE')::text || '|' || (p.prorettype = 'trigger'::regtype)::text, E'\n' ORDER BY p.oid::regprocedure::text), '')
+        FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public'`).split(/\r?\n/).filter(Boolean).map((l) => {
+        const [sig, secdef, config, anon, auth, trig] = l.split('|')
+        return { sig, secdef: secdef === 'true', config, anon: anon === 'true', auth: auth === 'true', trigger: trig === 'true' }
+      })
+      const ANON_ALLOWED = new Set(['track_now_get_shared_plan(text)'])
+      const unpinned = fnRows.filter((f) => f.secdef && !/search_path=/.test(f.config))
+      const anonCallable = fnRows.filter((f) => f.anon && f.secdef && !ANON_ALLOWED.has(f.sig))
+      const anonAny = fnRows.filter((f) => f.anon && !f.trigger && !ANON_ALLOWED.has(f.sig))
+      record('functions: every SECURITY DEFINER function pins search_path', unpinned.length === 0, unpinned.map((f) => f.sig).join(', '))
+      record('functions: anon can execute no SECURITY DEFINER function outside the allowlist', anonCallable.length === 0, anonCallable.map((f) => f.sig).join(', '))
+      record('functions: anon can execute no non-trigger function outside the allowlist', anonAny.length === 0, anonAny.map((f) => f.sig).join(', '))
+
+      // Shared-plan link: unguessable-length tokens only, no oracle for near misses, revocation works.
+      const asAnon = (sql) => attempt(`SET ROLE anon; `, sql)
+      record('share link: short, wrong and NULL tokens return NULL; the right token returns the plan without the owner id',
+        asAnon(`SELECT (public.track_now_get_shared_plan(repeat('v', 31)) IS NULL)::text`) === 'rows:true' &&
+        asAnon(`SELECT (public.track_now_get_shared_plan(repeat('v', 39) || 'w') IS NULL)::text`) === 'rows:true' &&
+        asAnon(`SELECT (public.track_now_get_shared_plan(NULL) IS NULL)::text`) === 'rows:true' &&
+        asAnon(`SELECT (public.track_now_get_shared_plan(repeat('v', 40)) #>> '{plan,name}')`) === 'rows:Victim plan' &&
+        asAnon(`SELECT (public.track_now_get_shared_plan(repeat('v', 40))::text LIKE '%${V}%')::text`) === 'rows:false')
+      record('share link: anon cannot list tokens',
+        ['rows:0'].includes(asAnon(`SELECT count(*) FROM public.track_now_plan_shares`)) || asAnon(`SELECT count(*) FROM public.track_now_plan_shares`).startsWith('denied:'))
+
+      // Confused parent: the attacker owns the new row but points it at the victim's parent row.
+      // If any of these worked, the attacker could plant content in the victim's Plan (and in
+      // the victim's public share page) or log completions against the victim's items.
+      const xid = (n) => `c${n}000000-0000-4000-8000-0000000000c2`
+      const asX = actors['other user']
+      apply(DB, writeTemp(tmp, 'matrix_attacker_rows.sql', `
+        ${asX}
+        INSERT INTO public.track_now_tracks (id, user_id, name) VALUES ('${xid(1)}', '${X}', 'Attacker track');
+        INSERT INTO public.track_now_plans (id, user_id, track_id, name) VALUES ('${xid(2)}', '${X}', '${xid(1)}', 'Attacker plan');
+        INSERT INTO public.track_now_execution_items (id, user_id, plan_id, track_id, type, name) VALUES ('${xid(3)}', '${X}', '${xid(2)}', '${xid(1)}', 'task', 'Attacker task');
+        RESET ROLE;`), 'attacker creates their own rows (must be allowed)')
+      const parentAttacks = {
+        'plan under the victim\'s track': `INSERT INTO public.track_now_plans (user_id, track_id, name) VALUES ('${X}', '${vid(1)}', 'planted')`,
+        'item under the victim\'s plan': `INSERT INTO public.track_now_execution_items (user_id, plan_id, track_id, type, name) VALUES ('${X}', '${vid(2)}', '${xid(1)}', 'task', 'planted')`,
+        'item in own plan but the victim\'s track': `INSERT INTO public.track_now_execution_items (user_id, plan_id, track_id, type, name) VALUES ('${X}', '${xid(2)}', '${vid(1)}', 'task', 'planted')`,
+        'move own item into the victim\'s plan': `UPDATE public.track_now_execution_items SET plan_id = '${vid(2)}' WHERE id = '${xid(3)}'`,
+        'move own plan into the victim\'s track': `UPDATE public.track_now_plans SET track_id = '${vid(1)}' WHERE id = '${xid(2)}'`,
+        'completion on the victim\'s item': `INSERT INTO public.track_now_item_completions (item_id, user_id, completed_date) VALUES ('${vid(3)}', '${X}', CURRENT_DATE - 1)`,
+        'schedule on the victim\'s item': `INSERT INTO public.track_now_item_schedules (item_id, frequency) VALUES ('${vid(3)}', 'daily')`,
+        'share link for the victim\'s plan': `INSERT INTO public.track_now_plan_shares (user_id, plan_id, token) VALUES ('${X}', '${vid(2)}', repeat('x', 40))`,
+        'counter RPC on the victim\'s item': `SELECT public.track_now_increment_item_count('${vid(3)}', 1, CURRENT_DATE, false)`,
+      }
+      const parentLines = ['| Attempt by another signed-in user | Result | Verdict |', '| :--- | :--- | :--- |']
+      for (const [what, sql] of Object.entries(parentAttacks)) {
+        const res = attempt(asX, sql)
+        const ok = res.startsWith('denied:')
+        parentLines.push(`| ${what} | ${res} | ${ok ? 'PASS' : 'FAIL'} |`)
+        record(`confused parent: ${what} is refused (${res})`, ok)
+      }
+      record('confused parent: the victim\'s shared plan still shows only the victim\'s item',
+        attempt(`SET ROLE anon; `, `SELECT jsonb_array_length(public.track_now_get_shared_plan(repeat('v', 40)) -> 'items')`) === 'rows:1')
+      lines.push('', '## Rows pointed at another user\'s parent', '', ...parentLines)
+
+      // Account deletion: every foreign key to auth.users cascades, and the victim leaves no row anywhere.
+      const nonCascade = scalar(DB, `SELECT coalesce(string_agg(conrelid::regclass::text, ','), '') FROM pg_constraint c
+        WHERE c.contype = 'f' AND c.confrelid = 'auth.users'::regclass AND c.confdeltype <> 'c' AND conrelid::regclass::text LIKE '%track_now%'`)
+      record('account deletion: every track_now foreign key to auth.users is ON DELETE CASCADE', nonCascade === '', nonCascade)
+      apply(DB, writeTemp(tmp, 'matrix_delete.sql', `
+        SET request.jwt.claims = '{"sub":"${V}","role":"authenticated"}';
+        SET ROLE authenticated;
+        SELECT public.track_now_delete_my_account();
+        RESET ROLE;`), 'delete the matrix victim')
+      const leftovers = Object.entries(VICTIM_ROWS).map(([t, where]) => `${t}=${scalar(DB, `SELECT count(*) FROM public.${t} WHERE ${where}`)}`).filter((x) => !x.endsWith('=0'))
+      record('account deletion: the deleted user has no row left in any track_now_* table', leftovers.length === 0, leftovers.join(', '))
+
+      if (process.env.AUDIT_EVIDENCE_DIR) {
+        fs.mkdirSync(process.env.AUDIT_EVIDENCE_DIR, { recursive: true })
+        const fnTable = ['| Function | SECURITY DEFINER | Settings | anon may execute | signed-in may execute |', '| :--- | :--- | :--- | :--- | :--- |',
+          ...fnRows.map((f) => `| \`${f.sig}\`${f.trigger ? ' (trigger)' : ''} | ${f.secdef ? 'yes' : 'no'} | ${f.config || '-'} | ${f.anon ? 'YES' : 'no'} | ${f.auth ? 'yes' : 'no'} |`)]
+        fs.writeFileSync(path.join(process.env.AUDIT_EVIDENCE_DIR, 'db-access-matrix.md'), [
+          '# Database access matrix', '',
+          'Generated by `node scripts/verify_sql_local.cjs` on a throw-away local PostgreSQL with every migration applied. No hosted project was contacted.', '',
+          '`denied:42501` = refused by privileges or row level security. `rows:0` = the statement ran and touched or saw nothing. "blind" = the same write without RETURNING (needs no read access).', '',
+          ...lines, '', '## Functions in schema public', '', ...fnTable, ''].join('\n'))
+      }
+    }
 
     // 9. The unrelated shared table is untouched.
     record('tracked_profiles untouched',

@@ -13,6 +13,7 @@ import { ensureProfile, getProfile } from '@tracknow/core/services/tracksService
 import type { Profile } from '@tracknow/core/types/domain'
 import { clearRemindersForUser } from '@tracknow/core/services/reminderService'
 import { setTelemetryUser, track } from '@tracknow/core/services/telemetry'
+import { releaseSyncedCopies } from '@tracknow/core/services/syncedState'
 import {
   AuthNetworkError,
   authService,
@@ -173,6 +174,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const userIdAtSignOut = session?.user?.id ?? lastUserId.current
           manualSignOut.current = true
           setSignedOutManually(true)
+          // While the session still exists: make sure review notes are on the account, then
+          // remove this device's copy (kept when the account does not have them).
+          if (userIdAtSignOut) await releaseSyncedCopies(userIdAtSignOut)
           try {
             const result = await authService.signOut()
             if (!result.remoteRevoked) {

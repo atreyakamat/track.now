@@ -282,12 +282,124 @@ An adversarial read-only review of this change set found, and this pass fixed:
 - **Merge rule for synced notes** is "newest edit wins" by device clock. A device with a wrong clock can win or lose
   an edit it should not. Accepted for single-user notes; no server code involved.
 
+## November 2026 audit (S-28 to S-36)
+
+Scope: the whole repository at `932be5d` (web app, landing, phone app, core package, all migrations, CI, hosting
+configuration, git history). Evidence for every statement below is in `docs/security/audit-2026-11/` and can be
+regenerated with `npm run audit:security`. Verification level is *Local* throughout: **nothing was run against the
+hosted project.**
+
+**What was tested and found sound**
+
+- *Cross-user access, generated from the catalog.* Every `track_now_*` table was attacked as another signed-in user
+  and as anon: read, forged insert (a real row copied under the victim's id), update and delete, each with and without
+  `RETURNING`. Every attempt was refused or touched zero rows, and a fingerprint of each table was unchanged afterwards.
+  A table that is not on the test's list fails the run, so a table added later cannot be skipped.
+- *Confused parent.* A user who owns the new row but points it at someone else's Track, Plan or item is refused in all
+  nine variants tried (including moving an existing row and the counter RPC). The victim's public share page still
+  shows only the victim's items.
+- *Functions.* Every SECURITY DEFINER function pins `search_path`. anon can execute exactly one function,
+  `track_now_get_shared_plan(text)`. That function returns NULL for short, wrong and NULL tokens and never returns the
+  owner's id.
+- *Account deletion.* Every foreign key to `auth.users` cascades, and a deleted user leaves no row in any table.
+- *Web code.* No `dangerouslySetInnerHTML`, `innerHTML`, `eval` or data-driven `href`. The return-path validator rejects
+  off-site and auth-page targets. The service worker caches only same-origin GET requests. No source maps are published.
+  The CSP has no `unsafe-inline` or `unsafe-eval` for scripts.
+- *Secrets.* None in tracked files, in the built bundles, or in the current Supabase setup. See S-29 for history.
+
+### S-28 — Share-link token could come from `Math.random` (Medium)
+
+`shareService.randomToken()` used `crypto.getRandomValues` when present and otherwise fell back to `Math.random`, without
+telling anyone. The token is the only thing protecting a shared Plan. The phone app ships no crypto polyfill, so whether
+it took the weak path depends on the JavaScript runtime of the installed build, which was not verified on a device.
+`Math.random` output can be reconstructed from a few observed values.
+
+**Fix.** The fallback is gone. With no secure source the client sends no token and the database generates one
+(`20261112000000`, 244 random bits). Before that migration is applied, such a device gets a clear refusal instead of a
+weak link. Tests: `security_audit_2026_11.test.ts` (S-28), and the local database run.
+**Owner action.** Apply `20261112000000`. Links created from the phone app before this fix should be revoked and
+re-created; the database cannot tell which ones those are.
+The same telemetry module uses `Math.random` only for a session id that is not a secret.
+
+### S-29 — Old Firebase configuration in git history (Medium, owner)
+
+Commits `d8a4b3d`, `f3d5d38`, `4cc0121` and `146357d` (April and May 2026, reachable from `main`) contain the web
+configuration of the first, Firebase-based version: an `app/.env` with seven `VITE_FIREBASE_*` values and built bundles
+with the same config. A Firebase web API key is an identifier, not a password, but it lets anyone talk to that project.
+If the project still exists, its data is protected only by its own rules, which this audit cannot see.
+
+**Owner action.** In the Firebase and Google Cloud consoles: delete that project, or at least delete or restrict its API
+key and check its Firestore and Storage rules. History is deliberately not rewritten; once the project is gone the
+values are inert. The scanner lists these commits as "known finding S-29" so new leaks still fail the scan.
+
+### S-30 — Review notes stayed on the device after sign-out (Low)
+
+Weekly and monthly review notes remained in browser storage (or the phone's local database) after signing out, readable
+by the next person using that browser profile. This was residual risk 3 of the October audit; it could not be removed
+while the device held the only copy.
+
+**Fix.** Sign-out now first sends anything pending to the account and, only when the account confirms it has everything,
+removes the device's notes, pending deletions and focus. If the account cannot store them or cannot be reached, the copy
+is kept and Settings says so. The step is capped at four seconds and can never block sign-out. Preferences, skips and
+onboarding flags still stay (they are not sensitive).
+
+### S-31 — CSV export could run formulas (Low)
+
+An item name such as `=HYPERLINK(...)` was written to the CSV as is. Names can arrive from an imported plan file or a
+library template, so the text is not always the user's own. **Fix.** Text cells starting with `=`, `+`, `-`, `@`, tab or
+carriage return get a leading apostrophe. Numbers are untouched.
+
+### S-32 — Missing HSTS; shared-plan pages indexable (Low)
+
+Neither site sent `Strict-Transport-Security`. `/share/<token>` pages had no `noindex`, so a link posted somewhere public
+could end up in a search index. **Fix.** HSTS and `Cross-Origin-Opener-Policy` on both sites; `X-Robots-Tag: noindex` for
+`/share/*`; the page also sets `robots` and `referrer` meta tags. Takes effect on the next deploy; not verified against
+the live sites.
+
+### S-33 — Dependency advisories (Low)
+
+Web workspaces: 4 advisories, two rated critical (vitest, tinypool), one high (vite), all in development and test tools
+that never ship to users. They matter on a developer machine or CI, not in production. **Fix.** vite 6.4.6 and vitest
+5.1.0; `npm audit` reports 0; all tests pass on the new versions.
+Phone app: 6 moderate advisories in Expo's build tooling (`glob`, `minimatch`). The only offered "fix" is a downgrade of
+Expo by five major versions. **Accepted**; re-check when Expo publishes a patched SDK 58.
+
+### S-34 — Phone app storage and updates (Low)
+
+- Android `allowBackup` was on by default, so the session token in app storage could be included in an OS backup.
+  **Fixed** in `app.json`; applies from the next native build (not the current APK).
+- The session is kept in AsyncStorage, which is private to the app but not encrypted. **Accepted for now.** Moving it to
+  the platform keystore needs a native module and therefore a new build; recommended for the store release.
+- Over-the-air updates are not code-signed, so the Expo account is a single point of trust for what runs on phones.
+  **Accepted for now.** Recommended before the store release: enable EAS Update code signing and two-factor
+  authentication on the Expo account.
+- The password-recovery link for the phone uses the `tracknow://` scheme, which another installed app could also claim.
+  The PKCE flow makes a captured code useless without the verifier held by the real app. **Informational.**
+
+### S-35 — anon held table privileges on the core tables (Low, defence in depth)
+
+On six core tables anon had SELECT, INSERT, UPDATE and DELETE and was stopped only by row level security (the matrix
+shows `rows:0` rather than `denied`). Nothing was exposed, but a single mistake in a future policy would have exposed
+those tables to unauthenticated callers. **Fix prepared** in `20261112000000` (not applied): anon keeps only SELECT on
+the public template catalogue, and nobody writes that catalogue through the API. The local run reproduces the finding
+before the migration and shows every anon attempt `denied:42501` after it.
+
+### S-36 — CI hardening (Informational)
+
+Workflows had no `permissions` block. **Fixed:** `contents: read`. Third-party actions are pinned by tag, and
+`expo/expo-github-action` receives `EXPO_TOKEN`; pinning it to a commit SHA is recommended. A `security` job now runs
+the secret scan, both dependency audits and the database matrix on every push; it has not yet run on a Linux runner.
+
 ## Residual risks
 
-1. The vulnerable RPC stays live until `20261012000000` is applied (owner action).
+1. ~~The vulnerable RPC stays live until `20261012000000` is applied.~~ Applied by the owner (verified read-only on 2026-11-05).
 2. Hosted RLS isolation, PKCE email links, and the recovery redirect are verified locally/statically only.
-3. The device copy of review notes and preferences remains in the browser profile after sign-out (namespaced, documented).
+3. Review notes are removed at sign-out once the account has them (S-30). They stay on the device only when they could
+   not be synced. Preferences, skips and onboarding flags always stay.
 4. Users can edit the cosmetic `email` column of their own profile row (RLS-limited to themselves).
-5. Dev-only advisories listed in S-12.
+5. Phone build-tool advisories (S-33); phone session storage and unsigned updates (S-34); the old Firebase project
+   (S-29) until the owner retires it.
+7. The hosted database has never been checked against these migrations by a cross-user test. That needs an isolated
+   Supabase project.
 6. Without `navigator.locks`, the localStorage fallback lock for cross-tab reminder delivery is best-effort (a rare
    duplicate alert is possible in very old browsers).

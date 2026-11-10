@@ -14,6 +14,22 @@ export function SharedPlanPage() {
   const [data, setData] = useState<SharedPlanView | null | undefined>(undefined)
   const [error, setError] = useState<string | null>(null)
 
+  // The link itself is the secret: keep it out of search engines and out of the Referer header
+  // of anything opened from this page.
+  useEffect(() => {
+    const tags = [
+      ['robots', 'noindex, nofollow, noarchive'],
+      ['referrer', 'no-referrer'],
+    ].map(([name, content]) => {
+      const meta = document.createElement('meta')
+      meta.name = name
+      meta.content = content
+      document.head.appendChild(meta)
+      return meta
+    })
+    return () => tags.forEach((m) => m.remove())
+  }, [])
+
   useEffect(() => {
     let alive = true
     getSharedPlan(token)

@@ -1,0 +1,101 @@
+Using PostgreSQL binaries in C:\Program Files\PostgreSQL\18\bin
+Disposable cluster: C:\Users\atkam\AppData\Local\Temp\tracknow-pg-yj56n9\data (127.0.0.1:57939)
+PASS: original RPC is exploitable by anon and by another user (pre-fix reproduction) — REPRODUCED: anon and another user changed the victim counter to 5 and forged a completion row
+PASS: two vulnerable overloads present before the fix
+PASS: habit migration refuses to run before the security migration
+PASS: every overload was replaced by exactly one safe signature
+PASS: reproduction no longer works after the fix
+PASS: verify_increment_rpc_security.sql (after security migration) — ALL 22 CHECKS PASSED
+PASS: backfill: done habit -> latest completion day, old partial -> updated_at day, recent (<36h) -> NULL — Legacy done habit=-3,Legacy partial habit=-2,Recent partial habit=null
+PASS: backfill does not bump updated_at
+PASS: verify_habit_daily_counter.sql — ALL 14 HABIT COUNTER CHECKS PASSED
+PASS: verify_increment_rpc_security.sql (after habit migration)
+PASS: handle_new_track_now_user not executable by anon/authenticated
+PASS: profile provisioning trigger still fires after the revoke
+PASS: plans/arcs: legacy plan row unchanged (status + updated_at)
+PASS: plans/arcs: constraints reject bad values (status, kind, end<start, times_per_week, >50 checklist entries, arc_name > 80)
+PASS: plans/arcs: owner can pause + set new fields; another user can neither see nor change them
+PASS: verify_increment_rpc_security.sql (after plans/arcs migration)
+PASS: sharing: anon cannot execute delete_my_account; authenticated can; shared-plan RPC is public
+PASS: sharing: another user sees none of the owner's share rows
+PASS: sharing: a valid token returns the plan (anon), a revoked one returns NULL, and the user id is never exposed
+PASS: delete_my_account removes the user and their rows, and only theirs
+PASS: client events: one INSERT-only policy; anon has no privileges, authenticated only INSERT
+PASS: client events: a signed-in user can insert their own rows (user_id defaults to auth.uid(); batch; full-size error props)
+PASS: client events: a user cannot insert a row for another user
+PASS: client events: app users cannot select, update or delete any row (their own included)
+PASS: client events: anon cannot insert (with or without a user id)
+PASS: client events: oversized props and bad kind / name / app / version / session are rejected
+PASS: analytics/funnel.sql runs and changes nothing (read-only)
+PASS: synced state: four own-row policies; anon has no privileges, authenticated has all four
+PASS: synced state: a user saves a note, overwrites it (the app's upsert), marks it deleted, and saves focus
+PASS: synced state: a user sees only their own rows
+PASS: synced state: a user cannot write, overwrite, update or delete another user's rows
+PASS: synced state: a user cannot hand one of their rows to another user
+PASS: synced state: anon cannot read or write
+PASS: synced state: unknown scope, bad key and oversized value are rejected
+PASS: synced state: deleting the account removes its rows, and only its rows
+PASS: before hardening: anon still holds table privileges on the core tables (finding S-35 reproduced)
+PASS: hardening: the only table privilege anon keeps is reading the template catalogue — track_now_track_templates.SELECT
+PASS: hardening: signed-in users can read but not write the template catalogue
+PASS: hardening: a share created without a token gets a 64-character random one, different every time
+PASS: hardening: the public shared-plan page still works for anon through the function
+PASS: all migrations re-apply cleanly in order (and a second time for the fixes)
+PASS: both verification scripts pass after re-application
+PASS: 8 parallel sessions x 25 increments = 200, done, exactly one completion — 200/done/1
+PASS: access matrix: every track_now_* table in the catalog is covered
+PASS: access matrix: track_now_client_events is closed to another signed-in user (read denied:42501, insert denied:42501, update denied:42501, delete denied:42501)
+PASS: access matrix: track_now_client_events is closed to anon (read denied:42501, insert denied:42501, update denied:42501, delete denied:42501)
+PASS: access matrix: track_now_execution_items is closed to another signed-in user (read rows:0, insert denied:42501, update rows:0, delete rows:0)
+PASS: access matrix: track_now_execution_items is closed to anon (read denied:42501, insert denied:42501, update denied:42501, delete denied:42501)
+PASS: access matrix: track_now_item_completions is closed to another signed-in user (read rows:0, insert denied:42501, update rows:0, delete rows:0)
+PASS: access matrix: track_now_item_completions is closed to anon (read denied:42501, insert denied:42501, update denied:42501, delete denied:42501)
+PASS: access matrix: track_now_item_schedules is closed to another signed-in user (read rows:0, insert denied:42501, update rows:0, delete rows:0)
+PASS: access matrix: track_now_item_schedules is closed to anon (read denied:42501, insert denied:42501, update denied:42501, delete denied:42501)
+PASS: access matrix: track_now_plan_shares is closed to another signed-in user (read rows:0, insert denied:42501, update rows:0, delete rows:0)
+PASS: access matrix: track_now_plan_shares is closed to anon (read denied:42501, insert denied:42501, update denied:42501, delete denied:42501)
+PASS: access matrix: track_now_plans is closed to another signed-in user (read rows:0, insert denied:42501, update rows:0, delete rows:0)
+PASS: access matrix: track_now_plans is closed to anon (read denied:42501, insert denied:42501, update denied:42501, delete denied:42501)
+PASS: access matrix: track_now_profiles is closed to another signed-in user (read rows:0, insert denied:42501, update rows:0, delete rows:0)
+PASS: access matrix: track_now_profiles is closed to anon (read denied:42501, insert denied:42501, update denied:42501, delete denied:42501)
+PASS: access matrix: track_now_synced_state is closed to another signed-in user (read rows:0, insert denied:42501, update rows:0, delete rows:0)
+PASS: access matrix: track_now_synced_state is closed to anon (read denied:42501, insert denied:42501, update denied:42501, delete denied:42501)
+PASS: access matrix: track_now_track_templates is closed to another signed-in user (read rows:5, insert denied:42501, update denied:42501, delete denied:42501)
+PASS: access matrix: track_now_track_templates is closed to anon (read rows:5, insert denied:42501, update denied:42501, delete denied:42501)
+PASS: access matrix: track_now_tracks is closed to another signed-in user (read rows:0, insert denied:42501, update rows:0, delete rows:0)
+PASS: access matrix: track_now_tracks is closed to anon (read denied:42501, insert denied:42501, update denied:42501, delete denied:42501)
+PASS: functions: every SECURITY DEFINER function pins search_path
+PASS: functions: anon can execute no SECURITY DEFINER function outside the allowlist
+PASS: functions: anon can execute no non-trigger function outside the allowlist
+PASS: share link: short, wrong and NULL tokens return NULL; the right token returns the plan without the owner id
+PASS: share link: anon cannot list tokens
+PASS: confused parent: plan under the victim's track is refused (denied:42501)
+PASS: confused parent: item under the victim's plan is refused (denied:42501)
+PASS: confused parent: item in own plan but the victim's track is refused (denied:42501)
+PASS: confused parent: move own item into the victim's plan is refused (denied:42501)
+PASS: confused parent: move own plan into the victim's track is refused (denied:42501)
+PASS: confused parent: completion on the victim's item is refused (denied:42501)
+PASS: confused parent: schedule on the victim's item is refused (denied:42501)
+PASS: confused parent: share link for the victim's plan is refused (denied:42501)
+PASS: confused parent: counter RPC on the victim's item is refused (denied:42501)
+PASS: confused parent: the victim's shared plan still shows only the victim's item
+PASS: account deletion: every track_now foreign key to auth.users is ON DELETE CASCADE
+PASS: account deletion: the deleted user has no row left in any track_now_* table
+PASS: tracked_profiles untouched
+PASS: preflight_function_inventory.sql runs (read-only)
+function                          | security_definer |       settings       | anon_execute | authenticated_execute 
+-----------------------------------------------------------+------------------+----------------------+--------------+-----------------------
+ track_now_increment_item_count(uuid,integer,date,boolean) | t                | {"search_path=\"\""} | f            | t
+(1 row)
+
+ function | argument_names 
+----------+----------------
+(0 rows)
+
+            function             |            settings             
+---------------------------------+---------------------------------
+ track_now_get_shared_plan(text) | {"search_path=public, pg_temp"}
+(1 row)
+
+83/83 checks passed
+exit 0

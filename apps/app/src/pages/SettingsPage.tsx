@@ -622,8 +622,8 @@ export function SettingsPage() {
           </h2>
           <p className="t-caption" style={{ marginBottom: 'var(--space-4)' }}>
             Signing out ends your session (on all devices when the server can be reached) and removes this device's
-            reminders and widget snapshot. Saved review notes for your account stay on this device until you delete
-            them in Reviews.
+            reminders and widget snapshot. Review notes are removed from this device once they are safely on your
+            account; if they could not be synced, they stay here until you delete them in Reviews.
           </p>
           <Button variant="danger" onClick={handleSignOut} disabled={signingOut} aria-busy={signingOut}>
             <LogOut size={16} aria-hidden="true" />
