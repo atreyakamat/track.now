@@ -68,7 +68,7 @@ Evidence: `docs/security/audit-2026-11/`. Re-run: `npm run audit:security`. Deta
 
 **Owner actions from the audit**
 
-1. Apply `supabase/migrations/20261112000000_security_hardening.sql` (additive; nothing changes for signed-in users).
+1. ~~Apply `supabase/migrations/20261112000000_security_hardening.sql`~~ — applied by the owner (their word, 2026-11-11; not probed from here).
 2. Retire the old Firebase project and its API key (S-29).
 3. Revoke and re-create any share links that were created from the phone app (S-28).
 4. Before the store release: turn on two-factor authentication for Expo and consider EAS Update code signing (S-34).
