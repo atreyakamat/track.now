@@ -168,3 +168,27 @@ textarea.control { resize: vertical; min-height: 84px; }
 }
 .skip-link:focus { top: var(--space-3); }
 .content:focus { outline: none; }
+
+/* ---- Loading skeletons --------------------------------------------------- */
+.skeleton { background: var(--surface-muted, var(--border)); position: relative; overflow: hidden; }
+.skeleton::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--text-primary) 8%, transparent), transparent);
+  transform: translateX(-100%); animation: skeleton-shimmer 1.3s ease-in-out infinite;
+}
+@keyframes skeleton-shimmer { 100% { transform: translateX(100%); } }
+
+/* ---- Offline banner ------------------------------------------------------ */
+.offline-banner {
+  display: flex; align-items: center; gap: var(--space-2);
+  padding: 8px var(--space-4); margin: 0 auto; max-width: var(--content-max-width);
+  color: var(--warning); font-size: var(--text-caption); font-weight: 500;
+  background: color-mix(in srgb, var(--warning) 12%, var(--surface));
+  border-bottom: 1px solid color-mix(in srgb, var(--warning) 35%, transparent);
+  animation: fade-up 0.2s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after { animation: none; }
+  .offline-banner { animation: none; }
+}

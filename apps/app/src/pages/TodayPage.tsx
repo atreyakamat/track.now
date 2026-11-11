@@ -30,7 +30,9 @@ import { usePreferences } from '@/hooks/usePreferences'
 import type { ExecutionItem, Plan } from '@tracknow/core/types/domain'
 import { groupArcs } from '@tracknow/core/domain/arcs'
 import { arcPath } from '@/components/plans/ArcCard'
-import { Button, ButtonLink, EmptyState, ErrorState, LoadingState, PageHeader } from '@/components/ui'
+import { Button, ButtonLink, EmptyState, ErrorState, PageHeader } from '@/components/ui'
+import { ListSkeleton } from '@/components/ui/Skeleton'
+import { isLikelyOffline } from '@/hooks/useOnlineStatus'
 import { ExecutionItemCard } from '@/components/execution/ExecutionItemCard'
 import { EditItemModal } from '@/components/execution/EditItemModal'
 import { CreateItemModal } from '@/components/execution/CreateItemModal'
@@ -121,7 +123,8 @@ export function TodayPage() {
         // A failed background refresh must never blank a page the user is already looking at:
         // keep what is shown and say the refresh failed instead.
         if (opts.silent && hasDataRef.current) {
-          showToast({ id: 'refresh-failed', title: 'Could not refresh', message: `Showing the last loaded state. ${message}`, type: 'warning' })
+          // Offline is already shown by the banner; don't pile a toast on top of it.
+          if (!isLikelyOffline()) showToast({ id: 'refresh-failed', title: 'Could not refresh', message: `Showing the last loaded state. ${message}`, type: 'warning' })
         } else {
           setError(message)
         }
@@ -260,7 +263,13 @@ export function TodayPage() {
     return calcMomentum(items, rows)
   }, [recent, items, actions.completedTodayIds])
 
-  if (loading) return <LoadingState label="Preparing today’s queue…" />
+  if (loading)
+    return (
+      <>
+        <PageHeader title="Today" />
+        <ListSkeleton count={5} />
+      </>
+    )
   if (error) return <ErrorState message={error} onRetry={() => void loadData()} />
 
   const todayStr = getTodayDateString()

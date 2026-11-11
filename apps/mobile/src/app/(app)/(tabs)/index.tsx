@@ -38,7 +38,7 @@ import { LevelStrip } from '@/components/insights/LevelStrip'
 import { QuestCard } from '@/components/onboarding/QuestCard'
 import { TourModal } from '@/components/onboarding/TourModal'
 import { arcPath } from '@/components/plans/ArcCard'
-import { Card, EmptyState, ErrorState, LoadingState, Text } from '@/components/ui'
+import { Card, EmptyState, ErrorState, ListSkeleton, Text } from '@/components/ui'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useToast } from '@/features/notifications/ToastContext'
 import { useExecutionItemActions } from '@/hooks/useExecutionItemActions'
@@ -500,7 +500,9 @@ export default function TodayScreen() {
         />
 
         {loading ? (
-          <LoadingState label="Preparing today’s queue…" />
+          <View style={{ gap: spacing[4] }}>
+            <ListSkeleton count={5} />
+          </View>
         ) : error ? (
           <ErrorState description={error} onRetry={() => loadData()} />
         ) : (

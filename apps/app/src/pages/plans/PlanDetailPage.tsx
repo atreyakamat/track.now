@@ -55,7 +55,6 @@ import {
   EmptyState,
   ErrorState,
   Input,
-  LoadingState,
   Modal,
   PageHeader,
   ProgressBar,
@@ -66,6 +65,8 @@ import { ExecutionItemCard } from '@/components/execution/ExecutionItemCard'
 import { CreateItemModal } from '@/components/execution/CreateItemModal'
 import { EditItemModal } from '@/components/execution/EditItemModal'
 import { useToast } from '@/features/notifications/ToastContext'
+import { ListSkeleton } from '@/components/ui/Skeleton'
+import { isLikelyOffline } from '@/hooks/useOnlineStatus'
 import { cancelRemindersForPlan } from '@tracknow/core/services/reminderService'
 import { useExecutionItemActions } from '@/hooks/useExecutionItemActions'
 import type { ReminderPreset } from '@tracknow/core/types/notifications'
@@ -173,7 +174,7 @@ export function PlanDetailPage() {
         // A failed background refresh must never blank a page the user is already looking at:
         // keep what is shown and say the refresh failed instead.
         if (opts.silent && hasDataRef.current) {
-          showToast({ id: 'refresh-failed', title: 'Could not refresh', message: `Showing the last loaded state. ${message}`, type: 'warning' })
+          if (!isLikelyOffline()) showToast({ id: 'refresh-failed', title: 'Could not refresh', message: `Showing the last loaded state. ${message}`, type: 'warning' })
         } else {
           setError(message)
         }
@@ -400,7 +401,13 @@ export function PlanDetailPage() {
 
   const isBusy = (id: string) => actions.busyIds.has(id)
 
-  if (loading) return <LoadingState label="Opening plan…" />
+  if (loading)
+    return (
+      <>
+        <PageHeader title="Plan" />
+        <ListSkeleton count={4} />
+      </>
+    )
   if (notFound) {
     return (
       <div>

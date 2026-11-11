@@ -18,7 +18,7 @@ import { AppBar } from '@/components/AppBar'
 import { ExecutionItemCard } from '@/components/execution/ExecutionItemCard'
 import { arcPath } from '@/components/plans/ArcCard'
 import { SharePlanCard } from '@/components/plans/SharePlanCard'
-import { Badge, Button, Card, ConfirmDialog, EmptyState, ErrorState, LoadingState, ProgressBar, Text } from '@/components/ui'
+import { Badge, Button, Card, ConfirmDialog, EmptyState, ErrorState, ListSkeleton, ProgressBar, Text } from '@/components/ui'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useToast } from '@/features/notifications/ToastContext'
 import { useExecutionItemActions } from '@/hooks/useExecutionItemActions'
@@ -156,7 +156,7 @@ export default function PlanDetailScreen() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'left', 'right']}>
         {header()}
-        <LoadingState label="Loading plan…" />
+        <ListSkeleton count={4} />
       </SafeAreaView>
     )
   }

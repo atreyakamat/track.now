@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
+import { OfflineBanner } from './OfflineBanner'
 import { MobileNav } from './MobileNav'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useToast, type ToastOptions } from '@/features/notifications/ToastContext'
@@ -135,6 +136,7 @@ export function AppShell() {
           onToggleDrawer={() => setDrawerOpen((prev) => !prev)}
           onCloseDrawer={() => setDrawerOpen(false)}
         />
+        <OfflineBanner />
         <main className="content" id="main-content" tabIndex={-1}>
           <Outlet />
         </main>

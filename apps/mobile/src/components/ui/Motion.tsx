@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { AccessibilityInfo, Animated, Easing, Pressable, type PressableProps, type StyleProp, type ViewStyle } from 'react-native'
 
 /** True when the user asked the OS to reduce motion; animations then render their end state. */
-function useReducedMotion(): React.MutableRefObject<boolean> {
+export function useReducedMotion(): React.MutableRefObject<boolean> {
   const reduced = useRef(false)
   useEffect(() => {
     let alive = true
