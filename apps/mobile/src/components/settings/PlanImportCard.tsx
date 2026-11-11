@@ -40,7 +40,7 @@ export function PlanImportCard({ userId }: { userId: string }) {
         Import a plan
       </Text>
       <Text variant="caption" tone="secondary">
-        Paste a Track.now plan file (format tracknow.plan.v1) to set up Tracks, Plans and items in one step. Existing Tracks with the same name are reused and existing Plans are skipped.
+        Paste a Track.now plan file (format tracknow.plan.v1) — or a full data export from the web app’s Settings → Your data — to set up Tracks, Plans and items in one step. Completion history and archived things are not imported. Existing Tracks with the same name are reused and existing Plans are skipped.
       </Text>
       <TextField
         label="Plan file (JSON)"

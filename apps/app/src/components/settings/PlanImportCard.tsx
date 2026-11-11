@@ -13,6 +13,7 @@ const MAX_FILE_BYTES = 512 * 1024
  */
 export function PlanImportCard({ userId }: { userId: string }) {
   const inputId = useId()
+  const [text, setText] = useState('')
   const [fileName, setFileName] = useState<string | null>(null)
   const [parsed, setParsed] = useState<ParseResult | null>(null)
   const [busy, setBusy] = useState(false)
@@ -51,8 +52,10 @@ export function PlanImportCard({ userId }: { userId: string }) {
             Import a plan
           </h2>
           <p className="t-caption">
-            Set up several Tracks, Plans and items at once from a <code>tracknow.plan.v1</code> JSON file. Existing Tracks with the
-            same name are reused and Plans that already exist are skipped, so importing twice never duplicates anything.
+            Set up several Tracks, Plans and items at once: pick a <code>tracknow.plan.v1</code> JSON file, or paste its contents
+            below. A full data export from “Your data” works too (completion history and archived things are not imported).
+            Existing Tracks with the same name are reused and Plans that already exist are skipped, so importing twice never
+            duplicates anything.
           </p>
         </div>
       </div>
@@ -68,6 +71,38 @@ export function PlanImportCard({ userId }: { userId: string }) {
         onChange={(e) => void onFile(e.target.files?.[0])}
         style={{ display: 'block', marginTop: '6px' }}
       />
+
+      <label htmlFor={`${inputId}-paste`} className="field__label" style={{ display: 'block', marginTop: 'var(--space-3)' }}>
+        …or paste the JSON here
+      </label>
+      <textarea
+        id={`${inputId}-paste`}
+        rows={4}
+        value={text}
+        spellCheck={false}
+        disabled={busy}
+        placeholder='{"format":"tracknow.plan.v1", "tracks":[ … ]}'
+        onChange={(e) => {
+          setText(e.target.value)
+          setParsed(null)
+          setReport(null)
+          setFileName(null)
+        }}
+        style={{ display: 'block', width: '100%', marginTop: '6px', fontFamily: 'ui-monospace, monospace', fontSize: '12px' }}
+      />
+      {text.trim() !== '' && !parsed && (
+        <Button
+          variant="secondary"
+          size="sm"
+          style={{ marginTop: 'var(--space-2)' }}
+          onClick={() => {
+            setFileName('pasted JSON')
+            setParsed(parsePlanFile(text))
+          }}
+        >
+          Preview pasted JSON
+        </Button>
+      )}
 
       {parsed && parsed.errors.length > 0 && (
         <div className="alert alert--error" role="alert" style={{ marginTop: 'var(--space-3)' }}>

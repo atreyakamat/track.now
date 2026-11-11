@@ -187,6 +187,7 @@ export default function TodayScreen() {
   const [questsDismissed, setQuestsDismissed] = useState(() => (userId ? onboardingState.questsDismissed(userId) : false))
   const [recapDismissed, setRecapDismissed] = useState<string | null>(() => (userId ? onboardingState.recapDismissedFor(userId) : null))
   const requestRef = useRef(0)
+  const hasDataRef = useRef(false)
   const actionsRef = useRef<ReturnType<typeof useExecutionItemActions> | null>(null)
 
   // First run on this device: send the user to the welcome screen once.
@@ -228,9 +229,17 @@ export default function TodayScreen() {
         })
         reconcileRemindersWithActiveItems(userId, ws.items.map((i) => i.id))
         updateTodayWidget(ws.items, new Set(todayIds))
+        hasDataRef.current = true
       } catch (err) {
         if (requestId !== requestRef.current) return
-        setError(err instanceof Error ? err.message : 'Failed to load today’s items.')
+        const message = err instanceof Error ? err.message : 'Failed to load today’s items.'
+        // A failed background refresh must never blank a page the user is already looking at:
+        // keep what is shown and say the refresh failed instead.
+        if (opts.silent && hasDataRef.current) {
+          showToast({ id: 'refresh-failed', title: 'Could not refresh', message: 'Showing the last loaded state.', type: 'warning' })
+        } else {
+          setError(message)
+        }
       } finally {
         if (requestId === requestRef.current) {
           setLoading(false)
@@ -238,7 +247,7 @@ export default function TodayScreen() {
         }
       }
     },
-    [userId],
+    [userId, showToast],
   )
 
   const actions = useExecutionItemActions({

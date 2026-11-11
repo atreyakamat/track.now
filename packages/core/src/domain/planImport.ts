@@ -6,6 +6,8 @@ import type { ItemPriority, ItemType, PlanKind } from '../types/domain'
  * Parsing is pure and strict: anything unexpected is reported, never guessed.
  */
 export const PLAN_FILE_FORMAT = 'tracknow.plan.v1'
+/** A full data export (Settings → Your data) can be imported too; see exportToPlanFileShape. */
+export const EXPORT_FILE_FORMAT = 'tracknow.export.v1'
 
 export interface ImportSchedule {
   frequency: 'daily' | 'weekly' | 'custom'
@@ -55,6 +57,65 @@ export interface PlanFile {
   tracks: ImportTrack[]
 }
 
+/**
+ * An export carries the same content as a plan file, shaped by table. Reshape it
+ * (Tracks → Plans → items) and let the strict parser below validate it like any other
+ * input. What a set-up file cannot carry is left out on purpose: completion history,
+ * archived Tracks/Plans/items, and Plans that are already completed.
+ */
+function exportToPlanFileShape(root: Obj): Obj {
+  const arr = (v: unknown): Obj[] => (Array.isArray(v) ? v.filter(isObj) : [])
+  const plans = arr(root.plans)
+  const items = arr(root.items)
+  return {
+    format: PLAN_FILE_FORMAT,
+    tracks: arr(root.tracks)
+      .filter((t) => t.status !== 'archived')
+      .map((t) => ({
+        name: t.name,
+        description: t.description ?? null,
+        icon: t.icon,
+        color: t.color,
+        plans: plans
+          .filter((p) => p.track_id === t.id && p.status !== 'archived' && p.status !== 'completed')
+          .map((p) => ({
+            name: p.name,
+            kind: p.plan_kind,
+            description: p.description ?? null,
+            start_date: p.start_date ?? null,
+            end_date: p.end_date ?? null,
+            outcome: p.outcome ?? null,
+            success_criteria: p.success_criteria ?? null,
+            arc: p.arc_name ?? null,
+            items: items
+              .filter((i) => i.plan_id === p.id && i.status !== 'archived')
+              .map((i) => {
+                const sc = isObj(i.schedule) ? i.schedule : null
+                return {
+                  type: i.type,
+                  name: i.name,
+                  description: i.description ?? null,
+                  priority: i.priority,
+                  due_date: i.due_date ?? null,
+                  start_date: i.start_date ?? null,
+                  target_count: i.target_count ?? 1,
+                  unit: i.unit ?? null,
+                  schedule: sc
+                    ? {
+                        days_of_week: sc.days_of_week ?? null,
+                        time_of_day: sc.time_of_day ?? 'anytime',
+                        reminder_time: sc.reminder_time ?? null,
+                        times_per_week: sc.times_per_week ?? null,
+                      }
+                    : null,
+                  steps: arr(i.checklist_entries).map((e) => e.label),
+                }
+              }),
+          })),
+      })),
+  }
+}
+
 export interface ParseResult {
   file: PlanFile | null
   errors: string[]
@@ -97,19 +158,21 @@ export function parsePlanFile(input: unknown): ParseResult {
     errors.push('The file must contain a JSON object.')
     return fail()
   }
-  if (root.format !== PLAN_FILE_FORMAT) {
-    errors.push(`Unsupported format. Expected "format": "${PLAN_FILE_FORMAT}".`)
+  // Reassigning `root` would widen it back to unknown; a const keeps the narrowing.
+  const source: Obj = root.format === EXPORT_FILE_FORMAT ? exportToPlanFileShape(root) : root
+  if (source.format !== PLAN_FILE_FORMAT) {
+    errors.push(`Unsupported format. Expected "format": "${PLAN_FILE_FORMAT}" or a data export ("${EXPORT_FILE_FORMAT}").`)
     return fail()
   }
-  if (!Array.isArray(root.tracks) || root.tracks.length === 0) {
+  if (!Array.isArray(source.tracks) || source.tracks.length === 0) {
     errors.push('"tracks" must be a non-empty list.')
     return fail()
   }
-  if (root.tracks.length > IMPORT_LIMITS.tracks) errors.push(`At most ${IMPORT_LIMITS.tracks} Tracks per file.`)
+  if (source.tracks.length > IMPORT_LIMITS.tracks) errors.push(`At most ${IMPORT_LIMITS.tracks} Tracks per file.`)
 
-  const fileArc = str(root.arc, 80)
+  const fileArc = str(source.arc, 80)
   const tracks: ImportTrack[] = []
-  root.tracks.slice(0, IMPORT_LIMITS.tracks).forEach((rawTrack, ti) => {
+  source.tracks.slice(0, IMPORT_LIMITS.tracks).forEach((rawTrack, ti) => {
     const at = `Track ${ti + 1}`
     if (!isObj(rawTrack)) return void errors.push(`${at}: must be an object.`)
     const name = str(rawTrack.name, 80)
@@ -216,5 +279,5 @@ export function parsePlanFile(input: unknown): ParseResult {
   })
   if (counts.items > IMPORT_LIMITS.totalItems) errors.push(`At most ${IMPORT_LIMITS.totalItems} items per file.`)
   if (errors.length) return { file: null, errors, counts }
-  return { file: { title: str(root.title, 120), arc: fileArc, tracks }, errors, counts }
+  return { file: { title: str(source.title, 120), arc: fileArc, tracks }, errors, counts }
 }

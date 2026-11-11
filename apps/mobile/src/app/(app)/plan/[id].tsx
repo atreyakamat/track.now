@@ -46,6 +46,7 @@ export default function PlanDetailScreen() {
   const [itemToDelete, setItemToDelete] = useState<ExecutionItem | null>(null)
   const [completedTodayIds, setCompletedTodayIds] = useState<string[]>([])
   const requestRef = useRef(0)
+  const hasDataRef = useRef(false)
 
   const valid = typeof id === 'string' && RECORD_ID_RE.test(id)
 
@@ -85,9 +86,17 @@ export default function PlanDetailScreen() {
         setItems(planItems)
         setCompletedTodayIds(completedToday)
         actions.setCompletionState(completedToday, datesByItem)
+        hasDataRef.current = true
       } catch (err) {
         if (reqId !== requestRef.current) return
-        setError(err instanceof Error ? err.message : 'Failed to load plan')
+        const message = err instanceof Error ? err.message : 'Failed to load plan'
+        // A failed background refresh must never blank a page the user is already looking at:
+        // keep what is shown and say the refresh failed instead.
+        if (opts.silent && hasDataRef.current) {
+          showToast({ id: 'refresh-failed', title: 'Could not refresh', message: 'Showing the last loaded state.', type: 'warning' })
+          return
+        }
+        setError(message)
       } finally {
         if (reqId === requestRef.current) {
           setLoading(false)

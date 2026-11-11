@@ -55,6 +55,7 @@ export function TodayPage() {
   const [focusIds, setFocusIds] = useState<string[]>(() => (userId ? loadFocusIds(userId) : []))
   const [loadedDate, setLoadedDate] = useState(getTodayDateString())
   const requestRef = useRef(0)
+  const hasDataRef = useRef(false)
   const [searchParams, setSearchParams] = useSearchParams()
   const [tourOpen, setTourOpen] = useState(false)
   const { gentle, terms } = usePreferences()
@@ -103,6 +104,7 @@ export function TodayPage() {
         setWorkspace(ws)
         setRecent(recentRows)
         actionsRef.current?.setCompletionState(todayIds, history)
+        hasDataRef.current = true
         setLoadedDate(today)
         setFocusIds(loadFocusIds(userId))
         // Focus picked on another device today: take it over (the newest change wins).
@@ -115,12 +117,19 @@ export function TodayPage() {
         persistWidget(ws.items, todayIds)
       } catch (err) {
         if (requestId !== requestRef.current) return
-        setError(err instanceof Error ? err.message : 'Failed to load today’s items.')
+        const message = err instanceof Error ? err.message : 'Failed to load today’s items.'
+        // A failed background refresh must never blank a page the user is already looking at:
+        // keep what is shown and say the refresh failed instead.
+        if (opts.silent && hasDataRef.current) {
+          showToast({ id: 'refresh-failed', title: 'Could not refresh', message: `Showing the last loaded state. ${message}`, type: 'warning' })
+        } else {
+          setError(message)
+        }
       } finally {
         if (requestId === requestRef.current) setLoading(false)
       }
     },
-    [userId, persistWidget, reloadLedger],
+    [userId, persistWidget, reloadLedger, showToast],
   )
 
   const actions = useExecutionItemActions({

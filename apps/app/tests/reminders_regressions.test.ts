@@ -1,6 +1,6 @@
 import { readFileSync } from 'fs'
 import { resolve } from 'path'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   advanceHabitReminderToNextOccurrence,
   collectDueReminders,
@@ -94,6 +94,15 @@ const habitAt = (time: string, id = 'habit-1'): ExecutionItem => ({
   },
 })
 
+// The suite's fixtures live in October 2026 and the store prunes finished reminders
+// against the clock, so the clock must be October 2026 too (found when the suite started
+// failing by itself on 11 Nov 2026).
+beforeAll(() => {
+  vi.useFakeTimers({ now: at(12, 6), toFake: ['Date'] })
+})
+afterAll(() => {
+  vi.useRealTimers()
+})
 beforeEach(() => {
   localStorage.clear()
 })

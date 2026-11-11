@@ -87,6 +87,7 @@ export function PlanDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [notFound, setNotFound] = useState(false)
   const requestRef = useRef(0)
+  const hasDataRef = useRef(false)
 
   // Item creation / editing / deletion
   const [modalOpen, setModalOpen] = useState(false)
@@ -165,9 +166,17 @@ export function PlanDetailPage() {
         if (actionsRef.current && !actionsRef.current.acceptSnapshot(snapshot)) return
         setItems(itemList)
         actionsRef.current?.setCompletionState(todayIds, history)
+        hasDataRef.current = true
       } catch (err) {
         if (requestId !== requestRef.current) return
-        setError(err instanceof Error ? err.message : 'Failed to load plan')
+        const message = err instanceof Error ? err.message : 'Failed to load plan'
+        // A failed background refresh must never blank a page the user is already looking at:
+        // keep what is shown and say the refresh failed instead.
+        if (opts.silent && hasDataRef.current) {
+          showToast({ id: 'refresh-failed', title: 'Could not refresh', message: `Showing the last loaded state. ${message}`, type: 'warning' })
+        } else {
+          setError(message)
+        }
       } finally {
         if (requestId === requestRef.current) setLoading(false)
       }
