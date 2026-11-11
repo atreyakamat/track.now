@@ -192,3 +192,9 @@ textarea.control { resize: vertical; min-height: 84px; }
   .skeleton::after { animation: none; }
   .offline-banner { animation: none; }
 }
+
+/* Toast fade-out (the entrance slideUp lives above). */
+@keyframes toastOut { to { opacity: 0; transform: translateY(6px) scale(0.98); } }
+@media (prefers-reduced-motion: reduce) {
+  @keyframes toastOut { to { opacity: 0; } }
+}

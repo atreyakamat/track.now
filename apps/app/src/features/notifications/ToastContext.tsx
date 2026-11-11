@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { CheckCircle2, Info, AlertTriangle, X } from 'lucide-react'
 
 export interface ToastAction {
@@ -27,6 +27,8 @@ export type ToastEntry = ToastOptions & { id: string; duration: number }
 
 /** At most this many auto-dismissing toasts are kept; persistent (duration 0) toasts are never evicted. */
 export const MAX_TRANSIENT_TOASTS = 5
+/** How long a dismissed toast stays mounted to animate out. */
+export const TOAST_EXIT_MS = 180
 
 export function resolveToastDuration(options: ToastOptions): number {
   // Toasts with an action get more time to be read and used.
@@ -128,6 +130,32 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [store] = useState(createToastStore)
   const toasts = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot)
 
+  // Toasts fade out before they disappear. The store removes a toast at once; here we keep a
+  // just-removed one mounted a moment longer so it can animate away. This lives entirely in the
+  // view, so the store and its tests are unaffected.
+  const [exiting, setExiting] = useState<ToastEntry[]>([])
+  const prevToasts = useRef<ToastEntry[]>(toasts)
+  useEffect(() => {
+    const present = new Set(toasts.map((t) => t.id))
+    const justRemoved = prevToasts.current.filter((t) => !present.has(t.id))
+    prevToasts.current = toasts
+    if (justRemoved.length === 0) {
+      // A toast re-shown with the same id must not also linger as an exiting copy.
+      setExiting((prev) => (prev.some((t) => present.has(t.id)) ? prev.filter((t) => !present.has(t.id)) : prev))
+      return
+    }
+    setExiting((prev) => [...prev.filter((t) => !justRemoved.some((r) => r.id === t.id)), ...justRemoved])
+    const timers = justRemoved.map((t) =>
+      setTimeout(() => setExiting((prev) => prev.filter((x) => x.id !== t.id)), TOAST_EXIT_MS),
+    )
+    return () => timers.forEach(clearTimeout)
+  }, [toasts])
+  const presentIds = new Set(toasts.map((t) => t.id))
+  const rendered: Array<ToastEntry & { exiting?: boolean }> = [
+    ...toasts,
+    ...exiting.filter((t) => !presentIds.has(t.id)).map((t) => ({ ...t, exiting: true as const })),
+  ]
+
   const showToast = useCallback((options: ToastOptions) => void store.show(options), [store])
   const dismissToast = useCallback((id: string) => store.dismiss(id), [store])
   const clearAll = useCallback(() => store.clearAll(), [store])
@@ -159,7 +187,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           pointerEvents: 'none',
         }}
       >
-        {toasts.map((toast) => {
+        {rendered.map((toast) => {
           const icon =
             toast.type === 'warning' ? (
               <AlertTriangle size={18} color="var(--warning)" aria-hidden="true" />
@@ -174,7 +202,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               key={toast.id}
               className="toast-card"
               style={{
-                pointerEvents: 'auto',
+                pointerEvents: toast.exiting ? 'none' : 'auto',
                 background: 'var(--surface)',
                 border: '1px solid var(--border-strong)',
                 borderRadius: 'var(--radius-md)',
@@ -183,7 +211,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 display: 'flex',
                 alignItems: 'flex-start',
                 gap: '12px',
-                animation: 'slideUp 0.2s ease-out',
+                animation: toast.exiting ? `toastOut ${TOAST_EXIT_MS}ms ease-in forwards` : 'slideUp 0.2s ease-out',
               }}
             >
               <div style={{ flexShrink: 0, marginTop: '2px' }}>{icon}</div>

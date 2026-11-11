@@ -17,6 +17,7 @@ import { XP_PER_TYPE } from '@tracknow/core/domain/momentum'
 import { getTodayDateString } from '@tracknow/core/domain/dates'
 import { doneTodayAfterEdit } from '@tracknow/core/domain/itemEdit'
 import { useToast } from '@/features/notifications/ToastContext'
+import { animateNextLayout } from '@/lib/layoutAnimation'
 
 interface Options {
   userId: string | undefined
@@ -69,6 +70,8 @@ export function useExecutionItemActions({ userId, items, setItems, reload, onCha
   const heldRef = useRef(new Map<string, { item: ExecutionItem; done: boolean; timer: ReturnType<typeof setTimeout> }>())
   const [held, setHeld] = useState<ReadonlyMap<string, { item: ExecutionItem; done: boolean }>>(new Map())
   const publishHeld = () => {
+    // When the held snapshot changes, the list regroups (a ticked item slides to Completed).
+    animateNextLayout()
     const next = new Map<string, { item: ExecutionItem; done: boolean }>()
     heldRef.current.forEach((v, k) => next.set(k, { item: v.item, done: v.done }))
     setHeld(next)
@@ -310,6 +313,7 @@ export function useExecutionItemActions({ userId, items, setItems, reload, onCha
         await deleteExecutionItem(item.id)
         cancelReminderForItem(userId, item.id)
         const nextItems = itemsRef.current.filter((it) => it.id !== item.id)
+        animateNextLayout()
         setItems((prev) => prev.filter((it) => it.id !== item.id))
         const nextCompleted = new Set(completedRef.current)
         nextCompleted.delete(item.id)
