@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import {
   cancelReminderForItem,
   getReminderForItem,
@@ -44,6 +44,13 @@ if (typeof globalThis.localStorage === 'undefined') {
 
 const userId = 'user-followup'
 const at = (d: number, h: number, m = 0) => new Date(2026, 9, d, h, m, 0, 0)
+
+// These fixtures live in October 2026. pruneReminders() drops delivered/cancelled records
+// older than 30 days against the real clock, so once wall-clock time passes mid-November the
+// fixtures would be pruned mid-test and status assertions see `undefined`. Freeze "now" inside
+// the fixtures' window so the suite stays stable regardless of the date it runs.
+beforeAll(() => vi.useFakeTimers({ now: at(20, 12), toFake: ['Date'] }))
+afterAll(() => vi.useRealTimers())
 
 const habit = (extra: Partial<ExecutionItem> = {}): ExecutionItem => ({
   id: 'h-1',

@@ -67,8 +67,23 @@ export function CreateItemModal({
   const [presetTouched, setPresetTouched] = useState(false)
   const [exactReminderTime, setExactReminderTime] = useState('')
   const [habitReminderTime, setHabitReminderTime] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [errorNonce, setErrorNonce] = useState(0)
   const [busy, setBusy] = useState(false)
+
+  /** Records a single field's error and nudges focus to it (see the effect below). */
+  const fail = (field: string, message: string) => {
+    setErrors({ [field]: message })
+    setErrorNonce((n) => n + 1)
+  }
+
+  // After a failed validation, move focus to the first invalid control so keyboard and
+  // screen-reader users land on the problem instead of hunting for a banner.
+  useEffect(() => {
+    if (!errorNonce) return
+    const el = document.getElementById(formId)?.querySelector<HTMLElement>('[aria-invalid="true"]')
+    el?.focus()
+  }, [errorNonce, formId])
   const [quick, setQuick] = useState('')
   const [quickHint, setQuickHint] = useState<string | null>(null)
 
@@ -121,7 +136,7 @@ export function CreateItemModal({
     setHabitReminderTime('')
     setQuick('')
     setQuickHint(null)
-    setError(null)
+    setErrors({})
     setBusy(false)
   }, [open, defaultType, user?.id])
 
@@ -135,19 +150,19 @@ export function CreateItemModal({
     e?.preventDefault()
     if (busy) return
     const trimmed = name.trim()
-    if (!trimmed) return setError('Item name is required.')
-    if (trimmed.length > MAX_NAME) return setError(`Item name must be ${MAX_NAME} characters or fewer.`)
+    if (!trimmed) return fail('name', 'Item name is required.')
+    if (trimmed.length > MAX_NAME) return fail('name', `Item name must be ${MAX_NAME} characters or fewer.`)
     const targetCount = Number(targetInput)
     if (!Number.isInteger(targetCount) || targetCount < 1 || targetCount > MAX_TARGET) {
-      return setError(`Target quantity must be a whole number between 1 and ${MAX_TARGET}.`)
+      return fail('target', `Target quantity must be a whole number between 1 and ${MAX_TARGET}.`)
     }
     if (type === 'habit' && frequency !== 'flexible' && needsActiveDays(frequency) && daysOfWeek.length === 0) {
-      return setError('Choose at least one active day for this habit.')
+      return fail('form', 'Choose at least one active day for this habit.')
     }
 
     const targetPlanId = planId ?? pickedPlanId
     const targetTrackId = trackId ?? plans?.find((p) => p.id === pickedPlanId)?.track_id
-    if (!targetPlanId) return setError('Choose the Plan this item belongs to.')
+    if (!targetPlanId) return fail('plan', 'Choose the Plan this item belongs to.')
 
     const schedule =
       type === 'habit'
@@ -169,12 +184,12 @@ export function CreateItemModal({
     // An untouched default preset that does not fit this item (e.g. "1 hour before" on an
     // undated task) never blocks creation: the item is added without a reminder.
     const choice = resolveCreateReminderChoice(reminderPreset, presetTouched, preview)
-    if (choice.error) return setError(choice.error)
+    if (choice.error) return fail('form', choice.error)
     const effectivePreset = choice.preset
 
     try {
       setBusy(true)
-      setError(null)
+      setErrors({})
       await onSubmit(
         {
           plan_id: targetPlanId,
@@ -205,7 +220,7 @@ export function CreateItemModal({
       }
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create item.')
+      fail('form', err instanceof Error ? err.message : 'Failed to create item.')
     } finally {
       setBusy(false)
     }
@@ -236,14 +251,14 @@ export function CreateItemModal({
           hint={quickHint ?? 'Describe it in plain words; the fields below fill in. Or skip this and use the fields.'}
           autoComplete="off"
         />
-        {error && (
+        {errors.form && (
           <div className="alert alert--error" role="alert">
-            {error}
+            {errors.form}
           </div>
         )}
 
         {!planId && plans && plans.length > 0 && (
-          <Select label="Plan" value={pickedPlanId} onChange={(e) => setPickedPlanId(e.target.value)}>
+          <Select label="Plan" value={pickedPlanId} onChange={(e) => setPickedPlanId(e.target.value)} error={errors.plan}>
             {plans.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.label}
@@ -272,6 +287,7 @@ export function CreateItemModal({
           onChange={(e) => setName(e.target.value)}
           maxLength={MAX_NAME}
           required
+          error={errors.name}
         />
 
         <Textarea
@@ -335,6 +351,7 @@ export function CreateItemModal({
             value={targetInput}
             onChange={(e) => setTargetInput(e.target.value)}
             hint="Amount to complete (default 1)"
+            error={errors.target}
           />
           <Input
             label="Unit (optional)"

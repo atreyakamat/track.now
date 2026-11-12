@@ -46,10 +46,19 @@ export function NewTrackPage() {
   const [suggestedAreas, setSuggestedAreas] = useState<string[]>([])
   const [seedStarterPlan, setSeedStarterPlan] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [nameError, setNameError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   // Synchronous lock: `busy` state lags a render, so double submits could start two creates.
   const busyRef = useRef(false)
+  const formRef = useRef<HTMLFormElement>(null)
   const templateLabelId = useId()
+
+  /** Flags the name field invalid, surfaces the message inline, and focuses it. */
+  const failName = (message: string) => {
+    setNameError(message)
+    // Focus after the error renders so aria-invalid is already on the control.
+    requestAnimationFrame(() => formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus())
+  }
   const colorLabelId = useId()
   const iconLabelId = useId()
 
@@ -179,16 +188,15 @@ export function NewTrackPage() {
     e.preventDefault()
     if (busyRef.current) return
     if (!name.trim()) {
-      setError('Track name is required.')
-      return
+      return failName('Track name is required.')
     }
     if (name.trim().length > 80) {
-      setError('Track name must be 80 characters or fewer.')
-      return
+      return failName('Track name must be 80 characters or fewer.')
     }
 
     void withBusy(async () => {
       setError(null)
+      setNameError(null)
       if (!duplicateConfirmed) {
         // Always check against the current list; a failed or not-yet-finished preload must not skip it.
         const check = await checkForDuplicateTrack(listTracks, name, selectedTemplate)
@@ -221,7 +229,7 @@ export function NewTrackPage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="form">
+      <form onSubmit={handleSubmit} className="form" ref={formRef}>
         {/* Step 1: Choose Template */}
         <div>
           <h2 id={templateLabelId} className="field__label" style={{ marginBottom: 'var(--space-3)' }}>
@@ -298,9 +306,11 @@ export function NewTrackPage() {
               userTouchedRef.current = true
               setDuplicateConfirmed(false)
               setName(e.target.value)
+              if (nameError) setNameError(null)
             }}
             maxLength={80}
             required
+            error={nameError}
           />
 
           <Textarea

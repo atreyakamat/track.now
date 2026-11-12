@@ -42,8 +42,16 @@ export function NewPlanPage() {
   const [trackMissing, setTrackMissing] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [nameError, setNameError] = useState<string | null>(null)
   const busyRef = useRef(false)
   const requestRef = useRef(0)
+  const formRef = useRef<HTMLFormElement>(null)
+
+  /** Flags the name field invalid, surfaces the message inline, and focuses it. */
+  const failName = (message: string) => {
+    setNameError(message)
+    requestAnimationFrame(() => formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus())
+  }
 
   const loadTrack = async () => {
     const requestId = ++requestRef.current
@@ -92,12 +100,10 @@ export function NewPlanPage() {
     e.preventDefault()
     if (busyRef.current || !track) return
     if (!name.trim()) {
-      setError('Plan name is required.')
-      return
+      return failName('Plan name is required.')
     }
     if (name.trim().length > 120) {
-      setError('Plan name must be 120 characters or fewer.')
-      return
+      return failName('Plan name must be 120 characters or fewer.')
     }
     if (kind === 'time_bound' && !endDate) {
       setError(startDate ? 'Choose when this Arc ends.' : 'An Arc needs a start date.')
@@ -113,6 +119,7 @@ export function NewPlanPage() {
       busyRef.current = true
       setBusy(true)
       setError(null)
+      setNameError(null)
       const plan = await createPlan(user.id, {
         track_id: trackId,
         name: name.trim(),
@@ -184,7 +191,7 @@ export function NewPlanPage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="form">
+      <form onSubmit={handleSubmit} className="form" ref={formRef}>
         <fieldset className="choice-group">
           <legend className="field__label">Type of Plan</legend>
           <div className="choice-group__options">
@@ -205,10 +212,14 @@ export function NewPlanPage() {
           label="Plan name"
           placeholder={kind === 'ongoing' ? 'e.g. Household routine, Keep fit' : 'e.g. Winter Arc, 90-Day Fitness Arc'}
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+            setName(e.target.value)
+            if (nameError) setNameError(null)
+          }}
           required
           autoFocus
           maxLength={120}
+          error={nameError}
         />
 
         <Textarea

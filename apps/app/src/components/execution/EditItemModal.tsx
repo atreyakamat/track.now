@@ -60,12 +60,26 @@ export function EditItemModal({ open, onClose, item, onSubmit, completedToday = 
   const [exactReminderTime, setExactReminderTime] = useState('')
   const [habitReminderTime, setHabitReminderTime] = useState('')
   const [existingReminder, setExistingReminder] = useState<ItemReminder | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [errorNonce, setErrorNonce] = useState(0)
   const [busy, setBusy] = useState(false)
 
   const { user } = useAuth()
   const { showToast } = useToast()
   const effectiveUserId = user?.id || item?.user_id
+
+  /** Records a single field's error and nudges focus to it (see the effect below). */
+  const fail = (field: string, message: string) => {
+    setErrors({ [field]: message })
+    setErrorNonce((n) => n + 1)
+  }
+
+  // After a failed validation, move focus to the first invalid control.
+  useEffect(() => {
+    if (!errorNonce) return
+    const el = document.getElementById(formId)?.querySelector<HTMLElement>('[aria-invalid="true"]')
+    el?.focus()
+  }, [errorNonce, formId])
 
   useEffect(() => {
     if (!item || !open) return
@@ -101,7 +115,7 @@ export function EditItemModal({ open, onClose, item, onSubmit, completedToday = 
     setReminderPreset(existing ? existing.preset : 'none')
     // datetime-local needs LOCAL wall time; slicing the UTC ISO string shifted it by the offset.
     setExactReminderTime(existing?.preset === 'exact_time' ? toLocalDateTimeInputValue(existing.remindAt) : '')
-    setError(null)
+    setErrors({})
     setBusy(false)
   }, [item, open, effectiveUserId, completedToday])
 
@@ -117,18 +131,18 @@ export function EditItemModal({ open, onClose, item, onSubmit, completedToday = 
     e?.preventDefault()
     if (busy) return
     const trimmed = name.trim()
-    if (!trimmed) return setError('Item name is required.')
-    if (trimmed.length > MAX_NAME) return setError(`Item name must be ${MAX_NAME} characters or fewer.`)
+    if (!trimmed) return fail('name', 'Item name is required.')
+    if (trimmed.length > MAX_NAME) return fail('name', `Item name must be ${MAX_NAME} characters or fewer.`)
     const targetCount = Number(targetInput)
     const currentCount = Number(currentInput)
     if (!Number.isInteger(targetCount) || targetCount < 1 || targetCount > MAX_TARGET) {
-      return setError(`Target quantity must be a whole number between 1 and ${MAX_TARGET}.`)
+      return fail('target', `Target quantity must be a whole number between 1 and ${MAX_TARGET}.`)
     }
     if (!Number.isInteger(currentCount) || currentCount < 0 || currentCount > MAX_TARGET * 10) {
-      return setError('Completed quantity must be a whole number of 0 or more.')
+      return fail('current', 'Completed quantity must be a whole number of 0 or more.')
     }
     if (type === 'habit' && frequency !== 'flexible' && needsActiveDays(frequency) && daysOfWeek.length === 0) {
-      return setError('Choose at least one active day for this habit.')
+      return fail('form', 'Choose at least one active day for this habit.')
     }
 
     const scheduleInput =
@@ -170,12 +184,12 @@ export function EditItemModal({ open, onClose, item, onSubmit, completedToday = 
       type === 'habit' && completedToday ? { occurrenceAfter: endOfLocalDay(new Date()) } : undefined
     if (reminderPreset !== 'none' && !keepExistingReminder) {
       const preview = previewReminder(reminderPreset, updatedItem, exactIso, new Date(), timingOptions)
-      if (preview.error) return setError(preview.error)
+      if (preview.error) return fail('form', preview.error)
     }
 
     try {
       setBusy(true)
-      setError(null)
+      setErrors({})
       await onSubmit(item.id, {
         name: trimmed,
         description: description.trim() || null,
@@ -214,7 +228,7 @@ export function EditItemModal({ open, onClose, item, onSubmit, completedToday = 
       }
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update item.')
+      fail('form', err instanceof Error ? err.message : 'Failed to update item.')
     } finally {
       setBusy(false)
     }
@@ -237,9 +251,9 @@ export function EditItemModal({ open, onClose, item, onSubmit, completedToday = 
       }
     >
       <form id={formId} onSubmit={handleSubmit} className="form" style={{ gap: 'var(--space-3)' }} noValidate>
-        {error && (
+        {errors.form && (
           <div className="alert alert--error" role="alert">
-            {error}
+            {errors.form}
           </div>
         )}
 
@@ -256,7 +270,7 @@ export function EditItemModal({ open, onClose, item, onSubmit, completedToday = 
           <option value="project">Project (larger initiative)</option>
         </Select>
 
-        <Input label="Title" value={name} onChange={(e) => setName(e.target.value)} maxLength={MAX_NAME} required />
+        <Input label="Title" value={name} onChange={(e) => setName(e.target.value)} maxLength={MAX_NAME} required error={errors.name} />
 
         <Textarea
           label="Description (optional)"
@@ -318,6 +332,7 @@ export function EditItemModal({ open, onClose, item, onSubmit, completedToday = 
             value={currentInput}
             onChange={(e) => setCurrentInput(e.target.value)}
             hint={type === 'habit' ? "Today's count" : 'Current progress (min 0)'}
+            error={errors.current}
           />
           <Input
             label="Target quantity"
@@ -329,6 +344,7 @@ export function EditItemModal({ open, onClose, item, onSubmit, completedToday = 
             value={targetInput}
             onChange={(e) => setTargetInput(e.target.value)}
             hint="Target amount (min 1)"
+            error={errors.target}
           />
         </div>
 

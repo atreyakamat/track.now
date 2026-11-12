@@ -6,6 +6,7 @@ import { deleteExecutionItem, createExecutionItem, editExecutionItem } from '@tr
 import { planItemAction, sameShownState, type ItemIntent } from '@tracknow/core/services/itemIntents'
 import { createKeyedQueue } from '@tracknow/core/utils/keyedQueue'
 import { createDeferredActions } from '@tracknow/core/utils/deferredActions'
+import { errorMessage } from '@tracknow/core/utils/errors'
 import {
   settleRemindersAfterCompletion,
   cancelReminderForItem,
@@ -37,7 +38,6 @@ export { doneTodayAfterEdit }
 /** How long a just-(un)completed item keeps its place before it moves to its new section. */
 export const HOLD_MS = 700
 
-const errorMessage = (err: unknown, fallback: string) => (err instanceof Error && err.message ? err.message : fallback)
 const EMPTY_BUSY: ReadonlySet<string> = new Set()
 
 /**

@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { OfflineBanner } from './OfflineBanner'
 import { MobileNav } from './MobileNav'
+import { useRouteAnnounce } from '@/hooks/useRouteAnnounce'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useToast, type ToastOptions } from '@/features/notifications/ToastContext'
 import {
@@ -108,11 +109,16 @@ export function AppShell() {
   const { showToast, clearAll } = useToast()
   const location = useLocation()
   const navigate = useNavigate()
+  const mainRef = useRef<HTMLElement | null>(null)
+  const announcerRef = useRef<HTMLParagraphElement | null>(null)
 
   // Close the mobile drawer whenever the route changes (including browser back/forward).
   useEffect(() => {
     setDrawerOpen(false)
   }, [location.pathname])
+
+  // Move focus to the main content, announce the page, and update the tab title on navigation.
+  useRouteAnnounce({ pathname: location.pathname, focusTarget: mainRef, announcer: announcerRef })
 
   // Notification clicks route inside the running app instead of reloading the page.
   useEffect(() => subscribeToNavigationRequests((url) => navigate(url)), [navigate])
@@ -137,7 +143,8 @@ export function AppShell() {
           onCloseDrawer={() => setDrawerOpen(false)}
         />
         <OfflineBanner />
-        <main className="content" id="main-content" tabIndex={-1}>
+        <p ref={announcerRef} className="sr-only" role="status" aria-live="polite" />
+        <main className="content" id="main-content" tabIndex={-1} ref={mainRef}>
           <Outlet />
         </main>
       </div>
