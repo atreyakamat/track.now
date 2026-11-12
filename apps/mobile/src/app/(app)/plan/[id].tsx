@@ -43,7 +43,6 @@ export default function PlanDetailScreen() {
   const [error, setError] = useState<string | null>(null)
   const [notFound, setNotFound] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [itemToDelete, setItemToDelete] = useState<ExecutionItem | null>(null)
   const [completedTodayIds, setCompletedTodayIds] = useState<string[]>([])
   const requestRef = useRef(0)
   const hasDataRef = useRef(false)
@@ -216,7 +215,7 @@ export default function PlanDetailScreen() {
         onToggleChecklistEntry={(it, entryId) => void actions.toggleChecklistEntry(it, entryId)}
         onEdit={(it) => router.push(`/item/${it.id}/edit`)}
         onOpenDetail={(it) => router.push(`/item/${it.id}`)}
-        onDelete={(it) => setItemToDelete(it)}
+        onDelete={(it) => actions.remove(it)}
         onSnooze={actions.snooze}
         onRemoveReminder={actions.removeReminder}
       />
@@ -427,19 +426,6 @@ export default function PlanDetailScreen() {
           } catch (err) {
             showToast({ title: 'Could not delete plan', message: err instanceof Error ? err.message : 'Please try again.', type: 'warning' })
           }
-        }}
-      />
-      <ConfirmDialog
-        visible={itemToDelete !== null}
-        title={itemToDelete ? `Delete "${itemToDelete.name}"?` : 'Delete item?'}
-        message="This removes the item and its completion history. This cannot be undone."
-        confirmLabel="Delete"
-        destructive
-        onCancel={() => setItemToDelete(null)}
-        onConfirm={async () => {
-          const target = itemToDelete
-          setItemToDelete(null)
-          if (target) await actions.remove(target)
         }}
       />
     </SafeAreaView>

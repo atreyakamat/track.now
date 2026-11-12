@@ -94,7 +94,6 @@ export function PlanDetailPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [modalDefaultType, setModalDefaultType] = useState<ItemType>('task')
   const [editingItem, setEditingItem] = useState<ExecutionItem | null>(null)
-  const [pendingDeleteItem, setPendingDeleteItem] = useState<ExecutionItem | null>(null)
 
   // Plan editing modal
   const [editPlanOpen, setEditPlanOpen] = useState(false)
@@ -377,14 +376,10 @@ export function PlanDetailPage() {
 
   const findItem = (id: string) => items.find((i) => i.id === id)
   // Deleting cascades completion history, so it always asks first.
+  // Deleting an item removes it at once with an Undo toast; no confirm dialog (undo is safer).
   const handleDeleteItem = (itemId: string) => {
     const it = findItem(itemId)
-    if (it) setPendingDeleteItem(it)
-  }
-  const confirmDeleteItem = async () => {
-    if (!pendingDeleteItem) return
-    const ok = await actions.remove(pendingDeleteItem)
-    if (ok) setPendingDeleteItem(null)
+    if (it) actions.remove(it)
   }
 
   const handleCreateItem = async (
@@ -900,16 +895,7 @@ export function PlanDetailPage() {
         </form>
       </Modal>
 
-      <ConfirmDialog
-        open={Boolean(pendingDeleteItem)}
-        title={pendingDeleteItem ? `Delete “${pendingDeleteItem.name}”?` : 'Delete item?'}
-        message="This permanently deletes the item, its schedule, and its completion history (streaks and analytics will no longer include it). This cannot be undone."
-        confirmLabel={pendingDeleteItem && isBusy(pendingDeleteItem.id) ? 'Deleting…' : 'Delete Item'}
-        destructive
-        busy={pendingDeleteItem ? isBusy(pendingDeleteItem.id) : false}
-        onConfirm={() => void confirmDeleteItem()}
-        onCancel={() => setPendingDeleteItem(null)}
-      />
+
 
       <ConfirmDialog
         open={deleteConfirmOpen}

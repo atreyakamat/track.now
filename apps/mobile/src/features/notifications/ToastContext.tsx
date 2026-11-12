@@ -15,6 +15,8 @@ export interface ToastOptions {
   nextUp?: string
   type?: ToastType
   duration?: number
+  /** Optional action button (e.g. Undo). Tapping it runs onPress and dismisses the toast. */
+  action?: { label: string; onPress: () => void }
 }
 
 interface ToastContextValue {
@@ -75,16 +77,17 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       >
         <View pointerEvents="box-none" style={{ padding: spacing[3], gap: spacing[2] }}>
           {toasts.map((toast) => (
-            <Pressable
+            <View
               key={toast.id}
-              onPress={() => dismissToast(toast.id)}
               style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: spacing[3],
                 backgroundColor: colors.surfaceRaised,
                 borderWidth: 1,
                 borderColor: borderFor(toast.type, colors),
                 borderRadius: radius.md,
                 padding: spacing[3],
-                gap: 2,
                 shadowColor: '#000',
                 shadowOpacity: 0.15,
                 shadowRadius: 8,
@@ -92,20 +95,38 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 elevation: 4,
               }}
             >
-              <Text variant="caption" weight="semibold">
-                {toast.title}
-              </Text>
-              {toast.message ? (
-                <Text variant="caption" tone="secondary">
-                  {toast.message}
+              <Pressable onPress={() => dismissToast(toast.id)} style={{ flex: 1, gap: 2 }}>
+                <Text variant="caption" weight="semibold">
+                  {toast.title}
                 </Text>
+                {toast.message ? (
+                  <Text variant="caption" tone="secondary">
+                    {toast.message}
+                  </Text>
+                ) : null}
+                {toast.nextUp ? (
+                  <Text variant="meta" tone="tertiary">
+                    Next up: {toast.nextUp}
+                  </Text>
+                ) : null}
+              </Pressable>
+              {toast.action ? (
+                <Pressable
+                  onPress={() => {
+                    toast.action?.onPress()
+                    dismissToast(toast.id)
+                  }}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel={toast.action.label}
+                  style={{ paddingHorizontal: spacing[3], paddingVertical: spacing[2] }}
+                >
+                  <Text variant="caption" weight="semibold" style={{ color: colors.accentPrimary }}>
+                    {toast.action.label}
+                  </Text>
+                </Pressable>
               ) : null}
-              {toast.nextUp ? (
-                <Text variant="meta" tone="tertiary">
-                  Next up: {toast.nextUp}
-                </Text>
-              ) : null}
-            </Pressable>
+            </View>
           ))}
         </View>
       </SafeAreaView>

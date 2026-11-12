@@ -4,6 +4,7 @@ import type { ExecutionItem, UpdateExecutionItemInput } from '@tracknow/core/typ
 import { deleteExecutionItem, editExecutionItem } from '@tracknow/core/services/executionService'
 import { planItemAction, sameShownState, type ItemIntent } from '@tracknow/core/services/itemIntents'
 import { createKeyedQueue } from '@tracknow/core/utils/keyedQueue'
+import { createDeferredActions } from '@tracknow/core/utils/deferredActions'
 import {
   settleRemindersAfterCompletion,
   cancelReminderForItem,
@@ -33,6 +34,7 @@ interface Options {
 export const HOLD_MS = 700
 
 const errorMessage = (err: unknown, fallback: string) => (err instanceof Error && err.message ? err.message : fallback)
+const EMPTY_BUSY: ReadonlySet<string> = new Set()
 
 /**
  * Shared completion / count / checklist / edit / delete / reminder actions for item lists.
@@ -47,8 +49,8 @@ const errorMessage = (err: unknown, fallback: string) => (err instanceof Error &
  */
 export function useExecutionItemActions({ userId, items, setItems, reload, onChanged }: Options) {
   const { showToast } = useToast()
-  const [busyIds, setBusyIds] = useState<ReadonlySet<string>>(new Set())
-  const busyRef = useRef(new Set<string>())
+  // No per-item busy flag: deletions use an undo window and all other actions are optimistic.
+  const busyIds: ReadonlySet<string> = EMPTY_BUSY
   const [completedTodayIds, setCompletedTodayIds] = useState<ReadonlySet<string>>(new Set())
   const [completionDates, setCompletionDates] = useState<Record<string, string[]>>({})
   const itemsRef = useRef(items)
@@ -65,6 +67,9 @@ export function useExecutionItemActions({ userId, items, setItems, reload, onCha
   const resyncWantedRef = useRef(false)
   const failedRef = useRef(new Set<string>())
   const aliveRef = useRef(true)
+  /** How long a deleted item can be brought back before the server delete runs. */
+  const UNDO_DELETE_MS = 6000
+  const deferredRef = useRef(createDeferredActions())
 
   // Items whose done-state just changed keep their previous place for HOLD_MS.
   const heldRef = useRef(new Map<string, { item: ExecutionItem; done: boolean; timer: ReturnType<typeof setTimeout> }>())
@@ -95,6 +100,7 @@ export function useExecutionItemActions({ userId, items, setItems, reload, onCha
       aliveRef.current = false
       heldNow.forEach((v) => clearTimeout(v.timer))
       heldNow.clear()
+      deferredRef.current.flushAll()
     }
   }, [])
 
@@ -139,17 +145,6 @@ export function useExecutionItemActions({ userId, items, setItems, reload, onCha
   }, [items, completionDates])
 
   const isCompletedToday = useCallback((item: ExecutionItem) => completedTodayIds.has(item.id), [completedTodayIds])
-
-  const beginBusy = (id: string) => {
-    if (busyRef.current.has(id)) return false
-    busyRef.current.add(id)
-    setBusyIds(new Set(busyRef.current))
-    return true
-  }
-  const endBusy = (id: string) => {
-    busyRef.current.delete(id)
-    setBusyIds(new Set(busyRef.current))
-  }
 
   /** Applies a persisted item + its "completed today" state to local state. */
   const applyResult = (updated: ExecutionItem, doneToday: boolean, wasDoneToday: boolean) => {
@@ -306,29 +301,73 @@ export function useExecutionItemActions({ userId, items, setItems, reload, onCha
     [userId],
   )
 
+  /** Puts a removed item back where it was, with its completed-today state. */
+  const restoreItem = (item: ExecutionItem, index: number, wasCompleted: boolean) => {
+    if (itemsRef.current.some((it) => it.id === item.id)) return
+    animateNextLayout()
+    const next = [...itemsRef.current]
+    next.splice(Math.min(index, next.length), 0, item)
+    itemsRef.current = next
+    setItems(next)
+    if (wasCompleted) {
+      const nextCompleted = new Set(completedRef.current)
+      nextCompleted.add(item.id)
+      completedRef.current = nextCompleted
+      setCompletedTodayIds(nextCompleted)
+    }
+    callbacksRef.current.onChanged?.({ items: next, completedTodayIds: Array.from(completedRef.current) })
+  }
+
+  /**
+   * Deletes an item with an undo window: it leaves the list at once, but the server delete waits
+   * ~6s. Undo cancels it before it runs, so nothing was ever lost. If the delete later fails, the
+   * item comes back and the user is told.
+   */
   const remove = useCallback(
-    async (item: ExecutionItem): Promise<boolean> => {
-      if (!userId || !beginBusy(item.id)) return false
-      try {
-        await deleteExecutionItem(item.id)
-        cancelReminderForItem(userId, item.id)
-        const nextItems = itemsRef.current.filter((it) => it.id !== item.id)
-        animateNextLayout()
-        setItems((prev) => prev.filter((it) => it.id !== item.id))
-        const nextCompleted = new Set(completedRef.current)
-        nextCompleted.delete(item.id)
-        setCompletedTodayIds(nextCompleted)
-        callbacksRef.current.onChanged?.({ items: nextItems, completedTodayIds: Array.from(nextCompleted) })
-        showToast({ title: 'Item deleted', message: `“${item.name}” and its history were removed.`, type: 'info' })
-        return true
-      } catch (err) {
-        await fail(`Could not delete “${item.name}”`, err)
-        return false
-      } finally {
-        endBusy(item.id)
-      }
+    (item: ExecutionItem) => {
+      if (!userId) return
+      const index = itemsRef.current.findIndex((it) => it.id === item.id)
+      if (index < 0) return
+      const wasCompleted = completedRef.current.has(item.id)
+      animateNextLayout()
+      const nextItems = itemsRef.current.filter((it) => it.id !== item.id)
+      itemsRef.current = nextItems
+      setItems(nextItems)
+      const nextCompleted = new Set(completedRef.current)
+      nextCompleted.delete(item.id)
+      completedRef.current = nextCompleted
+      setCompletedTodayIds(nextCompleted)
+      callbacksRef.current.onChanged?.({ items: nextItems, completedTodayIds: Array.from(nextCompleted) })
+
+      deferredRef.current.schedule(
+        item.id,
+        async () => {
+          try {
+            await deleteExecutionItem(item.id)
+            cancelReminderForItem(userId, item.id)
+          } catch (err) {
+            if (!aliveRef.current) return
+            restoreItem(item, index, wasCompleted)
+            showToast({ title: `Could not delete “${item.name}”`, message: errorMessage(err, 'It is back in your list.'), type: 'warning', duration: 8000 })
+          }
+        },
+        UNDO_DELETE_MS,
+      )
+      showToast({
+        id: `delete-${item.id}`,
+        title: `Deleted “${item.name}”`,
+        message: 'Changed your mind?',
+        type: 'info',
+        duration: UNDO_DELETE_MS,
+        action: {
+          label: 'Undo',
+          onPress: () => {
+            if (deferredRef.current.cancel(item.id)) restoreItem(item, index, wasCompleted)
+          },
+        },
+      })
     },
-    [userId],
+    [userId, showToast],
   )
 
   const snooze = useCallback(

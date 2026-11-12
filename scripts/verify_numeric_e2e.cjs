@@ -308,6 +308,15 @@ async function runNumericBrowserE2E() {
               statusCode = 404;
               bodyObj = { message: 'Item not found' };
             }
+
+          } else if (method === 'DELETE') {
+            const idParam = url.searchParams.get('id');
+            const targetId = idParam ? idParam.replace('eq.', '') : '';
+            const existed = state.items.some((i) => i.id === targetId);
+            state.items = state.items.filter((i) => i.id !== targetId);
+            state.itemDeletes = (state.itemDeletes || []).concat(targetId);
+            const single = acceptHeader.includes('application/vnd.pgrst.object+json');
+            bodyObj = single ? (existed ? { id: targetId } : null) : (existed ? [{ id: targetId }] : []);
           }
         } else if (reqPath.includes('/rest/v1/track_now_item_completions')) {
           if (method === 'POST') {
@@ -619,6 +628,50 @@ async function runNumericBrowserE2E() {
     }
 
     console.log('\n================================================================');
+    // -------- Undo on delete: a tap must never lose something irreversibly --------
+    const usleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const cardState = () => cdpClient.eval(`(() => {
+      const card = Array.from(document.querySelectorAll('.card')).find((c) => c.innerText.includes('5km Morning Run'));
+      const toast = document.querySelector('.toast-container');
+      const undo = toast && Array.from(toast.querySelectorAll('button')).find((b) => /undo/i.test(b.innerText));
+      return { present: !!card, hasUndo: !!undo };
+    })()`);
+    const clickDelete = () => cdpClient.eval(`(() => {
+      const card = Array.from(document.querySelectorAll('.card')).find((c) => c.innerText.includes('5km Morning Run'));
+      const del = card && Array.from(card.querySelectorAll('button')).find((b) => (b.getAttribute('aria-label') || '').startsWith('Delete 5km'));
+      if (del) del.click();
+    })()`);
+
+    console.log('\n[undo 1/3] Deleting the item (leaves the list, nothing deleted yet)...');
+    await clickDelete();
+    await usleep(400);
+    let st = await cardState();
+    if (st.present) throw new Error('item should leave the list at once');
+    if (!st.hasUndo) throw new Error('an Undo button should be offered');
+    if ((state.itemDeletes || []).length !== 0) throw new Error('no server delete during the undo window');
+    console.log('  gone from the list, Undo offered, server deletes:', (state.itemDeletes || []).length);
+
+    console.log('[undo 2/3] Undo brings it back with no server delete...');
+    await cdpClient.eval(`(() => {
+      const toast = document.querySelector('.toast-container');
+      const undo = toast && Array.from(toast.querySelectorAll('button')).find((b) => /undo/i.test(b.innerText));
+      if (undo) undo.click();
+    })()`);
+    await usleep(500);
+    st = await cardState();
+    if (!st.present) throw new Error('Undo should restore the item');
+    if ((state.itemDeletes || []).length !== 0) throw new Error('Undo must not hit the server');
+    console.log('  restored; server deletes still', (state.itemDeletes || []).length);
+
+    console.log('[undo 3/3] Deleting and waiting out the window commits it...');
+    await clickDelete();
+    await usleep(7000);
+    st = await cardState();
+    if (st.present) throw new Error('item should stay gone after the window');
+    if ((state.itemDeletes || []).length !== 1) throw new Error('exactly one server delete expected, got ' + (state.itemDeletes || []).length);
+    console.log('  committed; server deletes:', (state.itemDeletes || []).length);
+    console.log('\u2713 Undo on delete works end to end');
+
     console.log('🎉 ALL DEDICATED NUMERIC TARGET BROWSER E2E TESTS PASSED 100%');
     console.log('================================================================');
   } finally {
